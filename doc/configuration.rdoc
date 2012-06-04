@@ -1,0 +1,27 @@
+= Jetpants Configuration
+
+\Jetpants supports a global configuration file at /etc/jetpants.yaml, as well as per-user configuration files at ~/.jetpants.yaml.
+
+At least one of these files must exist for Jetpants to function properly.
+
+If both exist, the user configuration will be merged on top of the global configuration, but please note that this is not a "deep" merge. So if the user configuration defines a "plugins" section, this will used as-is and the global "plugins" section will be ignored. This may change in a future release.
+
+For an example global configuration file, please see etc/jetpants.yaml.sample.
+
+== Configuration settings
+
+max_concurrency::           Maximum threads to use in import/export operations, or equivalently the maximum connection pool size per database (default: 40)
+standby_slaves_per_pool::   Minimum number of standby slaves to keep in every pool (default: 2)
+mysql_schema::              database name (mandatory)
+mysql_app_user::            mysql user that your application uses (mandatory)
+mysql_app_password::        mysql password that your application uses (mandatory)
+mysql_repl_user::           mysql user for replication (mandatory)
+mysql_repl_password::       mysql password for replication (mandatory)
+mysql_root_password::       mysql root password (default: false, indicating that \Jetpants should use /root/.my.cnf instead)
+mysql_grant_ips::           mysql user manipulations are applied to these IPs (array; mandatory)
+mysql_grant_privs::         mysql user manipulations grant this set of privileges by default (array; default: \['ALL'])
+export_location::           directory to use for data dumping (default: '/tmp')
+verify_replication::        raise exception if the actual replication topology differs from Jetpants' understanding of it (ie, disagreement between asset tracker and probed state), or if MySQL's two replication threads are in different states (one running and the other stopped) on a DB node. (default: true. master promotion tool sets this to false, since the demoted master may be dead/offline)
+plugins::                   hash of plugin name => arbitrary plugin data, usually a nested hash of settings (default: \{})
+ssh_keys::                  array of SSH private key file locations, if not using standard id_dsa or id_rsa. Passed directly to Net::SSH.start's :keys parameter (default: nil)
+sharded_tables::            array of name => \{sharding_key=>X, chunks=>Y} hashes, describing all tables on shards. Required by shard split/rebuild processes (default: \[])

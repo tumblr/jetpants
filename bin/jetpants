@@ -1,0 +1,442 @@
+#!/usr/bin/env ruby
+jetpants_base_dir = File.expand_path(File.dirname(__FILE__) + '/..')
+$:.unshift File.join(jetpants_base_dir, 'lib')
+%w[thor pry state_machine highline/import terminal-table colored].each {|g| require g}
+# load tasks
+Dir[File.join jetpants_base_dir, 'tasks', '**'].each {|f| require f}
+
+module Jetpants
+
+  class CommandSuite < Thor
+
+    def initialize *args
+      super
+      # setup pry
+      Pry.config.prompt = proc {|object| "# #{object} > "}
+    end
+    
+    # Override Thor.dispatch to allow simple callbacks, which must be before_foo / 
+    # after_foo *class* methods of Jetpants::CommandSuite. 
+    # These aren't as full-featured as normal Jetpants::Callback: you can only have
+    # ONE before_foo or after_foo method (they override instead of stacking); no arg
+    # passing; no callback abort exception type. Mostly useful for plugins overriding
+    # reminder text before or after a task.
+    def self.dispatch(task, given_args, given_ops, config)
+      task_name = task || given_args[0]
+      self.send "before_#{task_name}" if self.respond_to? "before_#{task_name}"
+      super
+      self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
+    end
+    
+    desc 'console', 'Jetpants interactive console'
+    def console
+      Jetpants.pry
+    end
+    def self.before_console
+      message = [ 'Welcome to the Jetpants Console.  A few notes:',
+                  '  - Jetpants interacts with databases via ssh and the root user (BE CAREFUL).',
+                  '  - Jetpants relies on having access to a root ssh key in order to perform these operations.',
+                  '  - This console operates from inside the Jetpants module namespace by default (Jetpants::DB.new == DB.new, etc).',
+                  '  - Jetpants uses a global config file at /etc/jetpants.yaml, or a user override config file at ~/.jetpants.yaml.',
+                ].join "\n"
+      print "\n#{message}\n\n"
+    end
+    
+    desc 'promotion', 'perform a master promotion'
+    method_option :demote,  :desc => 'node to demote'
+    method_option :promote, :desc => 'node to promote'
+    def promotion
+      Tasks::Promotion.new(options)
+    end
+
+    desc 'show_slaves', 'show the current slaves of a master'
+    method_option :node, :desc => 'node to query for slaves'
+    def show_slaves
+      node = options[:node] || ask('Please enter IP of node to query for slaves: ')
+      error "node (#{node}) does not appear to be an IP." unless is_ip? node
+      node = Jetpants::DB.new node
+      slaves = node.slaves rescue error("unable to connect to node #{node}")
+    
+      inform "node (#{node}) is a current slave of #{node.master}" if node.is_slave?
+
+      if node.has_slaves?
+        current_slaves = Terminal::Table.new :title => "slaves of master (#{node})", :headings => ["slave", "seconds behind master"] do |rows|
+          slaves.each do |slave|
+            rows << [slave, slave.seconds_behind_master]
+          end
+        end
+        puts current_slaves
+      else
+        inform "node (#{node}) currently has no slaves."
+      end
+    end
+
+    desc 'show_master', 'show the current master of a node'
+    method_option :node, :desc => 'node to query for master'
+    method_option :siblings, :desc => 'show nodes current slave siblings'
+    def show_master
+      node = options[:node] || ask('Please enter the IP address of a node to query for master: ')
+      error "node (#{node}) does not appear to be an IP." unless is_ip? node
+      node = Jetpants::DB.new node
+
+      if node.has_slaves?
+        inform "node (#{node}) is a master to the following nodes: #{node.slaves.join(', ')}"
+      end rescue error("unable to connect to node #{node}")
+      
+      if node.is_slave?
+        inform "node (#{node}) is a slave of master (#{node.master})"
+        if options[:siblings]
+          current_siblings = Terminal::Table.new :title => "siblings of slave (#{node})", :headings => ["sibling slave", "seconds behind master (#{node.master})"] do |rows|
+            node.master.slaves.reject {|slave| slave == node}.each do |slave|
+              rows << [slave, slave.seconds_behind_master]
+            end
+          end
+          puts current_siblings
+        end
+      else
+        inform "node (#{node}) does not appear to be a slave"
+      end
+    end
+
+    desc 'node_info', 'show information about a given node'
+    method_option :node, :desc => 'node to query for information'
+    def node_info
+      node = options[:node] || ask('Please enter node: ')
+      error "node address (#{node}) does not appear to be an ip" unless is_ip? node
+    
+      node = Jetpants::DB.new node
+      role =  case
+              when node.has_slaves?
+                :master
+              when node.is_slave?
+                :slave
+              else
+                :node
+              end rescue error("unable to connect to node #{node}")
+
+      node_info = Terminal::Table.new :title => "info on #{role}: #{node}"
+    
+      binary_log, binary_log_position = node.binlog_coordinates
+      node_info << [:binary_log, binary_log]
+      node_info << [:binary_log_position, binary_log_position]
+      node_info << [:read_only, node.read_only? ? 'true' : 'false'] 
+      
+      if node.is_slave?
+        slave_status = node.slave_status
+        slave_siblings = node.master.slaves.reject {|slave| slave == node}
+    
+        node_info << [:master, node.master]
+        node_info << [:sibling_slaves, slave_siblings.join(', ')]
+        node_info << [:replicating, node.replicating? ? 'true' : 'false']
+        if node.replicating?
+          node_info << [:seconds_behind_master, node.seconds_behind_master]
+          node_info << [:master_log, slave_status[:master_log_file]]
+          node_info << [:master_position, slave_status[:exec_master_log_pos]]
+        end
+      end
+      puts node_info
+      
+      if node.has_slaves?
+        current_slaves = Terminal::Table.new :title => "slaves of #{node}", :headings => ["slave", "seconds behind master"] do |rows|
+          node.slaves.each do |slave|
+            rows << [slave, slave.seconds_behind_master]
+          end
+        end
+        puts current_slaves
+      end
+    end
+    
+    desc 'regen_config', 'regenerate the application configuration'
+    def regen_config
+      Jetpants.topology.write_config
+    end
+    
+    desc 'clone_slave', 'clone a standby slave'
+    method_option :source, :desc => 'IP of node to clone from'
+    method_option :target, :desc => 'IP of node to clone to'
+    def clone_slave
+      puts "This task clones the data set of a standby slave."
+      source = options[:source] || ask('Please enter IP of node to clone from: ')
+      error "source (#{source}) does not appear to be an IP." unless is_ip? source
+      source = Jetpants::DB.new source
+      target = options[:target] || ask('Please enter comma-separated list of IP addresses to clone to: ')
+      targets = target.split(',').map do |ip|
+        ip.strip!
+        error "target (#{ip}) does not appear to be an IP." unless is_ip? ip
+        ip.to_db
+      end
+      
+      source.start_mysql if ! source.running?
+      error "source (#{source}) is not a standby slave" unless source.is_standby?
+      source.enslave_siblings!(targets)
+      targets.concurrent_each {|t| t.resume_replication; t.catch_up_to_master}
+      source.pool.sync_configuration
+      puts "Cloning complete."
+      Jetpants.topology.write_config
+    end
+    def self.after_clone_slave
+      reminders(
+        'Add the new host(s) to trending and monitoring.'
+      )
+    end
+    
+    desc 'activate_slave', 'turn a standby slave into an active slave'
+    method_option :node, :desc => 'IP of standby slave to activate'
+    def activate_slave
+      puts "This task turns a standby slave into an active slave, OR alters an active slave's weight."
+      node = options[:node] || ask('Please enter node IP: ')
+      weight = options[:weight] || ask('Please enter weight, or ENTER for default of 100: ')
+      weight = 100 if weight == ''
+      weight = weight.to_i
+      error "node address (#{node}) does not appear to be an IP" unless is_ip? node
+      error "Adding a slave of weight 0 makes no sense, use pull_slave instead" if weight == 0
+      node = node.to_db
+      node.pool.mark_slave_active(node, weight)
+      Jetpants.topology.write_config
+    end
+    
+    desc 'weigh_slave', 'change the weight of an active slave'
+    alias :weigh_slave :activate_slave
+    
+    desc 'pull_slave', 'turn an active slave into a standby slave'
+    method_option :node, :desc => 'IP of active slave to pull'
+    def pull_slave
+      puts "This task turns an active slave into a standby slave."
+      node = options[:node] || ask('Please enter node IP: ')
+      error "node address (#{node}) does not appear to be an ip" unless is_ip? node
+      node = node.to_db
+      node.pool.mark_slave_standby(node)
+      Jetpants.topology.write_config
+    end
+    
+    desc 'destroy_slave', 'remove a standby slave from its pool'
+    method_option :node, :desc => 'IP of standby slave to remove'
+    def destroy_slave
+      puts "This task removes a standby slave from its pool entirely. THIS IS PERMANENT, ie, it does a RESET SLAVE on the target."
+      node = options[:node] || ask('Please enter node IP: ')
+      error "node address (#{node}) does not appear to be an IP" unless is_ip? node
+      node = node.to_db
+      raise "Node is not a standby slave" unless node.is_standby?
+      raise "Aborting" unless ask('Please type YES in all capital letters to confirm: ') == 'YES'
+      node.pool.remove_slave!(node)
+    end
+    
+    desc 'rebuild_slave', 'export and re-import data set on a standby slave'
+    method_option :node, :desc => 'IP of standby slave to rebuild'
+    def rebuild_slave
+      puts "This task exports all data on a standby/backup slave and then re-imports it."
+      node = options[:node] || ask('Please enter node IP: ')
+      error "node address (#{node}) does not appear to be an ip" unless is_ip? node
+      node = node.to_db
+      raise "Node is not a standby or backup slave" unless node.is_standby? || node.for_backups?
+      raise "Cannot rebuild non-shard slaves from command suite; use jetpants console instead" unless node.pool.is_a?(Shard)
+      node.rebuild!
+    end
+    
+    desc 'shard_read_only', 'mark a shard as read-only'
+    method_option :min_id, :desc => 'Minimum ID of shard to mark as read-only'
+    def shard_read_only
+      shard_min = options[:min_id] || ask('Please enter min ID of the shard: ')
+      s = Jetpants.topology.shard shard_min
+      raise "Shard not found" unless s
+      s.state = :read_only
+      s.sync_configuration
+      Jetpants.topology.write_config
+    end
+    
+    desc 'shard_offline', 'mark a shard as offline (not readable or writable)'
+    method_option :min_id, :desc => 'Minimum ID of shard to mark as offline'
+    def shard_offline
+      shard_min = options[:min_id] || ask('Please enter min ID of the shard: ')
+      s = Jetpants.topology.shard shard_min
+      raise "Shard not found" unless s
+      s.state = :offline
+      s.sync_configuration
+      Jetpants.topology.write_config
+    end
+    
+    desc 'shard_online', 'mark a shard as fully online (readable and writable)'
+    method_option :min_id, :desc => 'Minimum ID of shard to mark as fully online'
+    def shard_online
+      shard_min = options[:min_id] || ask('Please enter min ID of the shard: ')
+      s = Jetpants.topology.shard shard_min
+      raise "Shard not found" unless s
+      s.state = :ready
+      s.sync_configuration
+      Jetpants.topology.write_config
+    end
+    
+    desc 'shard_split', 'shard split step 1 of 4: spin up child pools with different portions of data set'
+    method_option :min_id, :desc => 'Minimum ID of parent shard to split'
+    method_option :max_id, :desc => 'Maximum ID of parent shard to split'
+    method_option :ranges, :desc => 'Optional comma-separated list of ranges per child ie "1000-1999,2000-2499" (default if omitted: split evenly)'
+    method_option :count,  :desc => 'How many child shards to split the parent into (only necessary if the ranges option is omitted)'
+    def shard_split
+      shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
+      shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
+      s = Jetpants.topology.shard shard_min, shard_max
+      
+      raise "Shard not found" unless s
+      raise "Shard isn't in ready state" unless s.state == :ready
+      
+      ranges = options[:ranges] || ask('Optionally enter comma-separated list of ranges per child ie "1000-1999,2000-2499" [default=even split]: ')
+      ranges = false if ranges.strip == ''
+      
+      if ranges
+        supply_ranges = []
+        ranges.split(',').each do |my_range|
+          my_range.strip!
+          my_min, my_max = my_range.split('-', 2)
+          my_min = my_min.strip.to_i
+          my_max = my_max.strip.to_i
+          raise "Supplied range list has gaps!" if supply_ranges.last && supply_ranges.last[1] + 1 != my_min
+          supply_ranges << [my_min, my_max]
+        end
+        children = supply_ranges.count
+        raise "Supplied range does not cover parent completely!" if supply_ranges.first[0] != shard_min.to_i || supply_ranges.last[1] != shard_max.to_i
+        s.init_children(children, supply_ranges)
+        s.split!
+      else
+        children = options[:count]  || ask('Optionally enter how many children to split into [default=2]: ')
+        children = 2 if children == ''
+        s.split!(children.to_i)
+      end
+    end
+    def self.before_shard_split
+      reminders(
+        'This process may take several hours. You probably want to run this from a screen session.',
+        'Be especially careful if you are relying on SSH Agent Forwarding for your root key, since this is not screen-friendly.'
+      )
+    end
+    def self.after_shard_split
+      reminders(
+        'Trending and monitoring setup, as needed.',
+        'Proceed to next step: jetpants shard_split_child_reads'
+      )
+    end
+    
+    # This step is only really necessary if asset-tracker changes don't immediately reflect in application configuration.
+    # (ie, if app configuration is a static file that needs to be deployed to webs.)
+    desc 'shard_split_child_reads', 'shard split step 2 of 4: move reads to child shards'
+    def shard_split_child_reads
+      Jetpants.topology.write_config
+    end
+    def self.after_shard_split_child_reads
+      reminders(
+        'Commit/push the configuration in version control.',
+        'Deploy the configuration to all machines.',
+        'Wait for reads to stop on the old parent master.',
+        'Proceed to next step: jetpants shard_split_child_writes'
+      )
+    end
+    
+    desc 'shard_split_child_writes', 'shard split step 3 of 4: move writes to child shards'
+    method_option :min_id, :desc => 'Minimum ID of parent shard being split'
+    method_option :max_id, :desc => 'Maximum ID of parent shard being split'
+    def shard_split_child_writes
+      shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
+      shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
+      s = Jetpants.topology.shard shard_min, shard_max
+      raise "Shard not found" unless s
+      raise "Shard isn't in expected state" unless s.state == :deprecated && s.children.count > 1
+      s.move_writes_to_children
+      Jetpants.topology.write_config
+    end
+    def self.after_shard_split_child_writes
+      reminders(
+        'Commit/push the configuration in version control.',
+        'Deploy the configuration to all machines.',
+        'Wait for writes to stop on the old parent master.',
+        'Proceed to next step: jetpants shard_split_cleanup',
+      )
+    end
+    
+    desc 'shard_split_cleanup', 'shard split step 4 of 4: clean up data that replicated to wrong shard'
+    method_option :min_id, :desc => 'Minimum ID of parent shard being split'
+    method_option :max_id, :desc => 'Maximum ID of parent shard being split'
+    def shard_split_cleanup
+      shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
+      shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
+      s = Jetpants.topology.shard shard_min, shard_max
+      raise "Shard not found" unless s
+      raise "Shard isn't in expected state" unless s.state == :deprecated && s.children.count > 1
+      s.cleanup!
+    end
+    def self.after_shard_split_cleanup
+      reminders(
+        'Review old nodes for hardware issues before re-using, or simply cancel them.',
+      )
+    end
+    
+    desc 'shard_cutover', 'truncate the current last shard range, and add a new shard after it'
+    method_option :cutover_id, :desc => 'Minimum ID of new last shard being created'
+    def shard_cutover
+      cutover_id = options[:cutover_id] || ask('Please enter min ID of the new shard to be created: ')
+      cutover_id = cutover_id.to_i
+      last_shard = Jetpants.topology.shards.select {|s| s.max_id == 'INFINITY' && s.in_config?}.first
+      last_shard_master = last_shard.master
+      
+      # In asset tracker, remove the last shard pool and replace it with a new pool. The new pool
+      # has the same master/slaves but now has a non-infinity max ID.
+      last_shard.state = :recycle
+      last_shard.sync_configuration
+      last_shard_replace = Shard.new(last_shard.min_id, cutover_id - 1, last_shard_master)
+      last_shard_replace.sync_configuration
+      Jetpants.topology.pools << last_shard_replace
+      
+      # Now put another new shard after that one
+      new_last_shard_master = Jetpants.topology.claim_spare(role: 'master')
+      new_last_shard_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: 'standby_slave')
+      new_last_shard_slaves.each do |x| 
+        x.change_master_to new_last_shard_master
+        x.resume_replication
+      end
+      new_last_shard = Shard.new(cutover_id, 'INFINITY', new_last_shard_master)
+      new_last_shard.sync_configuration
+      Jetpants.topology.pools << new_last_shard
+      
+      # Create tables on the new shard's master, obtaining schema from previous last shard
+      tables = Table.from_config 'sharded_tables'
+      last_shard_master.export_schemata tables
+      last_shard_master.host.fast_copy_chain(Jetpants.export_location, new_last_shard_master.host, files: ["create_tables_#{last_shard_master.port}.sql"])
+      new_last_shard_master.import_schemata!
+      
+      # regen config file
+      Jetpants.topology.write_config
+    end
+    def self.after_shard_cutover
+      reminders(
+        'Trending and monitoring setup, as needed.',
+        'Commit/push the configuration in version control.',
+        'Deploy the configuration to all machines.',
+      )
+    end
+    
+    no_tasks do
+      def is_ip? address
+        address =~ /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/
+      end
+
+      def error message
+        abort ['ERROR:'.red, message].join ' '
+      end
+
+      def inform message
+        puts message.blue
+      end
+    end
+    
+    def self.reminders(*strings)
+      strings.map! {|s| "  - #{s}"}
+      strings.flatten!
+      reminder_text = strings.join "\n"
+      noun = (strings.count == 1 ? 'REMINDER' : 'REMINDERS')
+      print "\n#{noun}:\n#{reminder_text}\n\n" if strings.count > 0
+    end
+  end
+end
+
+# We load jetpants last so that plugins can monkeypatch Jetpants::CommandSuite if desired.
+require 'jetpants'
+
+Jetpants::CommandSuite.start

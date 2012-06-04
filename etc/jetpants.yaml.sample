@@ -1,0 +1,58 @@
+# Jetpants supports a global settings file at /etc/jetpants.yaml,
+# as well as user-specific settings files at ~/.jetpants.yaml
+
+mysql_schema:           mydb
+mysql_app_user:         myuser
+mysql_app_password:     foo
+mysql_repl_user:        replication_user
+mysql_repl_password:    bar
+
+# Users created by Jetpants are given access from these IPs
+mysql_grant_ips:        [10.%, 192.168.%]
+
+# Users created by Jetpants are given these MySQL privileges
+mysql_grant_privs:
+    - SELECT
+    - INSERT
+    - UPDATE
+    - DELETE
+    - REFERENCES
+    - CREATE TEMPORARY TABLES
+    - LOCK TABLES
+    - EXECUTE
+
+# Define what directory to put exported files in. If you have /var/lib/mysql
+# on an SSD RAID mount and the rest of your OS on a rotational disk mount,
+# it's fine to put the export_location on the rotational disk, which probably
+# has higher capacity anyway.
+export_location:        /some/path/on/root/partition
+
+# List all tables defined on the shards, along with what column name corresponds
+# to your app's sharding key (to determine which shard a given row lives on),
+# and how many "chunks" to split the data set into when doing an import or
+# export.
+sharded_tables:
+    posts:
+        sharding_key: user_id
+        chunks: 200
+    likes:
+        sharding_key: from_user_id
+        chunks: 100
+    some_small_table:
+        sharding_key: user_id
+        # chunks defaults to 1 if omitted.
+    following:
+        sharding_key: [from_user_id, to_user_id]
+        # multiple sharding key columns: each row may have to exist on two shards
+        # omit chunks since cannot use chunked export/import with multiple sharding keys
+
+plugins:
+    simple_tracker:
+        tracker_data_file_path: /var/jetpants/assets.json
+        app_config_file_path: /var/www/your-web-app/databases.yaml
+
+    plugin_with_no_settings:
+
+    plugin_with_settings:
+        foo: bar
+        flim: flam

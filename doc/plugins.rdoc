@@ -1,0 +1,121 @@
+= Jetpants Plugins
+
+\Jetpants offers an extensible plugin system. Plugins are Ruby code (such as stand-alone gems) that add to \Jetpants by supplying callback methods, and/or overriding core methods.
+
+== Recommended Uses
+
+It is highly recommended that you tie \Jetpants into your site's asset tracker (ie, hardware management system) by writing a custom plugin. This will allow Jetpants to automatically know what database pools and shards are present, and to make topological changes immediately be reflected in your site's configuration.
+
+Other recommended uses of plugins include integration with your site's monitoring system, trending system, query killer(s), and environment-specific overrides to various core methods.
+
+== Asset tracker
+
+=== Example
+
+We supply a sample plugin called simple_tracker, demonstrating how to go about writing a very basic asset-tracking plugin. This plugin just stores database topology information to a JSON file, and writes a production configuration to a YAML file. This isn't actually suitable for production use, but should provide a reasonable starting point for learning the plugin system and building a real asset tracker.
+
+To use simple_tracker, be sure to define its <tt>tracker_data_file_path</tt> (where it saves its internal asset-tracking data) and <tt>app_config_file_path</tt> (where it exports web app config files).  If you're wondering why these are kept separate, it's to allow you to support pool topology changes that don't immediately impact your application, in case you're doing a complex multi-step migration.
+
+For an example of how to configure the plugin, please see the bottom of etc/jetpants.yaml.sample.
+
+When you first start using simple_tracker, there will be no pools, shards, or spare machines. You can start to add some via <tt>jetpants console</tt>, or you can write a custom script to import data from another source or config file. Either way, some examples of how to add things include:
+
+  # Create a global pool (functional partition)
+  p = Pool.new('some-name', '10.45.67.220')
+  
+  # The slaves of the master will be detected automatically,
+  # but they will all be assumed to be standby slaves by
+  # default. You have to tell Jetpants which ones are active
+  # slaves:
+  p.has_active_slave('10.45.67.226')
+  
+  # save it
+  p.sync_configuration
+  
+  # Create a shard + save it
+  s = Shard.new(1, 100000, '10.45.67.160', :ready)
+  s.sync_configuration
+  
+  # add some spare machines
+  Jetpants.topology.tracker.spares << '10.45.67.130'
+  Jetpants.topology.tracker.spares << '10.45.67.132'
+  
+  # If you're using jetpants console, this works too, since console runs in Jetpants
+  # module namespace, which then delegates missing methods to its topology object:
+  tracker.spares << '10.45.67.134'
+  
+
+=== Methods to override
+
+If you're writing your own asset-tracker plugin, you will need to override the following methods:
+
+* Jetpants::Topology#load_pools
+    * Reads data from an asset tracker to initialize all pools and shards.
+* Jetpants::Topology#write_config
+    * Writes a configuration file for your webapp, or commits configuration changes to a service, depending on how your site handles configuration knowledge
+* Jetpants::Topology#claim_spares
+    * Obtains spare database nodes and marks them as no longer being spare
+* Jetpants::Topology#count_spares
+    * Returns a count of spare database nodes
+* Jetpants::Pool#sync_configuration
+    * Updates the asset tracker with the current status of a pool. 
+    * This should update the asset tracker's internal knowledge of the database topology immediately, but not necessarily cause the application's config file to be regenerated immediately. 
+
+You may also want to override or implement these, though it's not strictly mandatory:
+
+* Jetpants::DB#for_backups?
+    * Defines how to tell the different between standby slaves and backup slaves
+    * Skip this if your architecture doesn't include backup slaves, or if the default implementation (hostnames starting with "backup") is sufficient
+* Jetpants::DB#after_probe_slaves
+    * In order to support master promotions when a master has failed, you will need to implement this to set a slave list from your asset tracker if a MySQL instance isn't available
+* Jetpants::DB#after_probe_master
+    * In order to support operations on a slave that has failed, you will need to implement this to set @master based on information in your asset tracker if a MySQL instance isn't available
+* Jetpants::Pool#after_remove_slave!
+    * If your implementation of Pool#sync_configuration works by iterating over the current slaves of the pool's master, it won't correctly handle the <tt>jetpants destroy_slave</tt> command,
+      or anything else that calls DB#disable_replication! which does a RESET SLAVE. You can instead handle that special case here.
+
+== How to write a plugin
+
+=== Name and location
+
+If you define a plugin named "foo" in your \Jetpants config file, on startup \Jetpants will first attempt to require 'foo/foo', and failing that simply 'foo'.
+
+Plugins may be located anywhere on your Ruby load path, so packing them as standard gems should work perfectly. You may want to prefix the gem name with "\jetpants_" to avoid conflicts with other gems. \Jetpants also adds its plugins directory to its load path automatically, so that any pre-bundled plugins (like simple_tracker) can be loaded easily.
+
+=== Recommended format
+
+The \Jetpants plugin system is designed to be as light and simple as possible. Plugins are just normal Ruby code that gets required after the rest of \Jetpants has been initialized. This allows you to override any method in any \Jetpants class. Simply re-open the class as normal in Ruby.
+
+The base of your plugin may use the Jetpants::Plugin module as an outer namespace, but doing so is not required.
+
+=== Callbacks
+
+To make it easier to chain behavior before or after existing \Jetpants methods, all core \Jetpants classes include a mix-in (Jetpants::CallbackHandler) that adds automatic callback functionality. For example, any time you call method Jetpants::DB#foo, it will magically first call method Jetpants::DB#before_foo if it exists. Similarly, after the foo method finishes, it will magically call method Jetpants::DB#after_foo if it exists.
+
+A particularly nice aspect of callbacks is that they "stack".  For example, if two plugins both implement Jetpants::DB#before_foo, they will <b>both</b> be called before Jetpants::DB#foo. You can even specify the priority of a callback (higher = called first, default is 100) by preceding it with the Jetpants::CallbackHandler.callback_priority decorator. For example:
+<tt>
+    module Jetpants
+        class DB
+            callback_priority 150
+            def after_query(*args)
+                puts "After calling DB#query, I am called next due to my high priority"
+            end
+        end
+    end
+    module Jetpants
+        class DB
+            callback_priority 85
+            def after_query(*args)
+                puts "After calling DB#query, other plugins' callbacks with higher priorities get called, then I get called"
+            end
+        end
+    end
+</tt>
+
+Callbacks receive the same parameter list as the base method was called with. Their return values are ignored.
+
+Callbacks may interrupt the control flow by raising a Jetpants::CallbackAbortError exception:
+
+* If this is raised in a before_foo method, all lower-priority before_foo stacked callbacks will be skipped, as will the call to foo and any after_foo callbacks. The exception is automatically caught and is not fatal. The return value of foo will be nil.
+
+* If this is raise in an after_foo method, all subsequent lower-priority after_foo stacked callbacks will be skipped. The return value of foo will be unaffected.
