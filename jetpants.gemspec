@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
   s.authors = ["Evan Elias", "Dallas Marlow"]
   s.date  = "2012-06-04"
   s.email = ["me@evanelias.com", "dallasmarlow@gmail.com"]
-  s.files = FileList['Gemfile', 'README.rdoc', 'doc/*', 'lib/**/*.rb', 'bin/**', 'plugins/**/*.rb', 'tasks/**', 'etc/jetpants.yaml.sample'].to_a
+  s.files = FileList['Gemfile', 'README.rdoc', 'doc/*.rdoc', 'lib/**/*.rb', 'bin/**', 'plugins/**/*.rb', 'tasks/**', 'etc/jetpants.yaml.sample'].to_a
   s.require_paths = ["lib"]
   s.executables = ["jetpants"]
   s.default_executable = "jetpants"

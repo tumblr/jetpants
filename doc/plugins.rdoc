@@ -6,13 +6,13 @@
 
 It is highly recommended that you tie \Jetpants into your site's asset tracker (ie, hardware management system) by writing a custom plugin. This will allow Jetpants to automatically know what database pools and shards are present, and to make topological changes immediately be reflected in your site's configuration.
 
-Other recommended uses of plugins include integration with your site's monitoring system, trending system, query killer(s), and environment-specific overrides to various core methods.
+Other recommended uses of plugins include integration with your site's monitoring system, trending system, query killers, and environment-specific overrides to various core methods.
 
 == Asset tracker
 
 === Example
 
-We supply a sample plugin called simple_tracker, demonstrating how to go about writing a very basic asset-tracking plugin. This plugin just stores database topology information to a JSON file, and writes a production configuration to a YAML file. This isn't actually suitable for production use, but should provide a reasonable starting point for learning the plugin system and building a real asset tracker.
+We supply a sample plugin called simple_tracker, demonstrating how to go about writing a very basic asset-tracking plugin. This plugin just uses an internal JSON file to keep track of database topology/state, and separately writes app configuration to a YAML file. This isn't actually suitable for production use, but should provide a reasonable starting point for learning the plugin system and building a real asset tracker.
 
 To use simple_tracker, be sure to define its <tt>tracker_data_file_path</tt> (where it saves its internal asset-tracking data) and <tt>app_config_file_path</tt> (where it exports web app config files).  If you're wondering why these are kept separate, it's to allow you to support pool topology changes that don't immediately impact your application, in case you're doing a complex multi-step migration.
 
@@ -50,29 +50,29 @@ When you first start using simple_tracker, there will be no pools, shards, or sp
 If you're writing your own asset-tracker plugin, you will need to override the following methods:
 
 * Jetpants::Topology#load_pools
-    * Reads data from an asset tracker to initialize all pools and shards.
+  * Reads data from an asset tracker to initialize all pools and shards.
 * Jetpants::Topology#write_config
-    * Writes a configuration file for your webapp, or commits configuration changes to a service, depending on how your site handles configuration knowledge
+  * Writes a configuration file for your webapp, or commits configuration changes to a service, depending on how your site handles configuration knowledge
 * Jetpants::Topology#claim_spares
-    * Obtains spare database nodes and marks them as no longer being spare
+  * Obtains spare database nodes and marks them as no longer being spare
 * Jetpants::Topology#count_spares
-    * Returns a count of spare database nodes
+  * Returns a count of spare database nodes
 * Jetpants::Pool#sync_configuration
-    * Updates the asset tracker with the current status of a pool. 
-    * This should update the asset tracker's internal knowledge of the database topology immediately, but not necessarily cause the application's config file to be regenerated immediately. 
+  * Updates the asset tracker with the current status of a pool. 
+  * This should update the asset tracker's internal knowledge of the database topology immediately, but not necessarily cause the application's config file to be regenerated immediately. 
 
 You may also want to override or implement these, though it's not strictly mandatory:
 
 * Jetpants::DB#for_backups?
-    * Defines how to tell the different between standby slaves and backup slaves
-    * Skip this if your architecture doesn't include backup slaves, or if the default implementation (hostnames starting with "backup") is sufficient
+  * Defines how to tell the different between standby slaves and backup slaves
+  * Skip this if your architecture doesn't include backup slaves, or if the default implementation (hostnames starting with "backup") is sufficient
 * Jetpants::DB#after_probe_slaves
-    * In order to support master promotions when a master has failed, you will need to implement this to set a slave list from your asset tracker if a MySQL instance isn't available
+  * In order to support master promotions when a master has failed, you will need to implement this to set a slave list from your asset tracker if a MySQL instance isn't available
 * Jetpants::DB#after_probe_master
-    * In order to support operations on a slave that has failed, you will need to implement this to set @master based on information in your asset tracker if a MySQL instance isn't available
+  * In order to support operations on a slave that has failed, you will need to implement this to set @master based on information in your asset tracker if a MySQL instance isn't available
 * Jetpants::Pool#after_remove_slave!
-    * If your implementation of Pool#sync_configuration works by iterating over the current slaves of the pool's master, it won't correctly handle the <tt>jetpants destroy_slave</tt> command,
-      or anything else that calls DB#disable_replication! which does a RESET SLAVE. You can instead handle that special case here.
+  * If your implementation of Jetpants::Pool#sync_configuration works by iterating over the current slaves of the pool's master, it won't correctly handle the <tt>jetpants destroy_slave</tt> command,
+    or anything else that calls Jetpants::DB#disable_replication! which does a RESET SLAVE. You can instead handle that special case here.
 
 == How to write a plugin
 
@@ -118,4 +118,4 @@ Callbacks may interrupt the control flow by raising a Jetpants::CallbackAbortErr
 
 * If this is raised in a before_foo method, all lower-priority before_foo stacked callbacks will be skipped, as will the call to foo and any after_foo callbacks. The exception is automatically caught and is not fatal. The return value of foo will be nil.
 
-* If this is raise in an after_foo method, all subsequent lower-priority after_foo stacked callbacks will be skipped. The return value of foo will be unaffected.
+* If this is raised in an after_foo method, all subsequent lower-priority after_foo stacked callbacks will be skipped. The return value of foo will be unaffected.

@@ -2,17 +2,19 @@
 
 Run <tt>jetpants</tt> without any parameters to see a list of all commands available in the suite.
 
+Please note that all \Jetpants commands that take a database node require you to specify it <b>by IP address</b>, rather than hostname. It's usually a good practice to list databases in your application configuration by IP anyway, to remove DNS as a potential bottleneck and single point of failure. By also keeping all commands in \Jetpants by IP, it's easier to confirm that your commands had the expected results by looking at the diff of your regenerated application config file, for example.
+
 Here's a more thorough description of the commands, grouped by function:
 
 == Slave cloning
 
 <b><tt>jetpants clone_slave</tt></b> copies data from a standby slave onto one or more fresh nodes, turning them into additional standby slaves of the same master.
 
-\Jetpants copies data sets by shutting down the MySQL daemon on the source node and then copying all MySQL files. This is the fastest way to clone MySQL data sets, and is why you want to have 2 standby slaves per pool for high availability.
+\Jetpants copies data sets by shutting down the MySQL daemon on the source node and then copying all MySQL files. This is the fastest way to clone MySQL data sets, and is part of the reason why we recommend having 2 standby slaves per pool for high availability.
+
+The copy method in \Jetpants uses a combination of tar, netcat (nc), and pigz. It does not use encryption; we assume you are transferring over a secure local network.  When copying to multiple destinations, \Jetpants creates a "copy chain" using tee and a fifo. For more information on this technique, please see {our post on the Tumblr engineering blog}[http://engineering.tumblr.com/post/7658008285/efficiently-copying-files-to-multiple-destinations].
 
 This command does not require an asset tracker plugin, but DOES require that all your database nodes have pigz (a parallel gzip tool) installed. This may become configurable in a future release.
-
-The copy method in \Jetpants uses a combination of tar, netcat (nc), and pigz. It does not use encryption; we assume you are transferring over a secure local network.  When copying to multiple destinations, \Jetpants creates a "copy chain" using tee and a fifo. For more information, please see {this post on the Tumblr engineering blog}[http://engineering.tumblr.com/post/7658008285/efficiently-copying-files-to-multiple-destinations].
 
 
 == Master/slave state changes
@@ -21,11 +23,11 @@ These commands change the type of a slave, or promote a slave to be a master.  <
 
 <b><tt>jetpants promotion</tt></b> changes which node in a pool is the master by performing a full MySQL master promotion. This is usable even if the old master is offline or unavailable. All nodes in the pool will now slave off of the new master. If the old master is online/available, it will become a standby slave of the new master.
 
-Please note that the master promotion process enables global READ_ONLY mode on the old master. This is a required step of the standard MySQL master promotion technique. After doing a promotion in \Jetpants, you'll need to update your application's configuration as quickly as possible, if a plugin doesn't do it automatically for you.
+Please note that the master promotion process enables global READ_ONLY mode on the old master. This is a required step of the standard MySQL master promotion technique. After doing a promotion in \Jetpants, you'll need to update/deploy your application's configuration as quickly as possible, if a plugin doesn't do it automatically for you.
 
-<b><tt>jetpants activate_slave</tt></b> turns a standby slave into an active slave. Use this if you want to generate an app configuration file that now sends read queries to a slave that formerly did not receive them.
+<b><tt>jetpants activate_slave</tt></b> turns a standby slave into an active slave. Use this if you want to generate an app configuration that now sends read queries to a slave that formerly did not receive them.
 
-<b><tt>jetpants weigh_slave</tt></b> alters the weight of an active slave. This is only useful if application supports having read slaves with different weights.
+<b><tt>jetpants weigh_slave</tt></b> alters the weight of an active slave. This is only useful if application supports having read slaves with different selection weights.
 
 <b><tt>jetpants pull_slave</tt></b> turns an active slave into a standby slave. Use this if you want to generate an app configuration file that stops sending read queries to a slave.
 
@@ -34,9 +36,10 @@ Please note that the master promotion process enables global READ_ONLY mode on t
 
 == Interactive REPL
 
-<b><tt>jetpants console</tt></b> starts an <tt>irb</tt> session that is already in the jetpants module namespace.
+<b><tt>jetpants console</tt></b> starts an <tt>irb</tt> session that is already in the Jetpants module namespace.
 
-If you're using an asset tracker, this is an easy way to programmatically interact with your database topology. For example:
+If you're using an asset tracker, this is an easy way to programmatically interact with your database topology.
+This is especially true because the Jetpants module delegates missing methods to its Jetpants::Topology singleton. For example:
 
   # print summary data on all pools
   > pools.each &:summary
@@ -49,7 +52,7 @@ The first time you install \Jetpants and an asset tracker, you can enter your po
   > p = Pool.new('my-pool-name', '1.2.3.4')   # supply name and master IP
   > p.sync_configuration                      # update the asset tracker data
 
-Or to create a new pool in an existing topology:
+Or if you're deploying a brand new pool in an existing topology:
 
   > master = claim_spare
   > slaves = claim_spares(2)
@@ -63,14 +66,14 @@ Or to create a new pool in an existing topology:
 
 1. Create N new slaves of the shard being split (the "parent" shard). These new slaves will become masters of their own "child" shards later in the process.
 2. Reduce the data set on those slaves so that each contains a different subset of the data. This is done by exporting the data subset, dropping the tables, re-creating the tables, and importing the data subset back in.
-3. Move app reads from the parent shard to the appropriate child shards. You must move reads before moving writes in order to maintain consistency in your application.
+3. Move app reads from the parent shard to the appropriate child shards. You must move reads before moving writes in order to maintain consistency in your application. Writes will continue to go to the parent shard, which then replicates to the child shards.
 4. Move app writes from the parent shard to the appropriate child shards.
 5. Stop replicating writes from the parent shard, and then take the parent pool offline entirely.
 6. Remove rows that replicated to the wrong child shard. This data will be sparse, since it's only the writes that were made since the shard split process started.
 
-For more information, including diagrams of each step, please see {Evan Elias's presentation at Velocity Europe 2011}[http://assets.en.oreilly.com/1/event/74/Massively%20Sharded%20MySQL%20at%20Tumblr%20Presentation.pdf].
+For more information, including diagrams of each step, please see {our presentation at Velocity Europe 2011}[http://assets.en.oreilly.com/1/event/74/Massively%20Sharded%20MySQL%20at%20Tumblr%20Presentation.pdf].
 
-Separately, \Jetpants also allows you to alter the range of the last shard in your topology. In a range-based sharding scheme, the last shard has a range of X to infinity; eventually this will contain too much data, so you need to truncate that shard and create a "new" last shard after it.  We call this process "shard cutover".
+Separately, \Jetpants also allows you to alter the range of the last shard in your topology. In a range-based sharding scheme, the last shard has a range of X to infinity; eventually this will be too large of a range, so you need to truncate that shard range and create a "new" last shard after it.  We call this process "shard cutover".
 
 These commands all require an asset tracker in order to function.
 
@@ -80,9 +83,9 @@ These commands all require an asset tracker in order to function.
 
 <b><tt>jetpants shard_split_child_writes</tt></b> regenerates your application config file to move writes to the new child shards. Be sure to move reads first.
 
-<b><tt>jetpants shard_split_cleanup</tt></b> tears down replication between the parent and child shards, takes the parent shard offline, and then cleans up data that replicated to the wrong child. This may take a little while to run, although typically much less than the initial <tt>jetpants shard_split</tt> takes since data will be sparse.
+<b><tt>jetpants shard_split_cleanup</tt></b> tears down replication between the parent and child shards, makes the parent shard non-readable and non-writable, and then cleans up data that replicated to the wrong child. This may take a little while to run, although typically much less than the initial <tt>jetpants shard_split</tt> takes since data will be sparse.
 
-<b><tt>jetpants shard_cutover</tt></b> truncates the current last shard range, and adds a new shard after it. You need to pick what ID is being used for the cutover; this ID <b>MUST</b> be one "in the future", ie, one your application hasn't hit yet. The cutover process does NOT move any data, since it assumes the new shard has no data yet. What the cutover process WILL do though is allocate the new shard's hardware, set up replication, create your sharded tables, and update your app configuration file.
+<b><tt>jetpants shard_cutover</tt></b> truncates the current last shard range, and adds a new shard after it. You need to pick what ID is being used for the cutover; this ID <b>MUST</b> be one "in the future", ie, one your application hasn't hit yet. The cutover process does NOT move any data, since it assumes the new shard it's creating has no data yet. What the cutover process will do is allocate the new shard's hardware, set up replication, create your sharded tables, and update your app configuration file.
 
 
 == Shard degradation
@@ -96,7 +99,7 @@ With an asset tracker, \Jetpants allows you to mark a shard as read-only or comp
 <b><tt>jetpants shard_online</tt></b> marks a shard as being fully online again, after a prior call to <tt>jetpants shard_read_only</tt> or <tt>jetpants shard_offline</tt>.
 
 
-== Display commands
+== Informational commands
 
 These commands do not require an asset tracker. They may be fleshed out further in a future release of \Jetpants.
 
@@ -111,6 +114,6 @@ These commands do not require an asset tracker. They may be fleshed out further 
 
 <b><tt>jetpants rebuild_slave</tt></b> exports all data on a standby slave, drops tables, recreates tables, and then re-imports the data. This is useful for defragmenting a node. Currently it only works on shard pool slaves; this may change in a future release.
 
-<b><tt>jetpants regen_config</tt></b> regenerates your application's configuration file, assuming you are using an asset tracker. This isn't terribly useful in most cases, because any commands that make configuration changes will do this automatically.
+<b><tt>jetpants regen_config</tt></b> regenerates your application's configuration file, assuming you are using an asset tracker. This isn't terribly useful in most cases, because any commands that make configuration changes will do this automatically. However, you may want to run this after manually making topology changes via <tt>jetpants console</tt>.
 
 

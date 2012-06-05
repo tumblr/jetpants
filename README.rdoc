@@ -2,20 +2,22 @@
 
 == OVERVIEW:
 
-\Jetpants is an automation toolkit for handling monstrously large MySQL database topologies. It is geared towards common operational tasks like cloning slaves, rebalancing shards, and performing master promotions. It features a command suite for easy use by operations staff, but it's also a full Ruby library for use in developing custom data migration scripts and database automation.
+\Jetpants is an automation toolkit for handling monstrously large MySQL database topologies. It is geared towards common operational tasks like cloning slaves, rebalancing shards, and performing master promotions. It features a command suite for easy use by operations staff, though it's also a full Ruby library for use in developing custom migration scripts and database automation.
+
+\Jetpants supports a <b>range-based sharding scheme</b> for MySQL by providing a fast way to split shards that are approaching capacity or I/O limitations. \Jetpants is able to accomplish this without any locking, downtime, data inconsistency, or query failures. Dynamically resizable range-based sharding allows you to scale MySQL horizontally in a sane manner, without any need for a central lookup service or massive pre-allocation of tiny shards.
 
 == MOTIVATION:
 
-\Jetpants was created by {Tumblr}[http://www.tumblr.com/] to help manage our database infrastructure. It handles automation tasks for our entire database topology, which as of May 2012 consists of approximately:
+\Jetpants was created by {Tumblr}[http://www.tumblr.com/] to help manage our database infrastructure. It handles automation tasks for our entire database topology, which as of June 2012 consists of approximately:
 * 200 dedicated database servers
 * 12 global (unsharded) functional pools 
 * 45 shard pools
-* 20 terabytes total of unique data on masters
-* 50 billion total unique rows on masters
+* 21 terabytes total of unique relational data on masters
+* 60 billion total unique relational rows on masters
 
-One of the primary requirements for \Jetpants was speed. On our hardware, <b>\Jetpants can divide a 700GB, billion-row shard in half in about six hours</b> -- or even faster if you're diving into thirds or fourths. It can also <b>clone slaves at line speed on gigabit ethernet</b>, including to multiple destinations at once, using a novel "chained copy" approach.
+One of the primary requirements for \Jetpants was speed. On our hardware, <b>\Jetpants can divide a 750GB, billion-row shard in half in about six hours</b> -- or even faster if you're diving into thirds or fourths. It can also <b>clone slaves at line speed on gigabit ethernet</b>, including to multiple destinations at once, using a novel "chained copy" approach.
 
-For more background on the initial motivations behind \Jetpants, please see {Evan Elias's presentation at Velocity Europe 2011}[http://assets.en.oreilly.com/1/event/74/Massively%20Sharded%20MySQL%20at%20Tumblr%20Presentation.pdf].
+For more background on the initial motivations behind \Jetpants, please see {Evan Elias's presentation at Velocity Europe 2011}[https://raw.github.com/tumblr/jetpants/master/README.rdoc.pdf].
 
 == COMMAND SUITE FEATURES:
 
@@ -23,15 +25,15 @@ The \Jetpants command suite offers easy command-line interaction with complex My
 
 * Clone slaves efficiently, including to multiple targets simultaneously
 * Split a range-based shard into N new shards with zero downtime and no failed queries
-* Perform master promotions and other pool topology changes in a clean manner
-* Rebuild tables in parallelized chunks, for defragmentation or fast schema changes
+* Perform master promotions and other pool topology changes
+* Defragment tables quickly in parallelized chunks
 * Interact with your database topology in a REPL environment via <tt>jetpants console</tt> mode
 
-Run the <tt>jetpants</tt> executable with no options to see a list of supported commands and their syntax. For more thorough descriptions of the commands, please see {doc/commands.rdoc}[link:doc/commands_rdoc.html].
+For more information on the command suite, please see doc/commands.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/commands.rdoc]).
 
 == LIBRARY FEATURES:
 
-\Jetpants is also a Ruby module which you can use to build complex database migration scripts and other customized automation. It provides a flexible class system providing clean object modeling of databases, hosts, global/functional pools, sharded pools, and your database topology as a whole.
+\Jetpants is also a Ruby module which you can use to build complex database migration scripts and other customized automation. It provides object modeling for databases, hosts, global/functional pools, sharded pools, and your database topology as a whole.
 
 * Utilize scriptable versions of all command suite functionality
 * Crawl replication topology programmatically
@@ -42,29 +44,27 @@ Run the <tt>jetpants</tt> executable with no options to see a list of supported 
 
 == ASSUMPTIONS AND REQUIREMENTS:
 
-The base classes of \Jetpants currently make a number of assumptions about your environment and database topology. Please see {doc/requirements.rdoc}[link:doc/requirements_rdoc.html].
+The base classes of \Jetpants currently make a number of assumptions about your environment and database topology. Please see doc/requirements.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/requirements.rdoc]).
 
 
 == CONFIGURATION:
 
-\Jetpants supports a global configuration file at /etc/jetpants.yaml, as well as per-user configuration files at ~/.jetpants.yaml.
+\Jetpants supports a global configuration file at <tt>/etc/jetpants.yaml</tt>, as well as per-user configuration files at <tt>~/.jetpants.yaml</tt>.
 
-At least one of these files must exist for Jetpants to function properly, since certain options (database schema name, database credentials, etc) are mandatory and cannot be inferred.
+At least one of these files must exist for \Jetpants to function properly, since certain options (database schema name, database credentials, etc) are mandatory and cannot be inferred.
 
-Please see {doc/configuration.rdoc}[link:doc/configuration_rdoc.html] for information on configuring \Jetpants.
+Please see doc/configuration.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/configuration.rdoc]) for information on configuring \Jetpants.
 
 
 == PLUGINS:
 
 \Jetpants offers an extensible plugin system. Plugins are Ruby code (such as stand-alone gems) that add to \Jetpants by supplying callback methods, and/or overriding core methods.
 
-It is highly recommended that you tie \Jetpants into your site's asset tracker / hardware management system by writing a custom plugin. This will allow Jetpants to automatically know what database pools and shards are present, and to make topological changes immediately be reflected in your site's configuration.
+It is highly recommended that you tie \Jetpants into your site's asset tracker / hardware management system by writing a custom plugin. This will allow \Jetpants to automatically know what database pools and shards are present, and to make topological changes immediately be reflected in your site's configuration. <b>Several complex \Jetpants features (including shard splits) actually require an asset tracker plugin in order to function, since these processes involve obtaining spare nodes and manipulating multiple pools in your database topology.</b>
 
-We supply a sample plugin called simple_tracker, demonstrating how to go about writing a very basic asset-tracking plugin. This plugin just stores database topology information to a YAML file, and writes live production configuration to a second YAML file. This isn't actually suitable for production use, but should provide a reasonable starting point for learning the system.
+Other recommended uses of plugins include integration with your site's monitoring system, trending system, query killers, and environment-specific overrides to various core methods.
 
-Other recommended uses of plugins include integration with your site's monitoring and trending systems, and environment-specific overrides to various core methods.
-
-For more information on how to write plugins and use the jetpants::callback system, please see {doc/plugins.rdoc}[link:doc/plugins_rdoc.html]
+For more information on how to write plugins and use the Jetpants::CallbackHandler system, please see doc/plugins.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/plugins.rdoc])
 
 == CREDITS:
 
@@ -73,13 +73,13 @@ For more information on how to write plugins and use the jetpants::callback syst
 
 == LICENSE:
 
-Copyright 2012 Tumblr, Inc
+Copyright 2012 Tumblr, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0
+[http://www.apache.org/licenses/LICENSE-2.0]
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,

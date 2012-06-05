@@ -2,10 +2,14 @@ module Jetpants
   
   # The Table class associates a table name with a column (or list of columns)
   # making up the table's sharding key or primary key. It is geared towards
-  # importing/exporting a table, NOT representing an application data model.
+  # generating SQL for importing/exporting a table, NOT for representing an
+  # application data model.
   # 
-  # All of its methods are focused on *generating* SQL -- none of them actually
-  # *execute* the SQL.
+  # None of these methods actually *execute* the SQL they generate, since the
+  # Table class isn't tied to a specific DB. This allows us to represent the set
+  # of all sharded tables with a single set of Table objects, without having to
+  # duplicate those objects for every Shard or DB instance. If you want to run
+  # the generated SQL on a database, use one of the DB#query* methods.
   class Table
     include CallbackHandler
     

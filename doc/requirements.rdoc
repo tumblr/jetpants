@@ -8,12 +8,15 @@ Plugins may freely override these assumptions, and upstream patches are very wel
 
 * Using MySQL (or Percona Server), specifically version 5.1 or higher.
 * Using a RHEL/CentOS distribution of Linux.
-* Using InnoDB / Percona XtraDB for storage engine. Jetpants has not been tested with MyISAM, since Jetpants is geared towards huge tables, and MyISAM is generally a bad fit.
+  * It should be easy to write a plugin supporting another distribution. The main change might be overriding Jetpants::Host#service, if your distribution doesn't have <tt>/sbin/service</tt>.
+* Using InnoDB / Percona XtraDB for storage engine. \Jetpants has not been tested with MyISAM, since \Jetpants is geared towards huge tables, and MyISAM is generally a bad fit.
 * All MySQL instances run on port 3306, with only one instance per logical machine.
   * A plugin could override this easily, but would require you to use the --report-host option on all slaves, so that crawling the replication topology is possible. It would also have to override various methods that specify the MySQL init script location, config file location, data directory, etc.
+  * Since there's no "standard" layout for multi-instance MySQL, this won't ever be part of the \Jetpants core, but we may include one implementation as a bundled plugin in a future release.
 * Master-Master replication is not in use. It presents a large number of additional failure states which make automation quite difficult, since transaction IDs are not global in MySQL.
-* You must be running Jetpants as a UNIX user with access to an SSH private key, capable of connecting as root to any host in your database topology. If this key has a nonstandard name or location, you must specify this using the <tt>ssh_keys</tt> option in the Jetpants configuration file. SSH agent forwarding should work fine automatically, but be careful of its interaction with UNIX tools like <tt>screen</tt>.
-* The root MySQL user must be able to access the database on localhost via MySQL's UNIX socket. You may specify the root password with Jetpants' <tt>mysql_root_password</tt> option in the configuration file. If every one of your database hosts has a <tt>/root/.my.cnf</tt> file specifying the root password, you can omit <tt>mysql_root_password</tt> in the configuration file.
+* Unusual replication topologies -- special-purpose slaves, ring topologies, hierarchical replication -- are not in use. Plugins could certainly override this by adding additional types of slaves, but there are too many options for this to be part of the \Jetpants core.
+* You must be running \Jetpants as a UNIX user with access to an SSH private key, capable of connecting as root to any host in your database topology. If this key has a nonstandard name or location, you must specify this using the <tt>ssh_keys</tt> option in the Jetpants configuration file. SSH agent forwarding should work fine automatically, but be careful of its interaction with UNIX tools like <tt>screen</tt>.
+* The root MySQL user must be able to access the database on localhost via MySQL's UNIX socket. You may specify the root password with Jetpants' <tt>mysql_root_password</tt> option in the configuration file. Or if all of your database hosts has a <tt>/root/.my.cnf</tt> file specifying the root password, you can omit <tt>mysql_root_password</tt> in the configuration file.
 * You must have <tt>pigz</tt> (an open-source parallel gzip tool by Mark Adler) installed on all database hosts. A future version of \Jetpants will allow pluggable compression tools, but at present we strictly use <tt>pigz</tt> for compression in all file copy operations.
 
 
@@ -32,7 +35,7 @@ We no longer use dedicated backup slaves at Tumblr, although we still offer supp
 
 We define a database <b>shard</b> as a specialized type of pool, always consisting of 1 master and 2 standby slaves. All shards contain the same set of tables, but each stores a different partition of the data set, divided by ID ranges of a global sharding key.
 
-For example, if your sharding key is <tt>user_id</tt>, one shard might contain all sharded data for users 1 through 1000000; another shard would contain data for users 1000001 through 2000000; etc. These ranges may be of uneven sizes. When disk usage approaches capacity or I/O utilization gets too high, \Jetpants can be used to split the shard into N new "child" shards of equal or unequal ranges.
+For example, say your application's natural sharding key is <tt>user_id</tt>. The <tt>users</tt> table itself might not be shardable (since it may require global lookup patterns like find-by-email), but any other table containing a <tt>user_id</tt> column could be sharded. One shard might contain all sharded table data for users 1 through 1000000; another shard would contain data for users 1000001 through 2000000; etc. These ranges may be of uneven sizes. When disk usage approaches capacity or I/O utilization gets too high, \Jetpants can be used to split the shard into N new "child" shards of equal or unequal ranges.
 
 We prefer this range-based scheme due to its simplicity. The ranges can be expressed in a language-neutral JSON or YAML format, which can be shared between application stacks easily. \Jetpants solves all data rebalancing problems for you. There's no need to "pre-allocate" thousands of tiny shards, nor do you need an external lookup service which would be a bottleneck and a single point of failure.
 
@@ -43,9 +46,8 @@ Under this sharding scheme, there will always be a "last" shard, with a range of
 
 In order for \Jetpants to be able to rebalance your shards efficiently, we also must assume the following:
 
-* No auto_increment columns. Use an external ID generation service instead. Build your own (it's a hundred lines of C) or use Memcached or Redis or Snowflake or any other number of options.
-* Primary key of all sharded tables begins with the sharding key. This takes advantage of InnoDB clustered indexes to allow efficient export/import of data.
-* No schema changes in process of split. Better to avoid mixing complex operations.
+* No auto_increment columns in any sharded table. Use an external ID generation service instead. Build your own (it's a hundred lines of C) or use Memcached or Redis or Snowflake or any other number of options.
+* Primary key of all sharded tables begins with the sharding key. This takes advantage of InnoDB clustered indexes to allow efficient export/import of data by ranges.
 * Uniform MySQL config between masters and slaves: log-slave-updates, unique server-id, generic log-bin and relay-log names, replication user/grants everywhere.
 * Redundant rows temporarily on the wrong shard don’t matter to your application. This would only matter if you're doing aggregate queries (like COUNTs) over the whole data set... but if your data set is big enough to shard, these already don't scale in InnoDB, so it shouldn't really matter.
 
