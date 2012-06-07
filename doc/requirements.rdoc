@@ -47,8 +47,8 @@ Under this sharding scheme, there will always be a "last" shard, with a range of
 In order for \Jetpants to be able to rebalance your shards efficiently, we also must assume the following:
 
 * No auto_increment columns in any sharded table. Use an external ID generation service instead. Build your own (it's a hundred lines of C) or use Memcached or Redis or Snowflake or any other number of options.
-* Primary key of all sharded tables begins with the sharding key. This takes advantage of InnoDB clustered indexes to allow efficient export/import of data by ranges.
-* Uniform MySQL config between masters and slaves: log-slave-updates, unique server-id, generic log-bin and relay-log names, replication user/grants everywhere.
-* Redundant rows temporarily on the wrong shard don’t matter to your application. This would only matter if you're doing aggregate queries (like COUNTs) over the whole data set... but if your data set is big enough to shard, these already don't scale in InnoDB, so it shouldn't really matter.
+* Primary key of all sharded tables begins with the sharding key. This takes advantage of InnoDB clustered indexes to allow efficient export/import of data by ranges. This isn't strictly mandatory, but it makes an absolutely huge performance difference versus using a secondary index.
+* Uniform MySQL configuration between masters and slaves: log-slave-updates, unique server-id, generic log-bin and relay-log names, replication user/grants everywhere.
+* Redundant rows temporarily on the wrong shard don’t matter to your application. Hopefully these would only matter if you're doing aggregate queries (like COUNTs) over the whole data set... but if your data set is big enough to shard, these already don't scale, so it shouldn't really matter.
 
 For more information on the shard split process implemented by \Jetpants, including diagrams of each stage of the process, please see {Evan Elias's presentation at Velocity Europe 2011}[http://assets.en.oreilly.com/1/event/74/Massively%20Sharded%20MySQL%20at%20Tumblr%20Presentation.pdf], starting at slide 19.
