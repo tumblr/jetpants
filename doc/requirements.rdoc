@@ -51,4 +51,4 @@ In order for \Jetpants to be able to rebalance your shards efficiently, we also 
 * Uniform MySQL configuration between masters and slaves: log-slave-updates, unique server-id, generic log-bin and relay-log names, replication user/grants everywhere.
 * Redundant rows temporarily on the wrong shard don’t matter to your application. Hopefully these would only matter if you're doing aggregate queries (like COUNTs) over the whole data set... but if your data set is big enough to shard, these already don't scale, so it shouldn't really matter.
 
-For more information on the shard split process implemented by \Jetpants, including diagrams of each stage of the process, please see {Evan Elias's presentation at Velocity Europe 2011}[http://assets.en.oreilly.com/1/event/74/Massively%20Sharded%20MySQL%20at%20Tumblr%20Presentation.pdf], starting at slide 19.
+For more information on the shard split process implemented by \Jetpants, including diagrams of each stage of the process, please see {Evan Elias's presentation at Velocity Europe 2011}[https://github.com/tumblr/jetpants/blob/master/doc/VelocityEurope2011Presentation.pdf?raw=true], starting at slide 19.

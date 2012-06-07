@@ -17,7 +17,7 @@
 
 One of the primary requirements for \Jetpants was speed. On our hardware, <b>\Jetpants can divide a 750GB, billion-row shard in half in about six hours</b> -- or even faster if you're diving into thirds or fourths. It can also <b>clone slaves at line speed on gigabit ethernet</b>, including to multiple destinations at once, using a novel "chained copy" approach.
 
-For more background on the initial motivations behind \Jetpants, please see {Evan Elias's presentation at Velocity Europe 2011}[https://raw.github.com/tumblr/jetpants/master/README.rdoc.pdf].
+For more background on the initial motivations behind \Jetpants, please see {Evan Elias's presentation at Velocity Europe 2011}[https://github.com/tumblr/jetpants/blob/master/doc/VelocityEurope2011Presentation.pdf?raw=true].
 
 == COMMAND SUITE FEATURES:
 
