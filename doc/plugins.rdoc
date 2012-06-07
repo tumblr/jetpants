@@ -93,7 +93,7 @@ The base of your plugin may use the Jetpants::Plugin module as an outer namespac
 To make it easier to chain behavior before or after existing \Jetpants methods, all core \Jetpants classes include a mix-in (Jetpants::CallbackHandler) that adds automatic callback functionality. For example, any time you call method Jetpants::DB#foo, it will magically first call method Jetpants::DB#before_foo if it exists. Similarly, after the foo method finishes, it will magically call method Jetpants::DB#after_foo if it exists.
 
 A particularly nice aspect of callbacks is that they "stack".  For example, if two plugins both implement Jetpants::DB#before_foo, they will <b>both</b> be called before Jetpants::DB#foo. You can even specify the priority of a callback (higher = called first, default is 100) by preceding it with the Jetpants::CallbackHandler.callback_priority decorator. For example:
-<tt>
+
     module Jetpants
         class DB
             callback_priority 150
@@ -110,7 +110,6 @@ A particularly nice aspect of callbacks is that they "stack".  For example, if t
             end
         end
     end
-</tt>
 
 Callbacks receive the same parameter list as the base method was called with. Their return values are ignored.
 
