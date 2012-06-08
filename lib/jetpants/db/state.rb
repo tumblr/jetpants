@@ -61,6 +61,7 @@ module Jetpants
       probe_running
       probe_master
       probe_slaves
+      self
     end
     
     # Alias for probe(true)
@@ -218,7 +219,7 @@ module Jetpants
       processes.grep(/Binlog Dump/).concurrent_each do |p|
         tokens = p.split
         ip, dummy = tokens[2].split ':'
-        db = self.class.new(ip)
+        db = ip.to_db
         db.probe
         slaves_mutex.synchronize {@slaves << db if db.master == self}
       end
