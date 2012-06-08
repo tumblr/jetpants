@@ -94,7 +94,7 @@ module Jetpants
     # returns a flat array of all Jetpants::DB objects in the pool: the master and
     # all slaves of all types.
     def nodes
-      [master, slaves].flatten
+      [master, slaves].flatten.compact
     end
     
     # Informs Jetpants that slave_db is an active slave. Potentially used by 
