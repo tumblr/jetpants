@@ -70,7 +70,9 @@ module Jetpants
           if !@replicas || @replicas.count < 1
             replicas = ask "please provide a comma seperated list of current replicas of #{@demoted}: ", lambda {|replicas| replicas.split /,\s*/}
             error "user supplied list of replicas appears to be invalid - #{replicas}" unless replicas.all? {|replica| is_ip? replica}
-            @replicas = replicas.collect {|replica| replica.to_db}
+            replicas = replicas.map &:to_db
+            @demoted.instance_eval {@slaves = replicas}
+            @replicas = replicas
             
             # ensure they were replicas of @demoted
             @replicas.each do |replica|

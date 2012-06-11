@@ -195,8 +195,9 @@ module Jetpants
           raise "#{self}: #{message}" if Jetpants.verify_replication
           output message
           pause_replication
+        else
+          @repl_paused = (status[:slave_io_running].downcase == 'no')
         end
-        @repl_paused = (status[:slave_io_running].downcase == 'no')
       end
     end
     
