@@ -175,16 +175,12 @@ module Jetpants
     # (In a future release, this will be refactored to be fully scriptable.)
     def master_promotion!(promoted)
       demoted = @master
-      raise "Promoted host is not in the right pool!" unless @master.slaves.include? promoted
+      raise "Promoted host is not in the right pool!" if demoted.available? && !demoted.slaves.include?(promoted)
       user, password = promoted.replication_credentials.values
       log,  position = promoted.binlog_coordinates
 
       # reset slave on promoted
-      if demoted.available?
-        promoted.disable_replication!
-      else
-        promoted.mysql_root_cmd "STOP SLAVE; RESET SLAVE"
-      end
+      promoted.disable_replication!
       
       # gather our new replicas
       replicas = demoted.slaves.select {|replica| replica != promoted}

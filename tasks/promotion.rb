@@ -230,8 +230,8 @@ module Jetpants
           def execute_promotion
             error 'nodes are not in a promotable state.' unless promotable?
             error 'replicas are not in a consistent state' unless nodes_consistent? 
-            
-            @demoted.pool.master_promotion! @promoted
+            p = @demoted.pool || Pool.new('temp-pool', @demoted)
+            p.master_promotion! @promoted
           end
           
           def replicas_replicating? replicas = @replicas
