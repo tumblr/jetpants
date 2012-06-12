@@ -152,7 +152,7 @@ module Jetpants
     # of returning a string, so that you can invoke something like:
     #    Jetpants.topology.pools.each &:summary 
     # to easily display a summary.
-    def summary
+    def summary(with_binlog_info=false)
       probe
       if @aliases.count > 0
         alias_text = '  (aliases: ' + @aliases.join(', ') + ')'
@@ -168,32 +168,49 @@ module Jetpants
       true
     end
     
-    # Performs the last steps of the master promotion process. Do not use this
-    # as a stand-alone method; there's other necessary logic, such as setting
-    # the old master to read-only mode, and doing a STOP SLAVE on all slaves.
-    # Use the "jetpants promotion" task instead to do an interactive promotion.
-    # (In a future release, this will be refactored to be fully scriptable.)
+    # Demotes the pool's existing master, promoting a slave in its place.
     def master_promotion!(promoted)
       demoted = @master
-      raise "Promoted host is not in the right pool!" if demoted.available? && !demoted.slaves.include?(promoted)
+      raise "Demoted node is already the master of this pool!" if demoted == promoted
+      raise "Promoted host is not in the right pool!" unless demoted.slaves.include?(promoted)
+      
+      output "Preparing to demote master #{demoted} and promote #{promoted} in its place."
+      
+      # If demoted machine is available, confirm it is read-only and binlog isn't moving,
+      # and then wait for slaves to catch up to this position
+      if demoted.available?
+        demoted.enable_read_only! unless demoted.read_only?
+        raise "Unable to enable global read-only mode on demoted machine" unless demoted.read_only?
+        coordinates = demoted.binlog_coordinates
+        sleep 1
+        raise "Demoted machine still taking writes (from superuser or replication?) despite being read-only" unless coordinates == demoted.binlog_coordinates
+        until demoted.slaves.all? {|s| s.repl_binlog_coordinates == coordinates} do
+          output 'Still waiting for all slaves to catch up to master coordinates...'
+          sleep 1
+        end
+      end
+      
+      # Stop replication on all slaves
+      replicas = demoted.slaves
+      replicas.each do |s|
+        s.pause_replication if s.replicating?
+      end
+      raise "Unable to stop replication on all slaves" if replicas.any? {|s| s.replicating?}
+      
       user, password = promoted.replication_credentials.values
       log,  position = promoted.binlog_coordinates
-
-      # reset slave on promoted
+      
+      # reset slave on promoted, and make sure read_only is disabled
       promoted.disable_replication!
+      promoted.disable_read_only!
       
       # gather our new replicas
-      replicas = demoted.slaves.select {|replica| replica != promoted}
+      replicas.delete promoted
       replicas << demoted if demoted.available?
-      replicas.flatten!
-
+      
       # perform promotion
-      replicas.each do |replica|
-        replica.change_master_to promoted,
-          :user => user,
-          :password => password,
-          :log_file => log,
-          :log_pos  => position
+      replicas.each do |r|
+        r.change_master_to promoted, user: user, password: password, log_file: log, log_pos: position
       end
 
       # ensure our replicas are configured correctly by comparing our staged values to current values of replicas
@@ -211,12 +228,14 @@ module Jetpants
       end
       
       # Update the pool
-      # Note: if the demoted machine is offline, plugin may need to implement an
+      # Note: if the demoted machine is not available, plugin may need to implement an
       # after_master_promotion! method which handles this case in configuration tracker
       @active_slave_weights.delete promoted # if promoting an active slave, remove it from read pool
       @master = promoted
       sync_configuration
       Jetpants.topology.write_config
+      
+      output "Promotion complete. Pool master is now #{promoted}."
       
       replicas.all? {|r| r.replicating?}
     end

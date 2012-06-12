@@ -7,9 +7,8 @@ module Jetpants
         @promoted = nodes['promote']
         super
         Jetpants.verify_replication = false # since master may be offline
-        advise
         establish_roles
-        prepare
+        execute_promotion
       end
 
       def error message
@@ -133,128 +132,19 @@ module Jetpants
 
         error "unable to establish node to promote" unless @promoted.kind_of? Jetpants::DB
       end
- 
-      def advise
-        @states = {
-          preparing:  "processing promotion requirements",
-          prepared:   "preparing to disable writes on #{@demoted}",
-          read_only:  "writes have been disabled on #{@demoted}, preparing to demote #{@demoted} and promote #{@promoted}",
-          promoted:   "#{@promoted} has been promoted, please prepare database config for deploy.",
-          deployable: "promotion is complete, please commit and deploy.",
-        }
-        inform @states[@state.to_sym]
-      end
-  
-      state_machine :initial => :preparing do
-        after_transition any => any, :do => :advise
       
-        event :prepare do
-          transition :preparing => :prepared, :if => :roles_populated?
-        end
-        after_transition :preparing => :prepared, :do => :disable_writes
-
-        event :disable_writes do
-          transition :prepared  => :read_only, :if => :read_only!
-        end
-        after_transition :prepared => :read_only, :do => :promote
-      
-        event :promote do
-          transition :read_only => :promoted, :if => :execute_promotion
-        end
-        after_transition :read_only => :promoted, :do => :prepare_config
-      
-        event :prepare_config do
-          transition :promoted => :deployable, :if => :nodes_consistent? 
-        end
-        after_transition :promoted => :deployable, :do => :summarize_promotion
+      def execute_promotion
+        raise "Need to know which machine to demote and which to promote" unless @demoted && @promoted
+        p = @demoted.pool
         
-        state :preparing, :prepared do
-          def is_db? node
-            node.kind_of? Jetpants::DB
-          end
-          
-          def roles_populated?
-            # ensure our roles are populated with dbs
-            [@demoted, @promoted, @replicas].all? do |role|
-              is_db? role or role.all? do |node|
-                is_db? node
-              end
-            end
-          end
-    
-          def read_only!
-            unless @demoted.available?
-              status = @promoted.slave_status
-              @log, @position = status[:master_log_file], status[:exec_master_log_pos].to_i
-              return true
-            end
-
-            # set read_only if needed
-            @demoted.read_only! unless @demoted.read_only?
-            # bail if we're unable to set read_only
-            error "unable to set 'read_only' on #{@demoted}" unless @demoted.read_only?
-            # record the current log possition to ensure writes are not taking place later.
-            @log, @position = @demoted.binlog_coordinates
-            error "#{@demoted} is still taking writes, unable to promote #{@promoted}" unless writes_disabled?
-            @demoted.read_only?            
-          end
-
-          def writes_disabled?
-            return true unless @demoted.available?
-
-            # ensure no writes have been logged since read_only!
-            [@log, @position] == @demoted.binlog_coordinates
-          end
-          
+        # If there's no matching pool in the topology (such as if no asset tracker plugin
+        # is in use), create a temporary one.  Give it a blank sync_configuration method
+        # to ensure that the pool won't be written to any sort of config file.
+        unless p
+          p = Pool.new('temp-pool', @demoted)
+          def p.sync_configuration; end
         end
-
-        state :read_only, :promoted, :promoted, :deployable do
-          def nodes_consistent?
-            return true unless @demoted.available?
-            @replicas.all? {|replica| replica.slave_status[:exec_master_log_pos].to_i == @position}
-          end
-
-          def ensure_nodes_consistent?
-            inform "ensuring replicas are in a consistent state"
-            until nodes_consistent? do
-              print '.'
-              sleep 0.5
-            end
-            nodes_consistent?
-          end
-
-          def promotable?
-            disable_replication if ensure_nodes_consistent? and @promoted.disable_read_only! 
-          end
-
-          def execute_promotion
-            error 'nodes are not in a promotable state.' unless promotable?
-            error 'replicas are not in a consistent state' unless nodes_consistent? 
-            p = @demoted.pool || Pool.new('temp-pool', @demoted)
-            p.master_promotion! @promoted
-          end
-          
-          def replicas_replicating? replicas = @replicas
-            replicas.all? {|replica| replica.replicating?}
-          end
-
-          def disable_replication replicas = @replicas
-            replicas.each do |replica|
-              replica.pause_replication if replica.replicating?
-            end
-            not replicas_replicating? replicas
-          end
-
-          def summarize_promotion transition
-            summary = Terminal::Table.new :title => 'Promotion Summary:' do |rows|
-              rows << ['demoted',  @demoted]
-              rows << ['promoted', @promoted]
-              rows << ["replicas of #{@promoted}", @promoted.slaves.join(', ')]
-            end
-            puts summary
-            exit
-          end
-        end
+        p.master_promotion! @promoted
       end
 
     end
