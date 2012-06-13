@@ -138,10 +138,10 @@ module Jetpants
     # database. Only useful when called on a master. This is the current
     # instance's own binlog coordinates, NOT the coordinates of replication
     # progress on a slave!
-    def binlog_coordinates
+    def binlog_coordinates(display_info=true)
       hash = mysql_root_cmd('SHOW MASTER STATUS', :parse=>true)
       raise "Cannot obtain binlog coordinates of this master becaues binary logging is not enabled" unless hash[:file]
-      output "Own binlog coordinates are (#{hash[:file]}, #{hash[:position].to_i})."
+      output "Own binlog coordinates are (#{hash[:file]}, #{hash[:position].to_i})." if display_info
       [hash[:file], hash[:position].to_i]
     end
     

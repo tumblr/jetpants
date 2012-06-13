@@ -152,17 +152,35 @@ module Jetpants
     # of returning a string, so that you can invoke something like:
     #    Jetpants.topology.pools.each &:summary 
     # to easily display a summary.
-    def summary(with_binlog_info=false)
+    def summary(extended_info=false)
       probe
-      if @aliases.count > 0
-        alias_text = '  (aliases: ' + @aliases.join(', ') + ')'
+
+      alias_text = @aliases.count > 0 ? '  (aliases: ' + @aliases.join(', ') + ')' : ''
+      data_size = @master.available? ? "[#{master.data_set_size(true)}GB]" : ''
+      print "#{name}#{alias_text}  #{data_size}\n"
+      
+      if extended_info
+        details = {}
+        nodes.concurrent_each do |s|
+          if !s.available?
+            details[s] = {coordinates: 'unknown', lag: 'N/A'}
+          elsif s == @master
+            details[s] = {coordinates: s.binlog_coordinates(false), lag: 'N/A'}
+          else
+            details[s] = {coordinates: s.repl_binlog_coordinates(false), lag: s.seconds_behind_master.to_s + 's'}
+          end
+        end
       end
-      print "#{name}#{alias_text}  [#{master.data_set_size(true)}GB]\n"
-      print "\tmaster          = %-13s #{master.hostname}\n" % @master.ip
+      
+      binlog_pos = extended_info ? details[@master][:coordinates].join(':') : ''
+      print "\tmaster          = %-13s %-30s %s\n" % [@master.ip, @master.hostname, binlog_pos]
+      
       [:active, :standby, :backup].each do |type|
         slave_list = slaves(type)
-        slave_list.each_with_index do |s, i|
-          print "\t%-7s slave #{i + 1} = %-13s #{s.hostname}\n" % [type, s.ip]
+        slave_list.sort.each_with_index do |s, i|
+          binlog_pos = extended_info ? details[s][:coordinates].join(':') : ''
+          slave_lag = extended_info ? "lag=#{details[s][:lag]}" : ''
+          print "\t%-7s slave #{i + 1} = %-13s %-30s %-26s %s\n" % [type, s.ip, s.hostname, binlog_pos, slave_lag]
         end
       end
       true
