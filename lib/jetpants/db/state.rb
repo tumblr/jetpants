@@ -158,7 +158,7 @@ module Jetpants
     def role
       p = pool
       case
-      when !@master && has_slaves? then :master
+      when !@master then :master
       when for_backups? then :backup_slave
       when p && p.active_slave_weights[self] then :active_slave # if pool in topology, determine based on expected/ideal state
       when !p && !is_standby? then :active_slave                # if pool missing from topology, determine based on actual state
