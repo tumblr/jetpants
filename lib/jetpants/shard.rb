@@ -225,9 +225,7 @@ module Jetpants
     
     # Exports data that should stay on this shard, drops and re-creates tables,
     # re-imports the data, and then adds slaves to the shard pool as needed.
-    # The optional stage param lets you skip some steps, but this is only really
-    # useful if you're running this manually and it failed part-way.
-    def rebuild!(stage=0)
+    def rebuild!
       # Sanity check
       raise "Cannot rebuild a shard that isn't still slaving from another shard" unless @master.is_slave?
       raise "Cannot rebuild an active shard" if in_config?
@@ -235,16 +233,14 @@ module Jetpants
       stop_query_killer
       tables = Table.from_config 'sharded_tables'
       
-      if stage <= 1
-        raise "Shard is not in the expected initializing or exporting states" unless [:initializing, :exporting].include? @state
+      if [:initializing, :exporting].include? @state
         @state = :exporting
         sync_configuration
         export_schemata tables
         export_data tables, @min_id, @max_id
       end
       
-      if stage <= 2
-        raise "Shard is not in the expected exporting or importing states" unless [:exporting, :importing].include? @state
+      if [:exporting, :importing].include? @state
         @state = :importing
         sync_configuration
         import_schemata!
@@ -253,8 +249,7 @@ module Jetpants
         start_query_killer
       end
       
-      if stage <= 3
-        raise "Shard is not in the expected importing or replicating states" unless [:importing, :replicating].include? @state
+      if [:importing, :replicating].include? @state
         enable_binary_logging
         restart_mysql
         @state = :replicating
@@ -263,6 +258,8 @@ module Jetpants
         enslave!(my_slaves)
         my_slaves.each {|slv| slv.resume_replication}
         [self, my_slaves].flatten.each {|db| db.catch_up_to_master}
+      else
+        raise "Shard not in a state compatible with calling rebuild! (current state=#{@state})"
       end
       
       @state = :child
