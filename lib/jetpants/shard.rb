@@ -169,7 +169,7 @@ module Jetpants
       
       init_children(pieces) unless @children.count > 0
       
-      @children.concurrent_each {|c| c.stop_query_killer; c.disable_binary_logging}
+      @children.concurrent_each {|c| c.disable_binary_logging}
       clone_to_children!
       @children.concurrent_each {|c| c.rebuild!}
       @children.each {|c| c.sync_configuration}
@@ -232,6 +232,7 @@ module Jetpants
       raise "Cannot rebuild a shard that isn't still slaving from another shard" unless @master.is_slave?
       raise "Cannot rebuild an active shard" if in_config?
       
+      stop_query_killer
       tables = Table.from_config 'sharded_tables'
       
       if stage <= 1
