@@ -23,7 +23,9 @@ These commands change the type of a slave, or promote a slave to be a master.  <
 
 <b><tt>jetpants promotion</tt></b> changes which node in a pool is the master by performing a full MySQL master promotion. This is usable even if the old master is offline or unavailable. All nodes in the pool will now slave off of the new master. If the old master is online/available, it will become a standby slave of the new master.
 
-Please note that the master promotion process enables global READ_ONLY mode on the old master. This is a required step of the standard MySQL master promotion technique. After doing a promotion in \Jetpants, you'll need to update/deploy your application's configuration as quickly as possible, if a plugin doesn't do it automatically for you.
+Please note that the master promotion process enables global READ_ONLY mode on the old master. This is a required step of the most generic MySQL master promotion technique. After doing a promotion in \Jetpants, you'll need to update/deploy your application's configuration as quickly as possible, if a plugin doesn't do it automatically for you.
+
+Be aware that if the old master is offline/unavailable and the pool's slaves have replicated different amounts of data (ie, their relay logs progressed to different points at the exact moment the old master died), <tt>jetpants promotion</tt> may result in minor data inconsistencies (a couple seconds of writes) because these lost transactions are not automatically replayed on slaves that missed them. You can manually replay them using <tt>mysqlbinlog</tt>; this process is difficult to automate, which is why Jetpants and many other promotion tools do not do so. This may be implemented in a future release.
 
 <b><tt>jetpants activate_slave</tt></b> turns a standby slave into an active slave. Use this if you want to generate an app configuration that now sends read queries to a slave that formerly did not receive them.
 

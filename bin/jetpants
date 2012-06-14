@@ -64,13 +64,13 @@ module Jetpants
         if demoted.available?
           error 'Cannot demote a node that has no slaves!' unless demoted.has_slaves?
         else
-          inform "unable to connect to node #{demoted} to demote"
-          error  "unable to perform promotion" unless agree "please confirm that #{demoted} is offline: yes/no "
+          inform "Unable to connect to node #{demoted} to demote"
+          error  "Unable to perform promotion" unless agree "Please confirm that #{demoted} is offline [yes/no]: "
           
           # An asset-tracker plugin may have been populated the slave list anyway
           if !demoted.slaves || demoted.slaves.count < 1
-            replicas = ask "please enter a comma-seperated list of IP addresses of all current replicas of #{demoted}: ", lambda {|replicas| replicas.split /,\s*/}
-            error "user supplied list of replicas appears to be invalid - #{replicas}" unless replicas.all? {|replica| is_ip? replica}
+            replicas = ask "Please enter a comma-seperated list of IP addresses of all current replicas of #{demoted}: ", lambda {|replicas| replicas.split /,\s*/}
+            error "User supplied list of replicas appears to be invalid - #{replicas}" unless replicas.all? {|replica| is_ip? replica}
             demoted.instance_eval {@slaves = replicas.map &:to_db}
             demoted.slaves.each do |replica|
               # Validate that they are really slaves of demoted
@@ -82,6 +82,7 @@ module Jetpants
       
       puts
       inform "Summary of affected pool"
+      inform "Binary log positions and slave lag are just a snapshot; expect minor differences from normal operation" if demoted.available?
       puts
       demoted.pool(true).summary(true)
       puts
@@ -90,7 +91,7 @@ module Jetpants
         if demoted.available?
           inform "Recommendation: promote the standby slave with the highest binary log coordinates"
         else
-          inform "Recommendation: promote the slave with the highest binary log coordinates, regardless of slave type"
+          inform "Recommendation: promote the standby slave or active slave with the highest binary log coordinates"
         end
         promoted = ask_node 'Please enter the IP address of the node to promote: '
       end
