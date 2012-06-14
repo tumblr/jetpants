@@ -163,7 +163,7 @@ module Jetpants
         details = {}
         nodes.concurrent_each do |s|
           if !s.running?
-            details[s] = {coordinates: 'unknown', lag: 'N/A'}
+            details[s] = {coordinates: ['unknown'], lag: 'N/A'}
           elsif s == @master
             details[s] = {coordinates: s.binlog_coordinates(false), lag: 'N/A'}
           else
@@ -212,10 +212,10 @@ module Jetpants
       # Demoted machine not available -- wait for slaves' binlogs to stop moving
       else
         demoted.slaves.concurrent_each do |s|
-          coordinates = s.repl_binlog_coordinates
+          progress = s.repl_binlog_coordinates
           while true do
             sleep 1
-            break if s.repl_binlog_coordinates(false) == coordinates
+            break if s.repl_binlog_coordinates == progress
             s.output "Still catching up on replication"
           end
         end
