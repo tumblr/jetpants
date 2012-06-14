@@ -156,13 +156,13 @@ module Jetpants
       probe
 
       alias_text = @aliases.count > 0 ? '  (aliases: ' + @aliases.join(', ') + ')' : ''
-      data_size = @master.available? ? "[#{master.data_set_size(true)}GB]" : ''
+      data_size = @master.running? ? "[#{master.data_set_size(true)}GB]" : ''
       print "#{name}#{alias_text}  #{data_size}\n"
       
       if extended_info
         details = {}
         nodes.concurrent_each do |s|
-          if !s.available?
+          if !s.running?
             details[s] = {coordinates: 'unknown', lag: 'N/A'}
           elsif s == @master
             details[s] = {coordinates: s.binlog_coordinates(false), lag: 'N/A'}
@@ -196,7 +196,7 @@ module Jetpants
       
       # If demoted machine is available, confirm it is read-only and binlog isn't moving,
       # and then wait for slaves to catch up to this position
-      if demoted.available?
+      if demoted.running?
         demoted.enable_read_only! unless demoted.read_only?
         raise "Unable to enable global read-only mode on demoted machine" unless demoted.read_only?
         coordinates = demoted.binlog_coordinates
@@ -237,7 +237,7 @@ module Jetpants
       
       # gather our new replicas
       replicas.delete promoted
-      replicas << demoted if demoted.available?
+      replicas << demoted if demoted.running?
       
       # perform promotion
       replicas.each do |r|

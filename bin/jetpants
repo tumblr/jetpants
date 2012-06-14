@@ -63,7 +63,7 @@ module Jetpants
         demoted.probe
       else
         demoted = ask_node 'Please enter the IP address of the node to demote:'
-        if demoted.available?
+        if demoted.running?
           error 'Cannot demote a node that has no slaves!' unless demoted.has_slaves?
         else
           inform "Unable to connect to node #{demoted} to demote"
@@ -86,13 +86,13 @@ module Jetpants
       
       puts
       inform "Summary of affected pool"
-      inform "Binary log positions and slave lag shown below are just a snapshot taken at the current time." if demoted.available?
+      inform "Binary log positions and slave lag shown below are just a snapshot taken at the current time." if demoted.running?
       puts
       demoted.pool(true).summary(true)
       puts
       
       unless promoted
-        if demoted.available?
+        if demoted.running?
           inform "Recommendation: promote the standby slave with the highest binary log coordinates"
         else
           inform "Recommendation: promote the standby slave or active slave with the highest binary log coordinates"
