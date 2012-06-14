@@ -103,6 +103,12 @@ module Jetpants
       error "Aborting." unless agree "Proceed? [yes/no]: "
       demoted.pool(true).master_promotion! promoted
     end
+    def self.after_promotion
+      reminders(
+        'Commit/push the configuration in version control.',
+        'Deploy the configuration to all machines.',
+      )
+    end
     
     
     desc 'show_slaves', 'show the current slaves of a master'

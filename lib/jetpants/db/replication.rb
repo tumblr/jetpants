@@ -37,7 +37,7 @@ module Jetpants
         "MASTER_USER='#{repl_user}', " + 
         "MASTER_PASSWORD='#{repl_pass}'"
       
-      output "Changing master to #{new_master} with coordinates (#{logfile}, #{pos}): #{result}"
+      output "Changing master to #{new_master} with coordinates (#{logfile}, #{pos}). #{result}"
       @master.slaves.delete(self) if @master rescue nil
       @master = new_master
       @repl_paused = true
@@ -67,7 +67,7 @@ module Jetpants
     def disable_replication!
       raise "This DB object has no master" unless master
       output "Disabling replication; this db is no longer a slave."
-      output mysql_root_cmd "STOP SLAVE; RESET SLAVE"
+      output mysql_root_cmd "CHANGE MASTER TO master_host=''; STOP SLAVE; RESET SLAVE"
       @master.slaves.delete(self) rescue nil
       @master = nil
       @repl_paused = nil

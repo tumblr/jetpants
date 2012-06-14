@@ -204,7 +204,7 @@ module Jetpants
         demoted.slaves.concurrent_each do |s|
           while true do
             sleep 1
-            break if s.repl_binlog_coordinates == cordinates
+            break if s.repl_binlog_coordinates == coordinates
             output "Still catching up to coordinates of demoted master"
           end
         end
@@ -222,7 +222,7 @@ module Jetpants
       end
       
       # Stop replication on all slaves
-      replicas = demoted.slaves
+      replicas = demoted.slaves.dup
       replicas.each do |s|
         s.pause_replication if s.replicating?
       end
