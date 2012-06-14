@@ -200,11 +200,24 @@ module Jetpants
         demoted.enable_read_only! unless demoted.read_only?
         raise "Unable to enable global read-only mode on demoted machine" unless demoted.read_only?
         coordinates = demoted.binlog_coordinates
-        sleep 1
         raise "Demoted machine still taking writes (from superuser or replication?) despite being read-only" unless coordinates == demoted.binlog_coordinates
-        until demoted.slaves.all? {|s| s.repl_binlog_coordinates == coordinates} do
-          output 'Still waiting for all slaves to catch up to master coordinates...'
-          sleep 1
+        demoted.slaves.concurrent_each do |s|
+          while true do
+            sleep 1
+            break if s.repl_binlog_coordinates == cordinates
+            output "Still catching up to coordinates of demoted master"
+          end
+        end
+      
+      # Demoted machine not available -- wait for slaves' binlogs to stop moving
+      else
+        demoted.slaves.concurrent_each do |s|
+          coordinates = s.repl_binlog_coordinates
+          while true do
+            sleep 1
+            break if s.repl_binlog_coordinates(false) == coordinates
+            s.output "Still catching up on replication"
+          end
         end
       end
       

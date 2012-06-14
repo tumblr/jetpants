@@ -60,7 +60,7 @@ module Jetpants
       end
       
       unless demoted
-        demoted = ask_node 'Please enter the node to demote:'
+        demoted = ask_node 'Please enter the IP address of the node to demote:'
         if demoted.available?
           error 'Cannot demote a node that has no slaves!' unless demoted.has_slaves?
         else
