@@ -84,6 +84,7 @@ module Jetpants
     def enslave!(targets, repl_user=false, repl_pass=false)
       repl_user ||= (Jetpants.replication_credentials[:user] || replication_credentials[:user])
       repl_pass ||= (Jetpants.replication_credentials[:pass] || replication_credentials[:pass])
+      disable_monitoring
       pause_replication if master && ! @repl_paused
       file, pos = binlog_coordinates
       clone_to!(targets)
@@ -95,6 +96,7 @@ module Jetpants
                             password: repl_pass  )
       end
       resume_replication if @master # should already have happened from the clone_to! restart anyway, but just to be explicit
+      enable_monitoring
     end
     
     # Wipes out the target instances and turns them into slaves of self's master.
