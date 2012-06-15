@@ -67,7 +67,7 @@ module Jetpants
     def disable_replication!
       raise "This DB object has no master" unless master
       output "Disabling replication; this db is no longer a slave."
-      output mysql_root_cmd "CHANGE MASTER TO master_host=''; STOP SLAVE; RESET SLAVE"
+      output mysql_root_cmd "STOP SLAVE; CHANGE MASTER TO master_host=''; RESET SLAVE"
       @master.slaves.delete(self) rescue nil
       @master = nil
       @repl_paused = nil
