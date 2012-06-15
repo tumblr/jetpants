@@ -149,7 +149,8 @@ module Jetpants
     # as reported by SHOW SLAVE STATUS.
     def seconds_behind_master
       raise "This instance is not a slave" unless master
-      slave_status[:seconds_behind_master].to_i
+      lag = slave_status[:seconds_behind_master]
+      lag == 'NULL' ? nil : lag.to_i
     end
     
     # Waits for this instance's SECONDS_BEHIND_MASTER to reach 0 and stay at
@@ -175,6 +176,10 @@ module Jetpants
             return true
           end
           sleep poll_frequency
+        elsif lag.nil?
+          resume_replication
+          sleep 1
+          raise "Unable to restart replication" if seconds_behind_master.nil?
         else
           output "Currently #{lag} seconds behind master."
           times_at_zero = 0
