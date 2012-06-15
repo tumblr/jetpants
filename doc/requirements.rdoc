@@ -6,10 +6,11 @@ Plugins may freely override these assumptions, and upstream patches are very wel
 
 == Environment
 
-* Using MySQL (or Percona Server), specifically version 5.1 or higher.
-* Using a RHEL/CentOS distribution of Linux.
+* Ruby 1.9.2 or higher
+* MySQL (or Percona Server), specifically version 5.1 or higher.
+* a RHEL/CentOS distribution of Linux.
   * It should be easy to write a plugin supporting another distribution. The main change might be overriding Jetpants::Host#service, if your distribution doesn't have <tt>/sbin/service</tt>.
-* Using InnoDB / Percona XtraDB for storage engine. \Jetpants has not been tested with MyISAM, since \Jetpants is geared towards huge tables, and MyISAM is generally a bad fit.
+* InnoDB / Percona XtraDB for storage engine. \Jetpants has not been tested with MyISAM, since \Jetpants is geared towards huge tables, and MyISAM is generally a bad fit.
 * All MySQL instances run on port 3306, with only one instance per logical machine.
   * A plugin could override this easily, but would require you to use the --report-host option on all slaves, so that crawling the replication topology is possible. It would also have to override various methods that specify the MySQL init script location, config file location, data directory, etc.
   * Since there's no "standard" layout for multi-instance MySQL, this won't ever be part of the \Jetpants core, but we may include one implementation as a bundled plugin in a future release.

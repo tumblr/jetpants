@@ -1,0 +1,32 @@
+= Frequently Asked Questions
+
+== Is Jetpants a server? How do I connect to it?
+
+\Jetpants is an automation toolkit, not a server. In this way it differs from most other large-scale MySQL sharding solutions, which tend to be middleware/proxy servers.
+
+The benefit of a toolkit is that you can still leverage standard MySQL replication, still use InnoDB/XtraDB as a robust storage engine choice, etc. \Jetpants largely doesn't interfere with any of that, and instead just provides tools to help you manage a large MySQL topology and support a range-based sharding scheme.
+
+As a Ruby gem, \Jetpants also provides fully scriptable versions of all its command suite behaviors. This allows you to write any kind of customized automation or migration logic that you need. \Jetpants' plugin system lets you take this even further by providing an easy way to override the core functionality as needed. 
+
+Every large web site implements sharding slightly differently, and \Jetpants was built with this in mind. It tries to stay out of your way instead of forcing you down a particular implementation path.
+
+== What is a sharding key?
+
+== Why use range-based sharding? What are the alternatives?
+
+== Do you recommend maintain separate shard pools for each type of data?
+
+== What are standby slaves? Why run two of them per pool?
+
+== When should I split a shard?
+
+== How does Jetpants perform slave-cloning?
+
+== Why does so much of the command suite functionality require an asset tracker plugin?
+
+== Can I use Jetpants with PostgreSQL?
+
+== In the shard split process, why create the standby slaves AFTER doing the export / re-import?
+
+== In the cleanup stage of a shard split, why not just remove unwanted data with a single DELETE statement?
+
