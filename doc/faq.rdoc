@@ -1,32 +1,117 @@
 = Frequently Asked Questions
 
-== Is Jetpants a server? How do I connect to it?
+== Is \Jetpants a server? How do I connect to it?
 
 \Jetpants is an automation toolkit, not a server. In this way it differs from most other large-scale MySQL sharding solutions, which tend to be middleware/proxy servers.
 
 The benefit of a toolkit is that you can still leverage standard MySQL replication, still use InnoDB/XtraDB as a robust storage engine choice, etc. \Jetpants largely doesn't interfere with any of that, and instead just provides tools to help you manage a large MySQL topology and support a range-based sharding scheme.
 
-As a Ruby gem, \Jetpants also provides fully scriptable versions of all its command suite behaviors. This allows you to write any kind of customized automation or migration logic that you need. \Jetpants' plugin system lets you take this even further by providing an easy way to override the core functionality as needed. 
 
-Every large web site implements sharding slightly differently, and \Jetpants was built with this in mind. It tries to stay out of your way instead of forcing you down a particular implementation path.
+== Is \Jetpants still useful if my architecture isn't sharded?
+
+Potentially, since \Jetpants fully supports "global" pools, also known as "functional partitions". You can even use \Jetpants to help manage a standard single-pool MySQL topology (1 master and some number of slaves) for handling common operations like slave cloning and master promotions. That said, there are other tools that may be easier to use if your MySQL footprint is smaller than, say, a dozen machines.
+
+However, \Jetpants is also very useful as a Ruby library for performing arbitrary data migrations. It comes with methods for quickly importing and exporting large amounts of data, so it can be used for this purpose regardless of what your database topology looks like.
+
 
 == What is a sharding key?
 
-== Why use range-based sharding? What are the alternatives?
+A sharding key is a core foreign key column that is present in most of your large tables, which can be used to group your data into shards. For many sites this could be <tt>user_id</tt> or <tt>customer_id</tt>, but it depends entirely on your data model and access patterns.
 
-== Do you recommend maintain separate shard pools for each type of data?
+For example, on a blogging site the sharding key might be <tt>blog_id</tt>. Most tables that contain a <tt>blog_id</tt> column can be sharded, which will mean that all data related to a particular blog (posts, comments on those posts, authors, etc) is found on the same shard. By organizing data this way, you can continue to use relational operations such as JOIN when querying data that lives on the same shard.
 
-== What are standby slaves? Why run two of them per pool?
+Regardless of sharding key, some tables will not be shardable. This includes any "global" table that doesn't contain your sharding key column, as well as any tables that have global lookup patterns. For this reason you might not be able to shard the core table which has your sharding_key as its primary key! 
 
-== When should I split a shard?
+In other words: if your sharding key is <tt>user_id</tt>, you might not actually be able to shard your <tt>users</tt> table because you need to do global lookups (ie, by email address) on this table. Denormalization is a common work-around; you could split your users table into a "global lookup" portion in a global pool and an "extended data" portion that lives on shards.
+
+
+== What is range-based sharding? Why use it, and what are the alternatives?
+
+Range-based sharding groups data based on ranges of your sharding key. For example, with a sharding key of <tt>user_id</tt>, all sharded data for users 1-1000 may be on the first shard, users 1001-3000 on the second shard, and users 3001-infinity on the third and final shard. 
+
+The main benefit of range-based sharding is simplicity. You can express the shard ranges in a language-neutral format like YAML or JSON, and the code to route queries to the correct DB can be implemented in a trivially small amount of code. There's no need for a lookup service, so we avoid a single point of failure. It's also easy for a human to look at the ranges and figure out which DB to query when debugging a problem by hand.
+
+Rebalancing range-based shards can be accomplished quickly as long as the primary key of each table begins with the sharding key. InnoDB stores data in order of its primary key, which means it is extremely fast and efficient to dump out a portion of your data set based on a range of your sharding key.
+
+The main downside to the range-based approach is lack of even distribution of "hot" data. If a small handful of users on a given shard are using a disproportionate amount of resources, there's no way to move _only_ those users to a different shard. For this reason, range-based sharding can work best for "long-tail" sites where the majority of activity is created by the majority of common users.
+
+Some alternatives to the range-based approach include:
+
+* <b>Modulus or hash</b>: Apply a function to your sharding key to determine which shard the data lives on.
+
+  This approach helps to distribute data very evenly. Many sites find that their latest users behave differently than their oldest users, so grouping users together by ranges of ID (essentially ranges of account creation date) can be problematic.  Using a modulus or hash avoids this problem.
+  
+  The main issue with this approach is how to rebalance shards that are too large. A simple modulus can't do this unless you want to simultaneously split all of your shards in half, which leads to painful exponential growth. A hash function can be more versatile but can still lead to great complexity. Worse yet, there's no way to rebalance _quickly_ because data is not stored on disk in sorted order based on the hash function.
+  
+* <b>Lookup table</b>: Use a separate service or data store which takes a sharding key value as an input and returns the appropriate shard as an output.
+
+  This scheme allows you to very specifically allocate particular data to shards, and works well for sites that have a lot of "hot" data from celebrity users. However, the lookup service is essentially a single point of failure, which counteracts many of the attractive features of sharded architectures. Rebalancing can also be slow and tricky, since you need a notion of "locking" a sharding key value while its rows are being migrated.
+
 
 == How does Jetpants perform slave-cloning?
 
+Jetpants clones slaves by stopping replication, shutting down the MySQL daemon, and then copying the raw files to the destination(s). This is the fastest way to get a consistent clone of a data set in MySQL. After the copy operation is complete, we start MySQL back up on the source and destinations, and then make the destination instances start slaving at the appropriate binlog coordinates.
+
+We perform the copy operation using a combination of tar (for archiving), pigz (for fast compression), and nc (for transferring the data over the network). If there are multiple destinations, we create a serial "copy chain" using tee and a fifo.
+
+Please note that we don't encrypt the data in this process, so we assume you are using it on a private LAN or over a VPN tunnel.
+
+Because this process shuts down MySQL, you can only use it on a standby slave. Never use it on a machine that is actively taking queries from your application. If you need to do that, use a hot-copy solution instead.
+
+
+== What are standby slaves? Why run two of them per pool?
+
+Standby slaves are standard MySQL replicas that your application doesn't send queries to. We recommend maintaining exactly 2 standby slaves in every single pool/shard for high availability reasons:
+
+* If a pool's master fails, you promote one standby slave to be the new master, and use the second standby slave to clone a replacement for the first standby slave.
+
+* If an active slave fails, promote one standby slave to be a new active slave in its place, and use the second standby slave to clone a replacement for the first.
+
+* If a standby slave fails, use the other standby slave to clone a replacement.
+
+In other words: as long as you have two standbys, you can recover from a single failure quickly, without needing to do a hot-copy (which is much slower). Faster recovery time = less time in a degraded state = lower chance that a second failure will occur while the pool is already degraded.
+
+Resist the temptation to send any queries from your application to your standby slaves. If your application's read requirements are high enough to require additional nodes, create more active slaves as needed, but don't repurpose the standbys without replacing them. Otherwise, if a machine fails, you'd no longer have enough capacity to serve normal traffic load or no longer have a way to quickly spin up replacement nodes.
+
+You can, however, use your standby slaves for creating backups, running ad-hoc batch/analytic queries, etc. You can also make _one_ of your standby slaves be a weaker class of hardware if desired, and just take care to only use that node for cloning slaves, never for directly promoting. \Jetpants supports this, and considers this type of slave to be a "backup slave".
+
+
+== When should I split a shard?
+
+Typically when some individual component on the shard's master is getting close to being full/saturated:
+
+* Disk is getting full, in terms of capacity -- 80%+ impacts performance for SSDs and eventually for most filesystems as well
+* Disk utilization (ie, what <tt>iostat</tt> shows you) is reaching 90%+
+* Network utilization is approaching your link's saturation point
+
+Depending on your type of disk and amount of RAM, you may find that the first two may happen at roughly the same time. An increasingly large data set usually means your working set will exceed your amount of memory, so InnoDB's cache hit rate starts to drop, and your disk utilization starts creeping upwards.
+
+
 == Why does so much of the command suite functionality require an asset tracker plugin?
+
+For any given operation that requires an asset tracker, there's one of two reasons:
+
+* The operation involves juggling a lot of servers. For example, a shard split needs to be able to obtain a minimum of 6 spare MySQL instances, and eventually turns the original shard's 3 MySQL instances into spares. Doing this kind of operation without an automated asset tracker can easily lead to major human error.
+
+* The operation inherently involves generating a new configuration for your application -- for example, setting a shard to read-only or promoting a standby slave to an active slave. These operations are meaningless outside of your application, since MySQL has no notion of "standby slave" or "degraded shard". \Jetpants has a notion of these things, but needs to persist the information somewhere, and it makes more sense to have \Jetpants relay this information to an external hardware management tool rather than maintain a separate (and potentially conflicting) source of truth.
+
+If you have enough servers to be using a sharded architecture, you hopefully already have some sort of hardware management / asset tracker system in place. \Jetpants is designed to be integrated with this system, but since every site runs something different, this requires that you write some custom plugin code to achieve.
+
 
 == Can I use Jetpants with PostgreSQL?
 
+The core functionality is currently very MySQL-specific. In theory a plugin could override a bunch of methods to target Postgres, and maybe even Redis or other persistent data stores with replication and import/export functionality. This would be a substantial effort though.
+
+At present, several methods have "mysql" in the name. These may change to more generic names in an upcoming release; in this case the old names will still be available as aliases to the new ones.
+
+
 == In the shard split process, why create the standby slaves AFTER doing the export / re-import?
+
+We do this to avoid replicating the LOAD DATA INFILE statements. Because MySQL replication is single-threaded, these statements won't execute in parallel on slaves, so the import process would be substantially slower.  Instead, we create the new shard masters, do the export/import dance on those instances, and THEN clone their final data set to 2 new standby slaves each.
+
+This also allows us to disable binary logging during the import process, which is a very noticeable speed enhancement.
+
 
 == In the cleanup stage of a shard split, why not just remove unwanted data with a single DELETE statement?
 
+Because MySQL replication is single-threaded, it's a bad idea to execute single write queries that impact thousands of rows, since these will cause slaves to lag. Giant transactions are also not ideal in general due to how MVCC and rollbacks work in InnoDB.

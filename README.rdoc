@@ -66,6 +66,12 @@ Other recommended uses of plugins include integration with your site's monitorin
 
 For more information on how to write plugins and use the Jetpants::CallbackHandler system, please see doc/plugins.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/plugins.rdoc])
 
+== FREQUENTLY ASKED QUESTIONS:
+
+Please see doc/faq.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/faq.rdoc]) for answers to common questions.
+
+If you have a question that isn't covered here, please feel free to email the authors at the addresses listed in jetpants.gemspec.
+
 == CREDITS:
 
 * <b>Evan Elias</b>: Lead developer. Core class implementations, shard split logic, plugin system
