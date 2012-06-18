@@ -68,19 +68,21 @@ module Jetpants
     # been split.
     def revoke_all_access!
       user_name = Jetpants.app_credentials[:user]
-      output("Revoking access for user #{user_name} and setting global read-only.")
-      read_only!
+      enable_read_only!
+      output "Revoking access for user #{user_name}."
       output(drop_user(user_name, true)) # drop the user without replicating the drop statement to slaves
     end
     
     # Enables global read-only mode on the database.
-    def read_only!
+    def enable_read_only!
+      output "Enabling global read_only mode"
       mysql_root_cmd 'SET GLOBAL read_only = 1' unless read_only?
       read_only?
     end
     
     # Disables global read-only mode on the database.
     def disable_read_only!
+      output "Disabling global read_only mode"
       mysql_root_cmd 'SET GLOBAL read_only = 0' if read_only?
       not read_only?
     end

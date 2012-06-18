@@ -1,9 +1,7 @@
 #!/usr/bin/env ruby
 jetpants_base_dir = File.expand_path(File.dirname(__FILE__) + '/..')
 $:.unshift File.join(jetpants_base_dir, 'lib')
-%w[thor pry state_machine highline/import terminal-table colored].each {|g| require g}
-# load tasks
-Dir[File.join jetpants_base_dir, 'tasks', '**'].each {|f| require f}
+%w[thor pry highline/import terminal-table colored].each {|g| require g}
 
 module Jetpants
 
@@ -28,6 +26,7 @@ module Jetpants
       self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
     end
     
+    
     desc 'console', 'Jetpants interactive console'
     def console
       Jetpants.pry
@@ -42,13 +41,82 @@ module Jetpants
       print "\n#{message}\n\n"
     end
     
-    desc 'promotion', 'perform a master promotion'
+    
+    desc 'promotion', 'perform a master promotion, changing which node is the master of a pool'
     method_option :demote,  :desc => 'node to demote'
     method_option :promote, :desc => 'node to promote'
     def promotion
-      Tasks::Promotion.new(options)
+      # It's not uncommon for the demoted master to be an offline/unavailable node, so relax Jetpants' normal
+      # checks regarding replication threads being in different states.
+      Jetpants.verify_replication = false
+      
+      promoted = options[:promote] ? options[:promote].to_db : nil
+      demoted  = options[:demote]  ? options[:demote].to_db  : nil
+      
+      if promoted && !demoted
+        error "Node to promote #{promoted} is not a slave" unless promoted.is_slave?
+        demoted = promoted.master
+        inform "Will demote #{demoted}, the master of specified promoted node #{promoted}."
+      end
+      
+      if demoted
+        demoted.probe
+      else
+        demoted = ask_node 'Please enter the IP address of the node to demote:'
+        if demoted.running?
+          error 'Cannot demote a node that has no slaves!' unless demoted.has_slaves?
+        else
+          inform "Unable to connect to node #{demoted} to demote"
+          error  "Unable to perform promotion" unless agree "Please confirm that #{demoted} is offline [yes/no]: "
+          
+          # An asset-tracker plugin may have been populated the slave list anyway
+          if demoted.slaves && demoted.slaves.count > 0
+            demoted.slaves.each {|s| s.probe}
+          else
+            replicas = ask("Please enter a comma-seperated list of IP addresses of all current replicas of #{demoted}: ").split /\s*,\s*/
+            error "No replicas entered" unless replicas && replicas.count > 0
+            error "User supplied list of replicas appears to be invalid - #{replicas}" unless replicas.all? {|replica| is_ip? replica}
+            demoted.instance_eval {@slaves = replicas.map &:to_db}
+            demoted.slaves.each do |replica|
+              # Validate that they are really slaves of demoted
+              error "#{replica} does not appear to be a valid replica of #{demoted}" unless replica.master == demoted
+            end
+          end
+        end
+      end
+      
+      puts
+      inform "Summary of affected pool"
+      inform "Binary log positions and slave lag shown below are just a snapshot taken at the current time." if demoted.running?
+      puts
+      demoted.pool(true).summary(true)
+      puts
+      
+      unless promoted
+        if demoted.running?
+          inform "Recommendation: promote the standby slave with the highest binary log coordinates"
+        else
+          inform "Recommendation: promote the standby slave or active slave with the highest binary log coordinates"
+        end
+        promoted = ask_node 'Please enter the IP address of the node to promote: '
+      end
+      
+      error "Unable to determine a node to demote and a node to promote" unless demoted.kind_of?(Jetpants::DB) && promoted.kind_of?(Jetpants::DB)
+      error "Node to promote #{promoted} is not a slave of node to demote #{demoted}" unless promoted.master == demoted
+      error "Cannot promote a backup slave. Please choose another." if promoted.for_backups?
+      
+      inform "Going to DEMOTE existing master #{demoted} and PROMOTE new master #{promoted}."
+      error "Aborting." unless agree "Proceed? [yes/no]: "
+      demoted.pool(true).master_promotion! promoted
     end
-
+    def self.after_promotion
+      reminders(
+        'Commit/push the configuration in version control.',
+        'Deploy the configuration to all machines.',
+      )
+    end
+    
+    
     desc 'show_slaves', 'show the current slaves of a master'
     method_option :node, :desc => 'node to query for slaves'
     def show_slaves
@@ -70,7 +138,8 @@ module Jetpants
         inform "node (#{node}) currently has no slaves."
       end
     end
-
+    
+    
     desc 'show_master', 'show the current master of a node'
     method_option :node, :desc => 'node to query for master'
     method_option :siblings, :desc => 'show nodes current slave siblings'
@@ -97,7 +166,8 @@ module Jetpants
         inform "node (#{node}) does not appear to be a slave"
       end
     end
-
+    
+    
     desc 'node_info', 'show information about a given node'
     method_option :node, :desc => 'node to query for information'
     def node_info
@@ -146,10 +216,12 @@ module Jetpants
       end
     end
     
+    
     desc 'regen_config', 'regenerate the application configuration'
     def regen_config
       Jetpants.topology.write_config
     end
+    
     
     desc 'clone_slave', 'clone a standby slave'
     method_option :source, :desc => 'IP of node to clone from'
@@ -180,6 +252,7 @@ module Jetpants
       )
     end
     
+    
     desc 'activate_slave', 'turn a standby slave into an active slave'
     method_option :node, :desc => 'IP of standby slave to activate'
     def activate_slave
@@ -195,8 +268,10 @@ module Jetpants
       Jetpants.topology.write_config
     end
     
+    
     desc 'weigh_slave', 'change the weight of an active slave'
     alias :weigh_slave :activate_slave
+    
     
     desc 'pull_slave', 'turn an active slave into a standby slave'
     method_option :node, :desc => 'IP of active slave to pull'
@@ -208,6 +283,7 @@ module Jetpants
       node.pool.mark_slave_standby(node)
       Jetpants.topology.write_config
     end
+    
     
     desc 'destroy_slave', 'remove a standby slave from its pool'
     method_option :node, :desc => 'IP of standby slave to remove'
@@ -221,6 +297,7 @@ module Jetpants
       node.pool.remove_slave!(node)
     end
     
+    
     desc 'rebuild_slave', 'export and re-import data set on a standby slave'
     method_option :node, :desc => 'IP of standby slave to rebuild'
     def rebuild_slave
@@ -233,6 +310,7 @@ module Jetpants
       node.rebuild!
     end
     
+    
     desc 'shard_read_only', 'mark a shard as read-only'
     method_option :min_id, :desc => 'Minimum ID of shard to mark as read-only'
     def shard_read_only
@@ -243,6 +321,7 @@ module Jetpants
       s.sync_configuration
       Jetpants.topology.write_config
     end
+    
     
     desc 'shard_offline', 'mark a shard as offline (not readable or writable)'
     method_option :min_id, :desc => 'Minimum ID of shard to mark as offline'
@@ -255,6 +334,7 @@ module Jetpants
       Jetpants.topology.write_config
     end
     
+    
     desc 'shard_online', 'mark a shard as fully online (readable and writable)'
     method_option :min_id, :desc => 'Minimum ID of shard to mark as fully online'
     def shard_online
@@ -265,6 +345,7 @@ module Jetpants
       s.sync_configuration
       Jetpants.topology.write_config
     end
+    
     
     desc 'shard_split', 'shard split step 1 of 4: spin up child pools with different portions of data set'
     method_option :min_id, :desc => 'Minimum ID of parent shard to split'
@@ -315,6 +396,7 @@ module Jetpants
       )
     end
     
+    
     # This step is only really necessary if asset-tracker changes don't immediately reflect in application configuration.
     # (ie, if app configuration is a static file that needs to be deployed to webs.)
     desc 'shard_split_child_reads', 'shard split step 2 of 4: move reads to child shards'
@@ -329,6 +411,7 @@ module Jetpants
         'Proceed to next step: jetpants shard_split_child_writes'
       )
     end
+    
     
     desc 'shard_split_child_writes', 'shard split step 3 of 4: move writes to child shards'
     method_option :min_id, :desc => 'Minimum ID of parent shard being split'
@@ -351,6 +434,7 @@ module Jetpants
       )
     end
     
+    
     desc 'shard_split_cleanup', 'shard split step 4 of 4: clean up data that replicated to wrong shard'
     method_option :min_id, :desc => 'Minimum ID of parent shard being split'
     method_option :max_id, :desc => 'Maximum ID of parent shard being split'
@@ -367,6 +451,7 @@ module Jetpants
         'Review old nodes for hardware issues before re-using, or simply cancel them.',
       )
     end
+    
     
     desc 'shard_cutover', 'truncate the current last shard range, and add a new shard after it'
     method_option :cutover_id, :desc => 'Minimum ID of new last shard being created'
@@ -412,6 +497,7 @@ module Jetpants
       )
     end
     
+    
     no_tasks do
       def is_ip? address
         address =~ /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/
@@ -423,6 +509,12 @@ module Jetpants
 
       def inform message
         puts message.blue
+      end
+      
+      def ask_node(prompt)
+        node = ask prompt
+        error "Node (#{node}) does not appear to be an IP address." unless is_ip? node
+        node.to_db
       end
     end
     

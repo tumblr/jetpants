@@ -37,7 +37,7 @@ module Jetpants
         "MASTER_USER='#{repl_user}', " + 
         "MASTER_PASSWORD='#{repl_pass}'"
       
-      output "Changing master to #{new_master} with coordinates (#{logfile}, #{pos}): #{result}"
+      output "Changing master to #{new_master} with coordinates (#{logfile}, #{pos}). #{result}"
       @master.slaves.delete(self) if @master rescue nil
       @master = new_master
       @repl_paused = true
@@ -67,7 +67,7 @@ module Jetpants
     def disable_replication!
       raise "This DB object has no master" unless master
       output "Disabling replication; this db is no longer a slave."
-      output mysql_root_cmd "STOP SLAVE; RESET SLAVE"
+      output mysql_root_cmd "STOP SLAVE; CHANGE MASTER TO master_host=''; RESET SLAVE"
       @master.slaves.delete(self) rescue nil
       @master = nil
       @repl_paused = nil
@@ -84,6 +84,7 @@ module Jetpants
     def enslave!(targets, repl_user=false, repl_pass=false)
       repl_user ||= (Jetpants.replication_credentials[:user] || replication_credentials[:user])
       repl_pass ||= (Jetpants.replication_credentials[:pass] || replication_credentials[:pass])
+      disable_monitoring
       pause_replication if master && ! @repl_paused
       file, pos = binlog_coordinates
       clone_to!(targets)
@@ -95,6 +96,7 @@ module Jetpants
                             password: repl_pass  )
       end
       resume_replication if @master # should already have happened from the clone_to! restart anyway, but just to be explicit
+      enable_monitoring
     end
     
     # Wipes out the target instances and turns them into slaves of self's master.
@@ -138,10 +140,10 @@ module Jetpants
     # database. Only useful when called on a master. This is the current
     # instance's own binlog coordinates, NOT the coordinates of replication
     # progress on a slave!
-    def binlog_coordinates
+    def binlog_coordinates(display_info=true)
       hash = mysql_root_cmd('SHOW MASTER STATUS', :parse=>true)
       raise "Cannot obtain binlog coordinates of this master becaues binary logging is not enabled" unless hash[:file]
-      output "Own binlog coordinates are (#{hash[:file]}, #{hash[:position].to_i})."
+      output "Own binlog coordinates are (#{hash[:file]}, #{hash[:position].to_i})." if display_info
       [hash[:file], hash[:position].to_i]
     end
     
@@ -149,7 +151,8 @@ module Jetpants
     # as reported by SHOW SLAVE STATUS.
     def seconds_behind_master
       raise "This instance is not a slave" unless master
-      slave_status[:seconds_behind_master].to_i
+      lag = slave_status[:seconds_behind_master]
+      lag == 'NULL' ? nil : lag.to_i
     end
     
     # Waits for this instance's SECONDS_BEHIND_MASTER to reach 0 and stay at
@@ -175,6 +178,10 @@ module Jetpants
             return true
           end
           sleep poll_frequency
+        elsif lag.nil?
+          resume_replication
+          sleep 1
+          raise "Unable to restart replication" if seconds_behind_master.nil?
         else
           output "Currently #{lag} seconds behind master."
           times_at_zero = 0

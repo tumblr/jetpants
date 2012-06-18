@@ -61,6 +61,7 @@ module Jetpants
       probe_running
       probe_master
       probe_slaves
+      self
     end
     
     # Alias for probe(true)
@@ -144,10 +145,34 @@ module Jetpants
     end
 
     # Returns the Jetpants::Pool that this instance belongs to, if any.
-    def pool
-      Jetpants.topology.pool(self) || Jetpants.topology.pool(master)
+    # Can optionally create an anonymous pool if no pool was found. This anonymous
+    # pool intentionally has a blank sync_configuration implementation.
+    def pool(create_if_missing=false)
+      result = Jetpants.topology.pool(self) || Jetpants.topology.pool(master)
+      if !result && create_if_missing
+        pool_master = master || self
+        result = Pool.new('anon_pool_' + pool_master.ip.tr('.', ''), pool_master)
+        def result.sync_configuration; end
+      end
+      return result
     end
     
+    # Determines the DB's role in its pool. Returns either :master,
+    # :active_slave, :standby_slave, or :backup_slave.
+    #
+    # Note that we consider a node with no master and no slaves to be
+    # a :master, since we can't determine if it had slaves but they're
+    # just offline/dead, vs it being an orphaned machine.
+    def role
+      p = pool
+      case
+      when !@master then :master
+      when for_backups? then :backup_slave
+      when p && p.active_slave_weights[self] then :active_slave # if pool in topology, determine based on expected/ideal state
+      when !p && !is_standby? then :active_slave                # if pool missing from topology, determine based on actual state
+      else :standby_slave
+      end
+    end
     
     ###### Private methods #####################################################
     
@@ -178,8 +203,9 @@ module Jetpants
           raise "#{self}: #{message}" if Jetpants.verify_replication
           output message
           pause_replication
+        else
+          @repl_paused = (status[:slave_io_running].downcase == 'no')
         end
-        @repl_paused = (status[:slave_io_running].downcase == 'no')
       end
     end
     
@@ -202,7 +228,7 @@ module Jetpants
       processes.grep(/Binlog Dump/).concurrent_each do |p|
         tokens = p.split
         ip, dummy = tokens[2].split ':'
-        db = self.class.new(ip)
+        db = ip.to_db
         db.probe
         slaves_mutex.synchronize {@slaves << db if db.master == self}
       end
