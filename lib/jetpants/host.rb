@@ -25,6 +25,8 @@ module Jetpants
     end
     
     def initialize(ip)
+      # Only supporting ipv4 for now
+      raise "Invalid IP address: #{ip}" unless ip =~ /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/
       @ip = ip
       @connection_pool = [] # array of idle Net::SSH::Connection::Session objects
       @lock = Mutex.new

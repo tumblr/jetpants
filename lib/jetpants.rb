@@ -17,21 +17,21 @@ module Jetpants
   # Establish default configuration values, and then merge in whatever we find globally
   # in /etc/jetpants.yaml and per-user in ~/.jetpants.yaml
   @config = {
-    'max_concurrency'         =>  40,       # max threads/conns per database
-    'standby_slaves_per_pool' =>  2,        # number of standby slaves in every pool
-    'mysql_schema'            =>  'test',   # database name
-    'mysql_app_user'          =>  false,    # mysql user for application
-    'mysql_app_password'      =>  false,    # mysql password for application
-    'mysql_repl_user'         =>  false,    # mysql user for replication
-    'mysql_repl_password'     =>  false,    # mysql password for replication
-    'mysql_root_password'     =>  false,    # mysql root password. omit if specified in /root/.my.cnf instead.
+    'max_concurrency'         =>  40,         # max threads/conns per database
+    'standby_slaves_per_pool' =>  2,          # number of standby slaves in every pool
+    'mysql_schema'            =>  'test',     # database name
+    'mysql_app_user'          =>  'appuser',  # mysql user for application
+    'mysql_app_password'      =>  '',         # mysql password for application
+    'mysql_repl_user'         =>  'repluser', # mysql user for replication
+    'mysql_repl_password'     =>  '',         # mysql password for replication
+    'mysql_root_password'     =>  false,      # mysql root password. omit if specified in /root/.my.cnf instead.
     'mysql_grant_ips'         =>  ['192.168.%'],  # mysql user manipulations are applied to these IPs
-    'mysql_grant_privs'       =>  ['ALL'],  # mysql user manipulations grant this set of privileges by default
-    'export_location'         =>  '/tmp',   # directory to use for data dumping
-    'verify_replication'      =>  true,     # raise exception if the 2 repl threads are in different states, or if actual repl topology differs from Jetpants' understanding of it
-    'plugins'                 =>  {},       # hash of plugin name => arbitrary plugin data (usually a nested hash of settings)
-    'ssh_keys'                =>  nil,      # array of SSH key file locations
-    'sharded_tables'          =>  [],       # array of name => {sharding_key=>X, chunks=>Y} hashes
+    'mysql_grant_privs'       =>  ['ALL'],    # mysql user manipulations grant this set of privileges by default
+    'export_location'         =>  '/tmp',     # directory to use for data dumping
+    'verify_replication'      =>  true,       # raise exception if the 2 repl threads are in different states, or if actual repl topology differs from Jetpants' understanding of it
+    'plugins'                 =>  {},         # hash of plugin name => arbitrary plugin data (usually a nested hash of settings)
+    'ssh_keys'                =>  nil,        # array of SSH key file locations
+    'sharded_tables'          =>  [],         # array of name => {sharding_key=>X, chunks=>Y} hashes
   }
   %w(/etc/jetpants.yaml ~/.jetpants.yml ~/.jetpants.yaml).each do |path|
     overrides = YAML.load_file(File.expand_path path) rescue {}
