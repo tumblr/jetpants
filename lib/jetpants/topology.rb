@@ -145,15 +145,18 @@ module Jetpants
     end
     
     synchronized
-    # Clears the pool list
-    def clear_pools
+    # Clears the pool list and nukes cached DB and Host object lookup tables
+    def clear
       @pools = []
+      DB.clear
+      Host.clear
     end
     
     # Empties and then reloads the pool list
-    def refresh_pools
-      clear_pools
+    def refresh
+      clear
       load_pools
+      true
     end
   end
 end

@@ -31,6 +31,10 @@ module Jetpants
     @@all_dbs = {}
     @@all_dbs_mutex = Mutex.new
     
+    def self.clear
+      @@all_dbs_mutex.synchronize {@@all_dbs = {}}
+    end
+    
     # Because this class is rather large, methods have been grouped together
     # and moved to separate files in lib/jetpants/db. We load these all now.
     # They each just re-open the DB class and add some methods.
@@ -58,7 +62,6 @@ module Jetpants
       @running = nil
       @host = Host.new(ip)
     end
-    
     
     ###### Host methods ########################################################
     

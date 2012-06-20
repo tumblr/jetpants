@@ -8,11 +8,15 @@ module Jetpants
   class Host
     include CallbackHandler
     
+    # IP address of the Host, as a string.
+    attr_reader :ip
+
     @@all_hosts = {}
     @@all_hosts_mutex = Mutex.new
     
-    # IP address of the Host, as a string.
-    attr_reader :ip
+    def self.clear
+      @@all_hosts_mutex.synchronize {@@all_hosts = {}}
+    end
     
     # We override Host.new so that attempting to create a duplicate Host object
     # (that is, one with the same IP as an existing Host object) returns the
