@@ -9,12 +9,16 @@ module Jetpants
     
     def initialize
       @pools  = [] # array of Pool objects
-      load_pools
+      # We intentionally don't call load_pools here. The caller must do that.
+      # This allows Jetpants module to create Jetpants.topology object, and THEN
+      # invoke load_pools, which might then refer back to Jetpants.topology.
     end
     
     ###### Class methods #######################################################
     
     # Metaprogramming hackery to create a "synchronized" method decorator
+    # Note that all synchronized methods share the same mutex, so don't make one
+    # synchronized method call another!
     @lock = Mutex.new
     @do_sync = false
     @synchronized_methods = {} # symbol => true
@@ -84,7 +88,7 @@ module Jetpants
     end
     
     
-    ###### Accessors ###########################################################
+    ###### Instance Methods ####################################################
     
     # Returns array of this topology's Jetpants::Pool objects of type Jetpants::Shard
     def shards
@@ -140,5 +144,16 @@ module Jetpants
       claim_spares(1, options)[0]
     end
     
+    synchronized
+    # Clears the pool list
+    def clear_pools
+      @pools = []
+    end
+    
+    # Empties and then reloads the pool list
+    def refresh_pools
+      clear_pools
+      load_pools
+    end
   end
 end

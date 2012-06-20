@@ -97,4 +97,5 @@ module Jetpants
   
   # Finally, initialize topology object
   @topology = Topology.new
+  @topology.load_pools
 end
