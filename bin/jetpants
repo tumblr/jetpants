@@ -456,6 +456,11 @@ module Jetpants
     desc 'shard_cutover', 'truncate the current last shard range, and add a new shard after it'
     method_option :cutover_id, :desc => 'Minimum ID of new last shard being created'
     def shard_cutover
+      # ensure the spares are available before beginning
+      raise "Not enough total spare machines!" unless Jetpants.topology.count_spares >= Jetpants.standby_slaves_per_pool + 1
+      raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: 'standby_slave') >= Jetpants.standby_slaves_per_pool
+      raise "Cannot find a spare master-role machine!" unless Jetpants.topology.count_spares(role: 'master') >= 1
+
       cutover_id = options[:cutover_id] || ask('Please enter min ID of the new shard to be created: ')
       cutover_id = cutover_id.to_i
       last_shard = Jetpants.topology.shards.select {|s| s.max_id == 'INFINITY' && s.in_config?}.first
