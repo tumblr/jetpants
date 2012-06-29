@@ -7,6 +7,26 @@
 The benefit of a toolkit is that you can still leverage standard MySQL replication, still use InnoDB/XtraDB as a robust storage engine choice, etc. \Jetpants largely doesn't interfere with any of that, and instead just provides tools to help you manage a large MySQL topology and support a range-based sharding scheme.
 
 
+== If it's not a server, how does my application know which pool/shard to send queries to?
+
+\Jetpants doesn't perform query routing; it leaves that to your application. The purpose of Jetpants is to *operationally* manage your database topology.  It provides an object hierarchy that allows you to manipulate and automate your DB topology, and offers efficient implementations of common operational tasks in a sharded environment (bulk data importing/exporting, replica cloning, shard splitting, master promotion).
+
+That said, you could integrate it into an application and implement query routing using its methods like Jetpants::Topology#shard_db_for_id. This method just compares a sharding key value to the list of shard ranges, to figure out which DB the query should go to.  It's simple to port this logic to non-Ruby apps as well, since the list of shard ranges can be expressed in a portable format like YAML or JSON.
+
+Doing this more seamlessly would require some amount of parsing of SQL in your app or service.  This might be a small amount of code (if you're just scanning queries for "WHERE sharding_key_column = ?") or might be a lot (if you're trying to support joins and complex expressions).
+
+
+== Can I use \Jetpants to query some or all shards at once?
+
+Absolutely! You can even use it to implement some simple map/reduce in MySQL:
+
+   Jetpants.topology.shards.concurrent_map {|s| s.query_return_first_value 'SELECT MAX(id) from foo'}.reduce(0) {|overall_max, val| val > overall_max ? val : overall_max}
+
+This example concurrently queries all shards to determine the maximum ID in existence for table foo. This might be useful if, say, you're using Memcached as an ID generation service, and need to determine the previous highest-assigned ID after a restart or failover event.
+
+Another simple example would be to obtain counts of rows across all shards. In theory you can apply this same technique to other map/reduce style requirements with arbitrarily complex queries.
+
+
 == Is \Jetpants still useful if my architecture isn't sharded?
 
 Potentially, since \Jetpants fully supports "global" pools, also known as "functional partitions". You can even use \Jetpants to help manage a standard single-pool MySQL topology (1 master and some number of slaves) for handling common operations like slave cloning and master promotions. That said, there are other tools that may be easier to use if your MySQL footprint is smaller than, say, a dozen machines.
