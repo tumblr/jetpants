@@ -73,7 +73,7 @@ module Jetpants
     # remembers the state from the previous probe and any actions since then.
     def replicating?
       status = slave_status
-      [status[:slave_io_running], status[:slave_sql_running]].all? {|s| s.downcase == 'yes'}
+      [status[:slave_io_running], status[:slave_sql_running]].all? {|s| s && s.downcase == 'yes'}
     end
 
     # Returns true if this instance has a master, false otherwise.
