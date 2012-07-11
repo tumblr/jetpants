@@ -12,8 +12,9 @@ module Jetpants
     # If you omit :log_pos or :log_file, uses the current position/file from new_master,
     # though this is only safe if new_master is not receiving writes!
     #
-    # If you omit :user or :password, tries obtaining replication credentials from global
-    # settings, and failing that from the current node (assuming it is already a slave)
+    # If you omit :user and :password, tries obtaining replication credentials from the
+    # current node (assuming it is already a slave) or if that fails then from the global
+    # settings.
     def change_master_to(new_master, option_hash={})
       return disable_replication! unless new_master   # change_master_to(nil) alias for disable_replication!
       return if new_master == master                  # no change
@@ -25,8 +26,8 @@ module Jetpants
         logfile, pos = new_master.binlog_coordinates
       end
       
-      repl_user = option_hash[:user]     || Jetpants.replication_credentials[:user] || replication_credentials[:user]
-      repl_pass = option_hash[:password] || Jetpants.replication_credentials[:pass] || replication_credentials[:pass]
+      repl_user = option_hash[:user]     || replication_credentials[:user]
+      repl_pass = option_hash[:password] || replication_credentials[:pass]
 
       pause_replication if @master && !@repl_paused
       result = mysql_root_cmd "CHANGE MASTER TO " +
@@ -78,12 +79,12 @@ module Jetpants
     # Resumes replication on self afterwards, but does NOT automatically start
     # replication on the targets.
     # You can omit passing in the replication user/pass if this machine is itself
-    # a slave OR already has at least one slave.
+    # a slave OR already has at least one slave OR the global setting is fine to use here.
     # Warning: takes self offline during the process, so don't use on a master that
     # is actively in use by your application!
     def enslave!(targets, repl_user=false, repl_pass=false)
-      repl_user ||= (Jetpants.replication_credentials[:user] || replication_credentials[:user])
-      repl_pass ||= (Jetpants.replication_credentials[:pass] || replication_credentials[:pass])
+      repl_user ||= replication_credentials[:user]
+      repl_pass ||= replication_credentials[:pass]
       disable_monitoring
       pause_replication if master && ! @repl_paused
       file, pos = binlog_coordinates
@@ -113,8 +114,8 @@ module Jetpants
         t.change_master_to( master, 
                             log_file: file,
                             log_pos:  pos,
-                            user:     (Jetpants.replication_credentials[:user] || replication_credentials[:user]),
-                            password: (Jetpants.replication_credentials[:pass] || replication_credentials[:pass])  )
+                            user:     replication_credentials[:user],
+                            password: replication_credentials[:pass]  )
       end
       resume_replication # should already have happened from the clone_to! restart anyway, but just to be explicit
       catch_up_to_master
@@ -205,14 +206,21 @@ module Jetpants
     end
     
     # Reads an existing master.info file on this db or one of its slaves,
-    # propagates the info back to the Jetpants singleton, and returns it
+    # propagates the info back to the Jetpants singleton, and returns it as
+    # a hash containing :user and :pass.
+    # If the node is not a slave and has no slaves, will use the global Jetpants
+    # config instead.
     def replication_credentials
-      unless @master || @slaves.count > 0
-        raise "Cannot obtain replication credentials from orphaned instance -- this instance is not a slave, and has no slaves"
+      user = false
+      pass = false
+      if master || slaves.count > 0
+        target = (@master ? self : @slaves[0])
+        results = target.ssh_cmd("cat #{mysql_directory}/master.info | head -6 | tail -2").split
+        if results.count == 2 && results[0] != 'test'
+          user, pass = results
+        end
       end
-      target = (@master ? self : @slaves[0])
-      user, pass = target.ssh_cmd("cat #{mysql_directory}/master.info | head -6 | tail -2").split
-      {user: user, pass: pass}
+      user && pass ? {user: user, pass: pass} : Jetpants.replication_credentials
     end
     
     # Disables binary logging in my.cnf.  Does not take effect until you restart

@@ -60,7 +60,9 @@ module Jetpants
     # Returns a hash containing :user => username string, :pass => password string
     # for the MySQL replication user, as found in Jetpants' configuration. Plugins
     # may freely override this if there's a better way to obtain this password --
-    # for example, by parsing master.info on a slave in your topology.
+    # for example, by parsing master.info on a specific slave in your topology.
+    # SEE ALSO: DB#replication_credentials, which only falls back to the global
+    # version when needed.
     def replication_credentials
       {user: @config['mysql_repl_user'], pass: @config['mysql_repl_password']}
     end
