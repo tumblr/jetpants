@@ -5,7 +5,8 @@ module Jetpants
   #++
   
   class DB
-    # Runs the provided SQL statement as root, and returns the response as a single string.
+    # Runs the provided SQL statement as root, locally via an SSH command line, and
+    # returns the response as a single string.
     # Available options:
     # :terminator:: how to terminate the query, such as '\G' or ';'. (default: '\G')
     # :parse:: parse a single-row, vertical-format result (:terminator must be '\G') and return it as a hash
@@ -34,53 +35,91 @@ module Jetpants
       end
     end
     
-    # Returns a Sequel database object
-    def mysql
-      return @db if @db
+    # Returns a Sequel database object for use in sending queries to the DB remotely.
+    # Initializes (or re-initializes) the connection pool upon first use or upon
+    # requesting a different user or schema. Note that we only maintain one connection
+    # pool per DB.
+    # Valid options include :user, :pass, :schema, :max_conns or omit these to use
+    # defaults.
+    def connect(options={})
+      options[:user]    ||= app_credentials[:user]
+      options[:schema]  ||= app_schema
+      
+      return @db if @db && @user == options[:user] && @schema == options[:schema]
+
+      disconnect if @db
+      
       @db = Sequel.connect(
         :adapter          =>  'mysql2',
         :host             =>  @ip,
         :port             =>  @port,
-        :user             =>  @user || Jetpants.app_credentials[:user],
-        :password         =>  Jetpants.app_credentials[:pass],
-        :database         =>  Jetpants.mysql_schema,
-        :max_connections  =>  Jetpants.max_concurrency)
+        :user             =>  options[:user],
+        :password         =>  options[:pass] || app_credentials[:pass],
+        :database         =>  options[:schema],
+        :max_connections  =>  options[:max_conns] || Jetpants.max_concurrency)
+      @user = options[:user]
+      @schema = options[:schema]
+      @db
     end
-    alias init_db_connection_pool mysql
     
-    # Closes existing mysql connection pool and opens a new one. Useful when changing users.
-    # Supply a new user name as the param, or nothing/false to keep old user name, or
-    # a literal true value to switch to the default app user in Jetpants configuration
-    def reconnect(new_user=false)
-      @user = (new_user == true ? Jetpants.app_credentials[:user] : new_user) if new_user
+    # Closes the database connection(s) in the connection pool.
+    def disconnect
       if @db
         @db.disconnect rescue nil
         @db = nil
       end
-      init_db_connection_pool
+      @user = nil
+      @schema = nil
+    end
+    
+    # Disconnects and reconnects to the database.
+    def reconnect(options={})
+      disconnect # force disconnection even if we're not changing user or schema
+      connect(options)
+    end
+    
+    # Returns a Sequel database object representing the current connection. If no
+    # current connection, this will automatically connect with default options.
+    def connection
+      @db || connect
+    end
+    alias mysql connection
+    
+    # Returns a hash containing :user and :pass indicating how the application connects to
+    # this database instance.  By default this just delegates to Jetpants.application_credentials,
+    # which obtains credentials from the Jetpants config file. Plugins may override this
+    # to use different credentials for particular hosts or in certain situations.
+    def app_credentials
+      Jetpants.app_credentials
+    end
+    
+    # Returns the schema name ("database name" in MySQL parlance) to use for connections.
+    # Defaults to just calling Jetpants.mysql_schema, but plugins may override.
+    def app_schema
+      Jetpants.mysql_schema
     end
     
     # Execute a write (INSERT, UPDATE, DELETE, REPLACE, etc) query.
     # If the query is an INSERT, returns the last insert ID (if an auto_increment
     # column is involved).  Otherwise returns the number of affected rows.
     def query(sql, *binds)
-      ds = mysql.fetch(sql, *binds)
-      mysql.execute_dui(ds.update_sql) {|c| return c.last_id > 0 ? c.last_id : c.affected_rows}
+      ds = connection.fetch(sql, *binds)
+      connection.execute_dui(ds.update_sql) {|c| return c.last_id > 0 ? c.last_id : c.affected_rows}
     end
     
     # Execute a read (SELECT) query. Returns an array of hashes.
     def query_return_array(sql, *binds)
-      mysql.fetch(sql, *binds).all
+      connection.fetch(sql, *binds).all
     end
     
     # Execute a read (SELECT) query. Returns a hash of the first row only.
     def query_return_first(sql, *binds)
-      mysql.fetch(sql, *binds).first
+      connection.fetch(sql, *binds).first
     end
     
     # Execute a read (SELECT) query. Returns the value of the first column of the first row only.
     def query_return_first_value(sql, *binds)
-      mysql.fetch(sql, *binds).single_value
+      connection.fetch(sql, *binds).single_value
     end
     
     # Parses the result of a MySQL query run with a \G terminator. Useful when

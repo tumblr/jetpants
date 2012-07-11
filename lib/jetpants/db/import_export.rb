@@ -44,12 +44,12 @@ module Jetpants
       create_user(import_export_user)
       grant_privileges(import_export_user)               # standard privs
       grant_privileges(import_export_user, '*', 'FILE')  # FILE global privs
-      reconnect(import_export_user)
+      reconnect(user: import_export_user)
       @counts ||= {}
       tables.each {|t| @counts[t.name] = export_table_data t, min_id, max_id}
     ensure
-      reconnect(true) # switches back to default app user
-      drop_user(import_export_user)
+      reconnect(user: app_credentials[:user])
+      drop_user import_export_user
     end
     
     # Exports data for a table. Only includes the data subset that falls
@@ -108,7 +108,7 @@ module Jetpants
       create_user(import_export_user)
       grant_privileges(import_export_user)               # standard privs
       grant_privileges(import_export_user, '*', 'FILE')  # FILE global privs
-      reconnect(import_export_user)
+      reconnect(user: import_export_user)
       
       import_counts = {}
       tables.each {|t| import_counts[t.name] = import_table_data t, min_id, max_id}
@@ -124,7 +124,7 @@ module Jetpants
       end
       
     ensure
-      reconnect(true) # switches back to default app user
+      reconnect(user: app_credentials[:user])
       drop_user(import_export_user)
     end
     
@@ -194,7 +194,7 @@ module Jetpants
     # Supply the ID range (in terms of the table's sharding key)
     # of rows to KEEP.
     def prune_data_to_range(tables, keep_min_id, keep_max_id)
-      reconnect(true)
+      reconnect(user: app_credentials[:user])
       tables.each do |t|
         output "Cleaning up data, pruning to only keep range #{keep_min_id}-#{keep_max_id}", t
         rows_deleted = 0
@@ -260,7 +260,6 @@ module Jetpants
       stop_query_killer
       disable_binary_logging
       restart_mysql
-      reconnect
       pause_replication if is_slave?
       
       # Automatically detect missing min/max. Assumes that all tables' primary keys

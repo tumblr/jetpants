@@ -31,10 +31,21 @@ module Jetpants
     # Restarts MySQL.
     def restart_mysql
       @repl_paused = false if @master
+      
+      # Disconnect if we were previously connected
+      user, schema = false, false
+      if @db
+        user, schema = @user, @schema
+        disconnect
+      end
+      
       output "Attempting to restart MySQL"
       output service(:restart, 'mysql')
       confirm_listening
       @running = true
+      
+      # Reconnect if we were previously connected
+      connect(user: user, schema: schema) if user || schema
     end
     
     # Has no built-in effect. Plugins can override it, and/or implement

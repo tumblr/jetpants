@@ -55,12 +55,17 @@ module Jetpants
     
     def initialize(ip, port=3306)
       @ip, @port = ip, port.to_i
-      @user = false # connections will default to app user
+      @host = Host.new(ip)
+      
+      # These get set upon DB#probe being run
       @master = nil
       @slaves = nil
       @repl_paused = nil
       @running = nil
-      @host = Host.new(ip)
+      
+      # These get set upon DB#connect being run
+      @user = nil
+      @schema = nil
     end
     
     ###### Host methods ########################################################
