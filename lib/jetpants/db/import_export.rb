@@ -10,7 +10,7 @@ module Jetpants
       output 'Exporting table definitions'
       supply_root_pw = (Jetpants.mysql_root_password ? "-p#{Jetpants.mysql_root_password}" : '')
       supply_port = (@port == 3306 ? '' : "-h 127.0.0.1 -P #{@port}")
-      cmd = "mysqldump #{supply_root_pw} #{supply_port} -d #{Jetpants.mysql_schema} " + tables.join(' ') + " >#{Jetpants.export_location}/create_tables_#{@port}.sql"
+      cmd = "mysqldump #{supply_root_pw} #{supply_port} -d #{app_schema} " + tables.join(' ') + " >#{Jetpants.export_location}/create_tables_#{@port}.sql"
       cmd.untaint
       result = ssh_cmd(cmd)
       output result
@@ -297,7 +297,7 @@ module Jetpants
     # a metric gigabyte.  This puts it on the same scale as the output to tools like 
     # "du -h" and "df -h".
     def data_set_size(in_gb=false)
-      bytes = dir_size("#{mysql_directory}/#{Jetpants.mysql_schema}")
+      bytes = dir_size("#{mysql_directory}/#{app_schema}")
       in_gb ? (bytes / 1073741824.0).round : bytes
     end
     
@@ -320,7 +320,7 @@ module Jetpants
       fast_copy_chain(mysql_directory, 
                       destinations,
                       port: 3306,
-                      files: ['ibdata1', 'mysql', 'test', Jetpants.mysql_schema],
+                      files: ['ibdata1', 'mysql', 'test', app_schema],
                       overwrite: true)
       [self, targets].flatten.concurrent_each {|t| t.start_mysql; t.start_query_killer}
     end

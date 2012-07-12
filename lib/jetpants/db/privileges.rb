@@ -9,9 +9,9 @@ module Jetpants
     # configuration will be used instead.  Does not automatically grant any
     # privileges; use DB#grant_privileges for that.
     def create_user(username=false, database=false, password=false)
-      username ||= Jetpants.app_credentials[:user]
-      database ||= Jetpants.mysql_schema
-      password ||= Jetpants.app_credentials[:pass]
+      username ||= app_credentials[:user]
+      database ||= app_schema
+      password ||= app_credentials[:pass]
       commands = []
       Jetpants.mysql_grant_ips.each do |ip|
         commands << "CREATE USER '#{username}'@'#{ip}' IDENTIFIED BY '#{password}'"
@@ -23,7 +23,7 @@ module Jetpants
     # Drops a user. Can optionally make this statement skip replication, if you
     # want to drop a user on master and not on its slaves.
     def drop_user(username=false, skip_binlog=false)
-      username ||= Jetpants.app_credentials[:user]
+      username ||= app_credentials[:user]
       commands = []
       commands << 'SET sql_log_bin = 0' if skip_binlog
       Jetpants.mysql_grant_ips.each do |ip|
@@ -50,8 +50,8 @@ module Jetpants
     # Helper method that can do grants or revokes.
     def grant_or_revoke_privileges(statement, username, database, privileges)
       preposition = (statement.downcase == 'revoke' ? 'FROM' : 'TO')
-      username ||= Jetpants.app_credentials[:user]
-      database ||= Jetpants.mysql_schema
+      username ||= app_credentials[:user]
+      database ||= app_schema
       privileges = Jetpants.mysql_grant_privs if privileges.empty?
       privileges = privileges.join(',')
       commands = []
@@ -67,7 +67,7 @@ module Jetpants
     # read-only. Useful when decommissioning instances from a shard that's
     # been split.
     def revoke_all_access!
-      user_name = Jetpants.app_credentials[:user]
+      user_name = app_credentials[:user]
       enable_read_only!
       output "Revoking access for user #{user_name}."
       output(drop_user(user_name, true)) # drop the user without replicating the drop statement to slaves

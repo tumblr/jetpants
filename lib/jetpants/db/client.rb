@@ -20,7 +20,7 @@ module Jetpants
         raise "MySQL is not running" unless running?
         supply_root_pw = (Jetpants.mysql_root_password ? "-p#{Jetpants.mysql_root_password}" : '')
         supply_port = (@port == 3306 ? '' : "-h 127.0.0.1 -P #{@port}")
-        real_cmd = %Q{mysql #{supply_root_pw} #{supply_port} -ss -e "#{cmd}#{terminator}" #{Jetpants.mysql_schema}}
+        real_cmd = %Q{mysql #{supply_root_pw} #{supply_port} -ss -e "#{cmd}#{terminator}" #{app_schema}}
         real_cmd.untaint
         result = ssh_cmd!(real_cmd)
         raise result if result && result.downcase.start_with?('error ')
