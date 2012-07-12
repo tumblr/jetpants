@@ -23,7 +23,7 @@ module Jetpants
     # CAUTION IF RUNNING THIS MANUALLY!
     def import_schemata!
       output 'Dropping and re-creating table definitions'
-      result = mysql_root_cmd "source #{Jetpants.export_location}/create_tables_#{@port}.sql", :terminator => ''
+      result = mysql_root_cmd "source #{Jetpants.export_location}/create_tables_#{@port}.sql", terminator: '', schema: true
       output result
     end
     

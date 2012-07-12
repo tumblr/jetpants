@@ -10,17 +10,19 @@ module Jetpants
     # Available options:
     # :terminator:: how to terminate the query, such as '\G' or ';'. (default: '\G')
     # :parse:: parse a single-row, vertical-format result (:terminator must be '\G') and return it as a hash
+    # :schema:: name of schema to use, or true to use this DB's default. This may have implications when used with filtered replication! (default: nil, meaning no schema)
     # :attempts:: by default, queries will be attempted up to 3 times. set this to 0 or false for non-idempotent queries.
     def mysql_root_cmd(cmd, options={})
       terminator = options[:terminator] || '\G'
       attempts = (options[:attempts].nil? ? 3 : (options[:attempts].to_i || 1))
+      schema = (options[:schema] == true ? app_schema : options[:schema])
       failures = 0
       
       begin
         raise "MySQL is not running" unless running?
         supply_root_pw = (Jetpants.mysql_root_password ? "-p#{Jetpants.mysql_root_password}" : '')
         supply_port = (@port == 3306 ? '' : "-h 127.0.0.1 -P #{@port}")
-        real_cmd = %Q{mysql #{supply_root_pw} #{supply_port} -ss -e "#{cmd}#{terminator}" #{app_schema}}
+        real_cmd = %Q{mysql #{supply_root_pw} #{supply_port} -ss -e "#{cmd}#{terminator}" #{schema}}
         real_cmd.untaint
         result = ssh_cmd!(real_cmd)
         raise result if result && result.downcase.start_with?('error ')

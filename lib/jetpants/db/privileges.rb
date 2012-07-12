@@ -17,7 +17,8 @@ module Jetpants
         commands << "CREATE USER '#{username}'@'#{ip}' IDENTIFIED BY '#{password}'"
       end
       commands << "FLUSH PRIVILEGES"
-      mysql_root_cmd(commands.join '; ')
+      commands = commands.join '; '
+      mysql_root_cmd commands, schema: true
     end
     
     # Drops a user. Can optionally make this statement skip replication, if you
@@ -30,7 +31,8 @@ module Jetpants
         commands << "DROP USER '#{username}'@'#{ip}'"
       end
       commands << "FLUSH PRIVILEGES"
-      mysql_root_cmd(commands.join '; ')
+      commands = commands.join '; '
+      mysql_root_cmd commands, schema: true
     end
     
     # Grants privileges to the given username for the specified database.
@@ -60,7 +62,8 @@ module Jetpants
         commands << "#{statement} #{privileges} ON #{database}.* #{preposition} '#{username}'@'#{ip}'"
       end
       commands << "FLUSH PRIVILEGES"
-      mysql_root_cmd(commands.join '; ')
+      commands = commands.join '; '
+      mysql_root_cmd commands, schema: true
     end
     
     # Disables access to a DB by the application user, and sets the DB to 
