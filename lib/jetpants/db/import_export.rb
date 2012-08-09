@@ -292,15 +292,6 @@ module Jetpants
       enable_monitoring
     end
     
-    # Returns the data set size in bytes (if in_gb is false or omitted) or in gigabytes
-    # (if in_gb is true).  Note that this is actually in gibibytes (2^30) rather than
-    # a metric gigabyte.  This puts it on the same scale as the output to tools like 
-    # "du -h" and "df -h".
-    def data_set_size(in_gb=false)
-      bytes = dir_size("#{mysql_directory}/#{app_schema}")
-      in_gb ? (bytes / 1073741824.0).round : bytes
-    end
-    
     # Copies mysql db files from self to one or more additional DBs.
     # WARNING: temporarily shuts down mysql on self, and WILL OVERWRITE CONTENTS
     # OF MYSQL DIRECTORY ON TARGETS.  Confirms first that none of the targets
