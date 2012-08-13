@@ -167,7 +167,9 @@ module Jetpants
           elsif s == @master
             details[s] = {coordinates: s.binlog_coordinates(false), lag: 'N/A'}
           else
-            details[s] = {coordinates: s.repl_binlog_coordinates(false), lag: s.seconds_behind_master.to_s + 's'}
+            lag = s.seconds_behind_master
+            lag_str = lag.nil? ? 'NULL' : lag.to_s + 's'
+            details[s] = {coordinates: s.repl_binlog_coordinates(false), lag: lag_str}
           end
         end
       end
