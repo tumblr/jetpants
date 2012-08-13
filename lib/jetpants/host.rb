@@ -373,6 +373,7 @@ module Jetpants
     
     # Returns the machine's hostname
     def hostname
+      return 'unknown' unless available?
       @hostname ||= ssh_cmd('hostname').chomp
     end
     
