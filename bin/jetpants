@@ -417,11 +417,7 @@ module Jetpants
     method_option :min_id, :desc => 'Minimum ID of parent shard being split'
     method_option :max_id, :desc => 'Maximum ID of parent shard being split'
     def shard_split_child_writes
-      shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
-      shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
-      s = Jetpants.topology.shard shard_min, shard_max
-      raise "Shard not found" unless s
-      raise "Shard isn't in expected state" unless s.state == :deprecated && s.children.count > 1
+      s = ask_shard_being_split
       s.move_writes_to_children
       Jetpants.topology.write_config
     end
@@ -439,11 +435,7 @@ module Jetpants
     method_option :min_id, :desc => 'Minimum ID of parent shard being split'
     method_option :max_id, :desc => 'Maximum ID of parent shard being split'
     def shard_split_cleanup
-      shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
-      shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
-      s = Jetpants.topology.shard shard_min, shard_max
-      raise "Shard not found" unless s
-      raise "Shard isn't in expected state" unless s.state == :deprecated && s.children.count > 1
+      s = ask_shard_being_split
       s.cleanup!
     end
     def self.after_shard_split_cleanup
@@ -520,6 +512,27 @@ module Jetpants
         node = ask prompt
         error "Node (#{node}) does not appear to be an IP address." unless is_ip? node
         node.to_db
+      end
+      
+      def ask_shard_being_split
+        shards_being_split = Jetpants.shards.select {|s| s.children.count > 0}
+        if shards_being_split.count == 0
+          raise 'No shards are currently being split. You can only use this task after running "jetpants shard_split".'
+        elsif shards_being_split.count == 1
+          s = shards_being_split[0]
+          puts "Detected #{s} as the only shard currently involved in a split operation."
+          error "Aborting." unless agree "Is this the right shard that you want to perform this action on? [yes/no]: "
+        else
+          puts "The following shards are currently involved in a split operation:"
+          shards_being_split.each {|sbs| puts "* #{sbs}"}
+          puts "Which shard would you like to perform this action on?"
+          shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
+          shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
+          s = Jetpants.topology.shard shard_min, shard_max
+          raise "Shard not found" unless s
+        end
+        raise "Shard isn't in expected state" unless s.state == :deprecated
+        s
       end
     end
     
