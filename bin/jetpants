@@ -66,7 +66,6 @@ module Jetpants
       end
 
       if demoted.running?
-        describe demoted
         error 'Cannot demote a node that has no slaves!' unless demoted.has_slaves?
       else
         inform "Unable to connect to node #{demoted} to demote"
