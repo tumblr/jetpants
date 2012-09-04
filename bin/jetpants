@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 jetpants_base_dir = File.expand_path(File.dirname(__FILE__) + '/..')
 $:.unshift File.join(jetpants_base_dir, 'lib')
-%w[thor pry highline/import terminal-table colored].each {|g| require g}
+%w[thor pry highline/import colored].each {|g| require g}
 
 module Jetpants
 
@@ -119,103 +119,13 @@ module Jetpants
     end
     
     
-    desc 'show_slaves', 'show the current slaves of a master'
-    method_option :node, :desc => 'node to query for slaves'
-    def show_slaves
-      node = options[:node] || ask('Please enter IP of node to query for slaves: ')
-      error "node (#{node}) does not appear to be an IP." unless is_ip? node
-      node = Jetpants::DB.new node
-      slaves = node.slaves rescue error("unable to connect to node #{node}")
-    
-      inform "node (#{node}) is a current slave of #{node.master}" if node.is_slave?
-
-      if node.has_slaves?
-        current_slaves = Terminal::Table.new :title => "slaves of master (#{node})", :headings => ["slave", "seconds behind master"] do |rows|
-          slaves.each do |slave|
-            rows << [slave, slave.seconds_behind_master]
-          end
-        end
-        puts current_slaves
-      else
-        inform "node (#{node}) currently has no slaves."
-      end
-    end
-    
-    
-    desc 'show_master', 'show the current master of a node'
-    method_option :node, :desc => 'node to query for master'
-    method_option :siblings, :desc => 'show nodes current slave siblings'
-    def show_master
-      node = options[:node] || ask('Please enter the IP address of a node to query for master: ')
-      error "node (#{node}) does not appear to be an IP." unless is_ip? node
-      node = Jetpants::DB.new node
-
-      if node.has_slaves?
-        inform "node (#{node}) is a master to the following nodes: #{node.slaves.join(', ')}"
-      end rescue error("unable to connect to node #{node}")
-      
-      if node.is_slave?
-        inform "node (#{node}) is a slave of master (#{node.master})"
-        if options[:siblings]
-          current_siblings = Terminal::Table.new :title => "siblings of slave (#{node})", :headings => ["sibling slave", "seconds behind master (#{node.master})"] do |rows|
-            node.master.slaves.reject {|slave| slave == node}.each do |slave|
-              rows << [slave, slave.seconds_behind_master]
-            end
-          end
-          puts current_siblings
-        end
-      else
-        inform "node (#{node}) does not appear to be a slave"
-      end
-    end
-    
-    
-    desc 'node_info', 'show information about a given node'
-    method_option :node, :desc => 'node to query for information'
-    def node_info
-      node = options[:node] || ask('Please enter node: ')
-      error "node address (#{node}) does not appear to be an ip" unless is_ip? node
-    
-      node = Jetpants::DB.new node
-      role =  case
-              when node.has_slaves?
-                :master
-              when node.is_slave?
-                :slave
-              else
-                :node
-              end rescue error("unable to connect to node #{node}")
-
-      node_info = Terminal::Table.new :title => "info on #{role}: #{node}"
-    
-      binary_log, binary_log_position = node.binlog_coordinates
-      node_info << [:binary_log, binary_log]
-      node_info << [:binary_log_position, binary_log_position]
-      node_info << [:read_only, node.read_only? ? 'true' : 'false'] 
-      
-      if node.is_slave?
-        slave_status = node.slave_status
-        slave_siblings = node.master.slaves.reject {|slave| slave == node}
-    
-        node_info << [:master, node.master]
-        node_info << [:sibling_slaves, slave_siblings.join(', ')]
-        node_info << [:replicating, node.replicating? ? 'true' : 'false']
-        if node.replicating?
-          node_info << [:seconds_behind_master, node.seconds_behind_master]
-          node_info << [:master_log, slave_status[:master_log_file]]
-          node_info << [:master_position, slave_status[:exec_master_log_pos]]
-        end
-      end
-      puts node_info
-      
-      if node.has_slaves?
-        current_slaves = Terminal::Table.new :title => "slaves of #{node}", :headings => ["slave", "seconds behind master"] do |rows|
-          node.slaves.each do |slave|
-            rows << [slave, slave.seconds_behind_master]
-          end
-        end
-        puts current_slaves
-      end
+    desc 'summary', 'display information about a node in the context of its pool'
+    method_option :node, :desc => 'IP address of node to query'
+    def summary
+      node = ask_node('Please enter node IP: ', options[:node])
+      node.pool(true).probe
+      describe node
+      node.pool(true).summary(true)
     end
     
     
@@ -510,7 +420,7 @@ module Jetpants
       end
       
       def describe node
-        puts "Node #{node} (#{node.hostname}:#{node.port}) is a #{node.role} in pool #{node.pool(true)}.".green
+        puts "Node #{node} (#{node.hostname}:#{node.port}) has role #{node.role} in pool #{node.pool(true)}.".green
       end
       
       def ask_node(prompt, supplied_node=false)

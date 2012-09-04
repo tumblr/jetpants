@@ -24,7 +24,7 @@ Gem::Specification.new do |s|
   if s.respond_to? :specification_version then
     s.specification_version = 3
     if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
-      %w[mysql2 sequel net-ssh pry thor highline terminal-table colored].each do |gem|
+      %w[mysql2 sequel net-ssh pry thor highline colored].each do |gem|
         s.add_runtime_dependency gem
       end
     end
