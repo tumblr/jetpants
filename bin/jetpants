@@ -129,6 +129,44 @@ module Jetpants
     end
     
     
+    desc 'pools', 'display a full summary of every pool in the topology'
+    def pools
+      Jetpants.pools.concurrent_each &:probe
+      Jetpants.pools.each &:summary
+      
+      counts = {master: 0, active_slave: 0, standby_slave: 0, backup_slave: 0}
+      Jetpants.pools.map(&:nodes).flatten.each {|n| counts[n.role] += 1}
+      
+      puts
+      puts "%4d global pools" % Jetpants.functional_partitions.count
+      puts "%4d shard pools" % Jetpants.shards.count
+      puts "---- --------------"
+      puts "%4d total pools" % Jetpants.pools.count
+      puts
+      
+      total = 0
+      counts.each do |role, count|
+        puts "%4d %ss" % [count, role.to_s.tr('_', ' ')]
+        total += count
+      end
+      puts "---- --------------"
+      puts "%4d total nodes" % total
+      puts
+    end
+
+    desc 'pools_compact', 'display a compact summary (master, name, and size) of every pool in the topology'
+    def pools_compact
+      puts
+      Jetpants.shards.each do |s| 
+        puts "[%-12s] %8s to %-11s = %3s GB" % [s.ip, s.min_id, s.max_id, s.data_set_size(true)]
+      end
+      Jetpants.functional_partitions.each do |p| 
+        puts "[%-12s] %-23s = %3s GB" % [p.ip, p.name, p.data_set_size(true)]
+      end
+      puts
+    end
+    
+    
     desc 'regen_config', 'regenerate the application configuration'
     def regen_config
       Jetpants.topology.write_config
