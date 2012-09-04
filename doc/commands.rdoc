@@ -103,13 +103,13 @@ With an asset tracker, \Jetpants allows you to mark a shard as read-only or comp
 
 == Informational commands
 
-These commands do not require an asset tracker. They may be fleshed out further in a future release of \Jetpants.
+These commands display status information about a particular node, pool, or the entire topology.
 
-<b><tt>jetpants node_info</tt></b> displays information on a MySQL instance.
+<b><tt>jetpants summary</tt></b> displays information about a node, along with its pool. Does not require an asset tracker.
 
-<b><tt>jetpants show_master</tt></b> tells you what node is the master of a given MySQL instance.
+<b><tt>jetpants pools</tt></b> displays full information about all pools (name, size, full node list including roles), and then displays counts of all nodes by role. Requires an asset tracker to obtain the list of all pools. This command may take a minute or two to run (depending on topology size) since it has to probe every node to determine roles.
 
-<b><tt>jetpants show_slaves</tt></b> displays a list of slaves (along with current slave lag) of a MySQL instance.
+<b><tt>jetpants pools_compact</tt></b> displays condensed information about all pools (name, master IP, size). Requires an asset tracker to obtain the list of all pools.
 
 
 == Miscellaneous
