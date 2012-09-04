@@ -63,24 +63,26 @@ module Jetpants
         demoted.probe
       else
         demoted = ask_node 'Please enter the IP address of the node to demote:'
-        if demoted.running?
-          error 'Cannot demote a node that has no slaves!' unless demoted.has_slaves?
+      end
+
+      if demoted.running?
+        describe demoted
+        error 'Cannot demote a node that has no slaves!' unless demoted.has_slaves?
+      else
+        inform "Unable to connect to node #{demoted} to demote"
+        error  "Unable to perform promotion" unless agree "Please confirm that #{demoted} is offline [yes/no]: "
+        
+        # An asset-tracker plugin may have been populated the slave list anyway
+        if demoted.slaves && demoted.slaves.count > 0
+          demoted.slaves.each {|s| s.probe}
         else
-          inform "Unable to connect to node #{demoted} to demote"
-          error  "Unable to perform promotion" unless agree "Please confirm that #{demoted} is offline [yes/no]: "
-          
-          # An asset-tracker plugin may have been populated the slave list anyway
-          if demoted.slaves && demoted.slaves.count > 0
-            demoted.slaves.each {|s| s.probe}
-          else
-            replicas = ask("Please enter a comma-seperated list of IP addresses of all current replicas of #{demoted}: ").split /\s*,\s*/
-            error "No replicas entered" unless replicas && replicas.count > 0
-            error "User supplied list of replicas appears to be invalid - #{replicas}" unless replicas.all? {|replica| is_ip? replica}
-            demoted.instance_eval {@slaves = replicas.map &:to_db}
-            demoted.slaves.each do |replica|
-              # Validate that they are really slaves of demoted
-              error "#{replica} does not appear to be a valid replica of #{demoted}" unless replica.master == demoted
-            end
+          replicas = ask("Please enter a comma-seperated list of IP addresses of all current replicas of #{demoted}: ").split /\s*,\s*/
+          error "No replicas entered" unless replicas && replicas.count > 0
+          error "User supplied list of replicas appears to be invalid - #{replicas}" unless replicas.all? {|replica| is_ip? replica}
+          demoted.instance_eval {@slaves = replicas.map &:to_db}
+          demoted.slaves.each do |replica|
+            # Validate that they are really slaves of demoted
+            error "#{replica} does not appear to be a valid replica of #{demoted}" unless replica.master == demoted
           end
         end
       end
@@ -228,9 +230,9 @@ module Jetpants
     method_option :target, :desc => 'IP of node to clone to'
     def clone_slave
       puts "This task clones the data set of a standby slave."
-      source = options[:source] || ask('Please enter IP of node to clone from: ')
-      error "source (#{source}) does not appear to be an IP." unless is_ip? source
-      source = Jetpants::DB.new source
+      source = ask_node('Please enter IP of node to clone from: ', options[:source])
+      describe source
+      
       target = options[:target] || ask('Please enter comma-separated list of IP addresses to clone to: ')
       targets = target.split(',').map do |ip|
         ip.strip!
@@ -257,13 +259,14 @@ module Jetpants
     method_option :node, :desc => 'IP of standby slave to activate'
     def activate_slave
       puts "This task turns a standby slave into an active slave, OR alters an active slave's weight."
-      node = options[:node] || ask('Please enter node IP: ')
+      node = ask_node('Please enter node IP: ', options[:node])
+      describe node
+
       weight = options[:weight] || ask('Please enter weight, or ENTER for default of 100: ')
       weight = 100 if weight == ''
       weight = weight.to_i
-      error "node address (#{node}) does not appear to be an IP" unless is_ip? node
       error "Adding a slave of weight 0 makes no sense, use pull_slave instead" if weight == 0
-      node = node.to_db
+      
       node.pool.mark_slave_active(node, weight)
       Jetpants.topology.write_config
     end
@@ -277,9 +280,9 @@ module Jetpants
     method_option :node, :desc => 'IP of active slave to pull'
     def pull_slave
       puts "This task turns an active slave into a standby slave."
-      node = options[:node] || ask('Please enter node IP: ')
-      error "node address (#{node}) does not appear to be an ip" unless is_ip? node
-      node = node.to_db
+      node = ask_node('Please enter node IP: ', options[:node])
+      describe node
+      raise "Node is not an active slave" unless node.role == :active_slave
       node.pool.mark_slave_standby(node)
       Jetpants.topology.write_config
     end
@@ -288,12 +291,11 @@ module Jetpants
     desc 'destroy_slave', 'remove a standby slave from its pool'
     method_option :node, :desc => 'IP of standby slave to remove'
     def destroy_slave
-      puts "This task removes a standby slave from its pool entirely. THIS IS PERMANENT, ie, it does a RESET SLAVE on the target."
-      node = options[:node] || ask('Please enter node IP: ')
-      error "node address (#{node}) does not appear to be an IP" unless is_ip? node
-      node = node.to_db
-      raise "Node is not a standby slave" unless node.is_standby?
-      raise "Aborting" unless ask('Please type YES in all capital letters to confirm: ') == 'YES'
+      puts "This task removes a standby/backup slave from its pool entirely. THIS IS PERMANENT, ie, it does a RESET SLAVE on the target."
+      node = ask_node('Please enter node IP: ', options[:node])
+      describe node
+      raise "Node is not a standby or backup slave" unless (node.is_standby? || node.for_backups?)
+      raise "Aborting" unless ask('Please type YES in all capital letters to confirm removing node from its pool: ') == 'YES'
       node.pool.remove_slave!(node)
     end
     
@@ -302,10 +304,9 @@ module Jetpants
     method_option :node, :desc => 'IP of standby slave to rebuild'
     def rebuild_slave
       puts "This task exports all data on a standby/backup slave and then re-imports it."
-      node = options[:node] || ask('Please enter node IP: ')
-      error "node address (#{node}) does not appear to be an ip" unless is_ip? node
-      node = node.to_db
-      raise "Node is not a standby or backup slave" unless node.is_standby? || node.for_backups?
+      node = ask_node('Please enter node IP: ', options[:node])
+      describe node
+      raise "Node is not a standby or backup slave" unless (node.is_standby? || node.for_backups?)
       raise "Cannot rebuild non-shard slaves from command suite; use jetpants console instead" unless node.pool.is_a?(Shard)
       node.rebuild!
     end
@@ -508,8 +509,12 @@ module Jetpants
         puts message.blue
       end
       
-      def ask_node(prompt)
-        node = ask prompt
+      def describe node
+        puts "Node #{node} (#{node.hostname}:#{node.port}) is a #{node.role} in pool #{node.pool(true)}.".green
+      end
+      
+      def ask_node(prompt, supplied_node=false)
+        node = supplied_node || ask(prompt)
         error "Node (#{node}) does not appear to be an IP address." unless is_ip? node
         node.to_db
       end
