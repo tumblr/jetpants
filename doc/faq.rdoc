@@ -18,9 +18,9 @@ Doing this more seamlessly would require some amount of parsing of SQL in your a
 
 == Can I use \Jetpants to query some or all shards at once?
 
-Absolutely! You can even use it to implement some simple map/reduce in MySQL:
+Absolutely! You can even use it to implement some simple map/reduce-style distributed computation in MySQL:
 
-   Jetpants.topology.shards.concurrent_map {|s| s.query_return_first_value 'SELECT MAX(id) from foo'}.reduce(0) {|overall_max, val| val > overall_max ? val : overall_max}
+   Jetpants.topology.shards.concurrent_map {|s| s.query_return_first_value 'SELECT MAX(id) from foo'}.reduce(0) {|overall_max, val| [val, overall_max].max}
 
 This example concurrently queries all shards to determine the maximum ID in existence for table foo. This might be useful if, say, you're using Memcached as an ID generation service, and need to determine the previous highest-assigned ID after a restart or failover event.
 
