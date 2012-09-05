@@ -43,9 +43,8 @@ module Jetpants
       end
       
       def determine_pool_and_role(ip, port=3306)
-        ip += ":#{port}" if port.to_i != 3306
-        
-        [@global_pools + @shards].each do |h|
+        ip += ":#{port}"
+        (@global_pools + @shards).each do |h|
           pool = (h['name'] ? Jetpants.topology.pool(h['name']) : Jetpants.topology.shard(h['min_id'], h['max_id']))
           return [pool, 'MASTER'] if h['master'] == ip
           h['slaves'].each do |s|
@@ -57,9 +56,9 @@ module Jetpants
       end
       
       def determine_slaves(ip, port=3306)
-        ip += ":#{port}" if port.to_i != 3306
+        ip += ":#{port}"
         
-        [@global_pools + @shards].each do |h|
+        (@global_pools + @shards).each do |h|
           next unless h['master'] == ip
           return h['slaves'].map {|s| s['host'].to_db}
         end
@@ -71,4 +70,4 @@ module Jetpants
 end
 
 # load all the monkeypatches for other Jetpants classes
-%w(pool shard topology).each {|mod| require "simple_tracker/#{mod}"}
+%w(pool shard topology db).each {|mod| require "simple_tracker/#{mod}"}
