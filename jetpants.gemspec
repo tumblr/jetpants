@@ -2,13 +2,13 @@ require 'rake'
 
 Gem::Specification.new do |s|
   s.name = "jetpants"
-  s.version = "0.7.4"
+  s.version = "0.7.5"
 
   s.homepage = 'https://github.com/tumblr/jetpants/'
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.required_ruby_version = '>= 1.9.2'
   s.authors = ["Evan Elias", "Dallas Marlow"]
-  s.date  = "2012-09-05"
+  s.date  = "2012-09-14"
   s.email = ["me@evanelias.com", "dallasmarlow@gmail.com"]
   s.files = FileList['Gemfile', 'README.rdoc', 'doc/*.rdoc', 'lib/**/*.rb', 'bin/**', 'plugins/**/*.rb', 'etc/jetpants.yaml.sample'].to_a
   s.require_paths = ["lib"]
