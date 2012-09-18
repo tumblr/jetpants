@@ -2,7 +2,7 @@ require 'rake'
 
 Gem::Specification.new do |s|
   s.name = "jetpants"
-  s.version = "0.7.5"
+  s.version = "0.7.6"
 
   s.homepage = 'https://github.com/tumblr/jetpants/'
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
