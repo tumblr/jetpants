@@ -8,7 +8,7 @@ Gem::Specification.new do |s|
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.required_ruby_version = '>= 1.9.2'
   s.authors = ["Evan Elias", "Dallas Marlow"]
-  s.date  = "2012-09-14"
+  s.date  = "2012-09-18"
   s.email = ["me@evanelias.com", "dallasmarlow@gmail.com"]
   s.files = FileList['Gemfile', 'README.rdoc', 'doc/*.rdoc', 'lib/**/*.rb', 'bin/**', 'plugins/**/*.rb', 'etc/jetpants.yaml.sample'].to_a
   s.require_paths = ["lib"]
@@ -20,14 +20,12 @@ Gem::Specification.new do |s|
   s.extra_rdoc_files = FileList['README.rdoc', 'doc/*.rdoc']
   s.has_rdoc = true
   s.rdoc_options = ["--line-numbers", "--title", s.summary, "--main", "README.rdoc"]
-
-  if s.respond_to? :specification_version then
-    s.specification_version = 3
-    if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
-      %w[mysql2 sequel net-ssh pry thor highline colored].each do |gem|
-        s.add_runtime_dependency gem
-      end
-    end
-  else
-  end
+  
+  s.add_runtime_dependency 'mysql2', '~> 0.3.0'
+  s.add_runtime_dependency 'sequel', '~> 3.36.0'
+  s.add_runtime_dependency 'net-ssh', '~> 2.3.0'
+  s.add_runtime_dependency 'pry', '= 0.9.9.6'
+  s.add_runtime_dependency 'thor', '~> 0.15.2'
+  s.add_runtime_dependency 'highline', '~> 1.6.12'
+  s.add_runtime_dependency 'colored', '~> 1.2'
 end
