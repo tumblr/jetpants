@@ -10,7 +10,7 @@ module Jetpants
     def initialize *args
       super
       # setup pry
-      Pry.config.prompt = proc {|object| "# #{object} > "}
+      Pry.config.prompt = proc {|object, nest_level, _| "# #{object} > "}
     end
     
     # Override Thor.dispatch to allow simple callbacks, which must be before_foo / 
