@@ -6,8 +6,11 @@ Plugins may freely override these assumptions, and upstream patches are very wel
 
 == Environment
 
-* Ruby 1.9.2 or higher
-* MySQL (or Percona Server), specifically version 5.1 or higher.
+* Ruby 1.9.2 or higher.
+  * If your OS bundles a non-upgradeable 1.8 Ruby, we recommend using {rvm}[https://rvm.io/] to manage multiple Ruby versions.
+  * To date, \Jetpants has only been tested on the MRI/YARV implementation of Ruby. We hope to add JRuby compatibility in the near future.
+* Several Ruby gem module dependencies. If you're new to Ruby, the easiest way to install everything at once is <tt>gem install jetpants</tt>.
+* MySQL (or compatible, like Percona Server), version 5.1 or higher.
 * a RHEL/CentOS distribution of Linux.
   * It should be easy to write a plugin supporting another distribution. The main change might be overriding Jetpants::Host#service, if your distribution doesn't have <tt>/sbin/service</tt>.
 * InnoDB / Percona XtraDB for storage engine. \Jetpants has not been tested with MyISAM, since \Jetpants is geared towards huge tables, and MyISAM is generally a bad fit.
