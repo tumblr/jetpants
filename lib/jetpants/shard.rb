@@ -195,8 +195,10 @@ module Jetpants
     def clone_to_children!
       # Figure out which slave(s) we can use for populating the new masters
       sources = standby_slaves.dup
-      sources.shift
       raise "Need to have at least 1 slave in order to create additional slaves" if sources.length < 1
+      
+      # If we have 2 or more slaves, keep 1 replicating for safety's sake; don't use it for spinning up children
+      sources.shift if sources.length > 1
       
       # Figure out which machines we need to turn into slaves
       targets = []
@@ -254,10 +256,14 @@ module Jetpants
         restart_mysql
         @state = :replicating
         sync_configuration
-        my_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: 'standby_slave')
-        enslave!(my_slaves)
-        my_slaves.each {|slv| slv.resume_replication}
-        [self, my_slaves].flatten.each {|db| db.catch_up_to_master}
+        if Jetpants.standby_slaves_per_pool > 0
+          my_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: 'standby_slave')
+          enslave!(my_slaves)
+          my_slaves.each {|slv| slv.resume_replication}
+          [self, my_slaves].flatten.each {|db| db.catch_up_to_master}
+        else
+          catch_up_to_master
+        end
       else
         raise "Shard not in a state compatible with calling rebuild! (current state=#{@state})"
       end
