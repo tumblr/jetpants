@@ -64,11 +64,28 @@ module Jetpants
     end
     alias start_replication resume_replication
     
-    # Permanently disables replication
+    # Permanently disables replication. Clears out the SHOW SLAVE STATUS output
+    # entirely in MySQL versions that permit this.
     def disable_replication!
       raise "This DB object has no master" unless master
       output "Disabling replication; this db is no longer a slave."
-      output mysql_root_cmd "STOP SLAVE; CHANGE MASTER TO master_host=''; RESET SLAVE"
+
+      ver = version_tuple
+
+      # MySQL < 5.5: allows master_host='', which clears out SHOW SLAVE STATUS
+      if ver[0] == 5 && ver[1] < 5
+        output mysql_root_cmd "STOP SLAVE; CHANGE MASTER TO master_host=''; RESET SLAVE"
+
+      # MySQL 5.5.16+: allows RESET SLAVE ALL, which clears out SHOW SLAVE STATUS
+      elsif ver[0] >= 5 && (ver[0] > 5 || ver[1] >= 5) && (ver[0] > 5 || ver[1] > 5 || ver[2] >= 16)
+        output mysql_root_cmd "STOP SLAVE; CHANGE MASTER TO master_user='test'; RESET SLAVE ALL"
+
+      # Other versions: no safe way to clear out SHOW SLAVE STATUS.  Still set master_user to 'test'
+      # so that we know to ignore the slave status output.
+      else
+        output mysql_root_cmd "STOP SLAVE; CHANGE MASTER TO master_user='test'; RESET SLAVE"
+      end
+
       @master.slaves.delete(self) rescue nil
       @master = nil
       @repl_paused = nil

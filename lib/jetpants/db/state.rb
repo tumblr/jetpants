@@ -143,7 +143,14 @@ module Jetpants
         variables      
       end
     end
-
+    
+    # Returns an array of integers representing the version of the MySQL server.
+    # For example, Percona Server 5.5.27-rel28.1-log would return [5, 5, 27]
+    def version_tuple
+      raise "Cannot determine version of a stopped MySQL instance" unless running?
+      global_variables[:version].split('.', 3).map &:to_i
+    end
+    
     # Returns the Jetpants::Pool that this instance belongs to, if any.
     # Can optionally create an anonymous pool if no pool was found. This anonymous
     # pool intentionally has a blank sync_configuration implementation.
