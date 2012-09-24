@@ -257,14 +257,14 @@ module Jetpants
     end
     
     
-    desc 'rebuild_slave', 'export and re-import data set on a standby slave'
-    method_option :node, :desc => 'IP of standby slave to rebuild'
+    desc 'defrag_slave', 'export and re-import data set on a standby slave'
+    method_option :node, :desc => 'IP of standby slave to defragment'
     def rebuild_slave
       puts "This task exports all data on a standby/backup slave and then re-imports it."
       node = ask_node('Please enter node IP: ', options[:node])
       describe node
       raise "Node is not a standby or backup slave" unless (node.is_standby? || node.for_backups?)
-      raise "Cannot rebuild non-shard slaves from command suite; use jetpants console instead" unless node.pool.is_a?(Shard)
+      raise "Cannot defragment non-shard slaves from command suite yet; use jetpants console instead" unless node.pool.is_a?(Shard)
       node.rebuild!
     end
     

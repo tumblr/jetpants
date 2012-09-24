@@ -114,7 +114,7 @@ These commands display status information about a particular node, pool, or the 
 
 == Miscellaneous
 
-<b><tt>jetpants rebuild_slave</tt></b> exports all data on a standby slave, drops tables, recreates tables, and then re-imports the data. This is useful for defragmenting a node. Currently it only works on shard pool slaves; this may change in a future release.
+<b><tt>jetpants defrag_slave</tt></b> exports all data on a standby slave, drops tables, recreates tables, and then re-imports the data. This is useful for defragmenting a node. Currently it only works on shard pool slaves; this may change in a future release.
 
 <b><tt>jetpants regen_config</tt></b> regenerates your application's configuration file, assuming you are using an asset tracker. This isn't terribly useful in most cases, because any commands that make configuration changes will do this automatically. However, you may want to run this after manually making topology changes via <tt>jetpants console</tt>.
 
