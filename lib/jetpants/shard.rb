@@ -44,8 +44,8 @@ module Jetpants
     # * master: string (IP address) or a Jetpants::DB object
     # * state:  one of the above state symbols
     def initialize(min_id, max_id, master, state=:ready)
-      @min_id = min_id
-      @max_id = max_id
+      @min_id = min_id.to_i
+      @max_id = (max_id.to_s.upcase == 'INFINITY' ? 'INFINITY' : max_id.to_i)
       @state = state
 
       @children = []    # array of shards being initialized by splitting this one
