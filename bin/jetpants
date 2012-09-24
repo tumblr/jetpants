@@ -317,6 +317,7 @@ module Jetpants
       
       raise "Shard not found" unless s
       raise "Shard isn't in ready state" unless s.state == :ready
+      raise "Cannot split the last shard (max ID of infinity), use \"jetpants shard_cutover\" instead" if s.max_id == 'INFINITY'
       
       ranges = options[:ranges] || ask('Optionally enter comma-separated list of ranges per child ie "1000-1999,2000-2499" [default=even split]: ')
       ranges = false if ranges.strip == ''
