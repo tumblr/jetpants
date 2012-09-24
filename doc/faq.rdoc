@@ -55,7 +55,7 @@ Rebalancing range-based shards can be accomplished quickly as long as the primar
 
 The main downside to the range-based approach is lack of even distribution of "hot" data. If a small handful of users on a given shard are using a disproportionate amount of resources, there's no way to move _only_ those users to a different shard. For this reason, range-based sharding can work best for "long-tail" sites where the majority of activity is created by the majority of common users.
 
-Some alternatives to the range-based approach include:
+\Jetpants only supports range-based sharding at this time, but for background, here are some alternative approaches:
 
 * <b>Modulus or hash</b>: Apply a function to your sharding key to determine which shard the data lives on.
 

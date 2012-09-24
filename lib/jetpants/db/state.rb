@@ -242,7 +242,8 @@ module Jetpants
     #
     # Plugins may want to override DB#probe_slaves itself too, if running multiple
     # MySQL instances per physical machine. In this case you'll want to use 
-    # SHOW SLAVE HOSTS, and all slaves must be using the --report-host option.
+    # SHOW SLAVE HOSTS, and all slaves must be using the --report-host option if
+    # using MySQL < 5.5.3.
     def probe_slaves
       return unless @running # leaves @slaves as nil to indicate unknown state
       @slaves = []

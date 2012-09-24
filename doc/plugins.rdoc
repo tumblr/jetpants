@@ -37,12 +37,9 @@ When you first start using simple_tracker, there will be no pools, shards, or sp
   s.sync_configuration
   
   # add some spare machines
-  Jetpants.topology.tracker.spares << '10.45.67.130'
-  Jetpants.topology.tracker.spares << '10.45.67.132'
-  
-  # If you're using jetpants console, this works too, since console runs in Jetpants
-  # module namespace, which then delegates missing methods to its topology object:
-  tracker.spares << '10.45.67.134'
+  topology.tracker.spares << '10.45.67.130'
+  topology.tracker.spares << '10.45.67.132'
+  topology.update_tracker_data
   
 
 === Methods to override

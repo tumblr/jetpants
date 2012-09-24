@@ -48,7 +48,7 @@ For example, say your application's natural sharding key is <tt>user_id</tt>. Th
 
 We prefer this range-based scheme due to its simplicity. The ranges can be expressed in a language-neutral JSON or YAML format, which can be shared between application stacks easily. \Jetpants solves all data rebalancing problems for you. There's no need to "pre-allocate" thousands of tiny shards, nor do you need an external lookup service which would be a bottleneck and a single point of failure.
 
-Under this sharding scheme, there will always be a "last" shard, with a range of X to infinity. All new users (or whatever your sharding key is) will have their data placed on this shard. Once there are too many users on this shard, it becomes necessary to truncate its range such that it handles IDs X through Y, where Y is an ID "in the future" (ie, sufficiently higher than your current max ID such that you won't hit ID Y for another few days). You must then add a new last shard handles IDs (Y+1) to infinity. We call this process "shard cutover", and it is a supported operation in the Jetpants command suite.
+Under this sharding scheme, there will always be a "last" shard, with a range of X to infinity. All new users (or whatever your sharding key is) will have their data placed on this shard. \Jetpants cannot split this last shard, but instead it can truncate its range to no longer have an infinite max_id -- ie, truncate its range such that it now handles IDs X through Y, where Y is an ID "in the future" (sufficiently higher than your current max ID such that you won't hit ID Y for another few days). \Jetpants then adds a new last shard which handles IDs (Y+1) to infinity. Please see the <tt>jetpants shard_cutover</tt> command.
 
 
 == Assumptions for shard-split logic
@@ -59,5 +59,9 @@ In order for \Jetpants to be able to rebalance your shards efficiently, we also 
 * Primary key of all sharded tables begins with the sharding key. This takes advantage of InnoDB clustered indexes to allow efficient export/import of data by ranges. This isn't strictly mandatory, but it makes an absolutely huge performance difference versus using a secondary index.
 * Uniform MySQL configuration between masters and slaves: log-slave-updates, unique server-id, generic log-bin and relay-log names, replication user/grants everywhere.
 * Redundant rows temporarily on the wrong shard don’t matter to your application. Hopefully these would only matter if you're doing aggregate queries (like COUNTs) over the whole data set... but if your data set is big enough to shard, these already don't scale, so it shouldn't really matter.
+
+By default, the <tt>standby_slaves_per_pool</tt> config option is set to 2. This means each shard has 3 machines: 1 master and 2 standby slaves. Therefore, splitting a shard into N pieces will require 3*N spare machines, because \Jetpants does not split the shard "in-place". After the process is completely finished, you'll get back the original shard's 3 machines to re-use or cancel.
+
+A "spare" machine in \Jetpants should be in a clean-slate state: MySQL should be installed and have the proper grants and root password, but there should be no data on these machines, and they should not be slaving. \Jetpants will set up replication appropriately when it assigns the nodes to their appropriate pools.
 
 For more information on the shard split process implemented by \Jetpants, including diagrams of each stage of the process, please see {Evan Elias's presentation at Velocity Europe 2011}[https://github.com/tumblr/jetpants/blob/master/doc/VelocityEurope2011Presentation.pdf?raw=true], starting at slide 19.
