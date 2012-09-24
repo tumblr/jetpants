@@ -339,12 +339,16 @@ module Jetpants
     
     ###### Misc methods ########################################################
     
-    # Performs the given operation ('start', 'stop', 'restart') on the specified
-    # service. Default implementation assumes RedHat/CentOS style /sbin/service.
-    # If you're using a distibution or OS that does not support /sbin/service,
-    # override this method with a plugin.
+    # Performs the given operation (:start, :stop, :restart, :status) for the
+    # specified service (ie "mysql"). Requires that the "service" bin is in
+    # root's PATH.
+    # Please be aware that the output format and exit codes for the service
+    # binary vary between Linux distros! You may find that you need to override
+    # methods that call Host#service with :status operation (such as 
+    # DB#probe_running) in a custom plugin, to parse the output properly on 
+    # your chosen Linux distro.
     def service(operation, name)
-      ssh_cmd "/sbin/service #{name} #{operation.to_s}"
+      ssh_cmd "service #{name} #{operation.to_s}"
     end
     
     # Changes the I/O scheduler to name (such as 'deadline', 'noop', 'cfq')

@@ -10,18 +10,21 @@ Plugins may freely override these assumptions, and upstream patches are very wel
   * If your OS bundles a non-upgradeable 1.8 Ruby, we recommend using {rvm}[https://rvm.io/] to manage multiple Ruby versions.
   * To date, \Jetpants has only been tested on the MRI/YARV implementation of Ruby. We hope to add JRuby compatibility in the near future.
 * Several Ruby gem module dependencies. If you're new to Ruby, the easiest way to install everything at once is <tt>gem install jetpants</tt>.
+  * Some of these gems require building native extensions, which means they need devel headers in order to build.
+  * For example, \jetpants requires the mysql2 gem, which in turn needs MySQL development C headers in order to compile.
 * MySQL (or compatible, like Percona Server), version 5.1 or higher.
-* a RHEL/CentOS distribution of Linux.
-  * It should be easy to write a plugin supporting another distribution. The main change might be overriding Jetpants::Host#service, if your distribution doesn't have <tt>/sbin/service</tt>.
+* Required Linux binaries that must be installed and in root's PATH on all of your database machines:
+  * <tt>service</tt>, a wrapper around init scripts, supporting syntax <tt>service mysql start</tt>, <tt>service mysql status</tt>, etc. Some distros include this by default (typically as /sbin/service or /usr/sbin/service) while others offer it as a package. Implementation varies slightly between distros; currently \Jetpants expects <tt>service mysql status</tt> output to include either "not running" (RHEL/Centos) or "stop/waiting" (Ubuntu) in the output if the MySQL server is not running.
+  * <tt>nc</tt>, also known as netcat, a tool for piping data to or from a socket.
+  * <tt>pigz</tt>, an open-source single-binary parallel gzip tool by Mark Adler. A future version of \Jetpants will allow pluggable compression tools, but at present we strictly use <tt>pigz</tt> for compression in all file copy operations.
 * InnoDB / Percona XtraDB for storage engine. \Jetpants has not been tested with MyISAM, since \Jetpants is geared towards huge tables, and MyISAM is generally a bad fit.
 * All MySQL instances run on port 3306, with only one instance per logical machine.
-  * A plugin could override this easily, but would require you to use the --report-host option on all slaves, so that crawling the replication topology is possible. It would also have to override various methods that specify the MySQL init script location, config file location, data directory, etc.
+  * A plugin could override this easily, but would require you to use the --report-host option on all slaves running MySQL 5.1, so that crawling the replication topology is possible. It would also have to override various methods that specify the MySQL init script location, config file location, data directory, etc.
   * Since there's no "standard" layout for multi-instance MySQL, this won't ever be part of the \Jetpants core, but we may include one implementation as a bundled plugin in a future release.
-* Master-Master replication is not in use. It presents a large number of additional failure states which make automation quite difficult, since transaction IDs are not global in MySQL.
+* Master-Master replication is not in use. It presents a large number of additional failure states which make automation quite difficult, since transaction IDs are not global in MySQL. This restriction will be lifted if/when we add MySQL 5.6 support.
 * Unusual replication topologies -- special-purpose slaves, ring topologies, hierarchical replication -- are not in use. Plugins could certainly override this by adding additional types of slaves, but there are too many options for this to be part of the \Jetpants core.
 * You must be running \Jetpants as a UNIX user with access to an SSH private key, capable of connecting as root to any host in your database topology. If this key has a nonstandard name or location, you must specify this using the <tt>ssh_keys</tt> option in the Jetpants configuration file. SSH agent forwarding should work fine automatically, but be careful of its interaction with UNIX tools like <tt>screen</tt>.
 * The root MySQL user must be able to access the database on localhost via MySQL's UNIX socket. You may specify the root password with Jetpants' <tt>mysql_root_password</tt> option in the configuration file. Or if all of your database hosts has a <tt>/root/.my.cnf</tt> file specifying the root password, you can omit <tt>mysql_root_password</tt> in the configuration file.
-* You must have <tt>pigz</tt> (an open-source parallel gzip tool by Mark Adler) installed on all database hosts. A future version of \Jetpants will allow pluggable compression tools, but at present we strictly use <tt>pigz</tt> for compression in all file copy operations.
 
 
 == Database topology
@@ -32,6 +35,8 @@ We define a database <b>pool</b> as 1 master and 0 or more slaves. Each slave fa
 * Backup slaves: replicas that never receive application queries and will never be promoted to another class. For example, might be a different hardware spec.
 
 At Tumblr we ensure that all pools have exactly 2 standby slaves. This establishes a minimum level of redundancy at 3 copies of each row. If a master or active slave fails, we use \Jetpants to promote one standby slave in its place, and use the other standby slave to quickly clone a replacement. (\Jetpants clones nodes by stopping the MySQL daemon and then copying the data set; this is substantially faster than using a hot-copy solution, especially on very large and/or very actively written data sets.)
+
+You may alter the two-standbys-per-pool requirement by tuning the <tt>standby_slaves_per_pool</tt> setting in the \Jetpants configuration file.
 
 We no longer use dedicated backup slaves at Tumblr, although we still offer support in \Jetpants for them.
 

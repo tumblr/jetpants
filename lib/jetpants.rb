@@ -1,3 +1,7 @@
+# This is the Jetpants module entrypoint. It loads all base Jetpants files,
+# configuration, and plugins. It then initializes the object model / database
+# topology.
+
 require 'sequel'
 require 'net/ssh'
 require 'yaml'

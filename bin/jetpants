@@ -1,4 +1,9 @@
 #!/usr/bin/env ruby
+
+# This is the jetpants command suite toolkit executable. It wraps the Jetpants
+# module in a Thor command processor, providing a command-line interface to
+# common Jetpants functionality.
+
 jetpants_base_dir = File.expand_path(File.dirname(__FILE__) + '/..')
 $:.unshift File.join(jetpants_base_dir, 'lib')
 %w[thor pry highline/import colored].each {|g| require g}

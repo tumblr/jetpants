@@ -188,11 +188,17 @@ module Jetpants
     
     private
     
-    # Check if mysqld is running
+    # Check if mysqld is running.
+    # If your Linux distro's implementation of "service" returns output formatted
+    # differently than what we check for here (which matches RHEL and Ubuntu),
+    # you will need to override this method in a plugin! Or if you submit a patch
+    # we'd be happy to merge it upstream to support more distros.
     def probe_running
       if @host.available?
-        status = service(:status, 'mysql')
-        @running = !(status.downcase.include?('not running'))
+        status = service(:status, 'mysql').downcase
+        # mysql is running if the output of "service mysql status" doesn't include any of these strings
+        not_running_strings = ['not running', 'stop/waiting']
+        @running = not_running_strings.none? {|str| status.include? str}
       else
         @running = false
       end
