@@ -150,6 +150,7 @@ module Jetpants
       
       count.times do |i|
         spare = Jetpants.topology.claim_spare(role: 'master')
+        spare.disable_read_only! if (spare.running? && spare.read_only?)
         spare.output "Using ID range of #{id_ranges[i][0]} to #{id_ranges[i][1]} (inclusive)"
         s = Shard.new(id_ranges[i][0], id_ranges[i][1], spare, :initializing)
         add_child(s)
