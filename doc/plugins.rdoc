@@ -18,29 +18,12 @@ To use simple_tracker, be sure to define its <tt>tracker_data_file_path</tt> (wh
 
 For an example of how to configure the plugin, please see the bottom of etc/jetpants.yaml.sample.
 
-When you first start using simple_tracker, there will be no pools, shards, or spare machines. You can start to add some via <tt>jetpants console</tt>, or you can write a custom script to import data from another source or config file. Either way, some examples of how to add things include:
+When you first start using simple_tracker, there will be no pools, shards, or spare machines. If you're fluent in Ruby, you can start to add some via <tt>jetpants console</tt>, or you can write a custom script to import data from another source or config file. Alternatively, you can use these commands that simple_tracker adds to the \Jetpants command suite:
 
-  # Create a global pool (functional partition)
-  p = Pool.new('some-name', '10.45.67.220')
-  
-  # The slaves of the master will be detected automatically,
-  # but they will all be assumed to be standby slaves by
-  # default. You have to tell Jetpants which ones are active
-  # slaves:
-  p.has_active_slave('10.45.67.226')
-  
-  # save it
-  p.sync_configuration
-  
-  # Create a shard + save it
-  s = Shard.new(1, 100000, '10.45.67.160', :ready)
-  s.sync_configuration
-  
-  # add some spare machines
-  topology.tracker.spares << '10.45.67.130'
-  topology.tracker.spares << '10.45.67.132'
-  topology.update_tracker_data
-  
+* <tt>jetpants add_pool</tt>
+* <tt>jetpants add_shard</tt>
+* <tt>jetpants add_spare</tt>
+
 
 === Methods to override
 
