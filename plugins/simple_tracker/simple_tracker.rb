@@ -18,7 +18,7 @@ module Jetpants
       # Array of hashes, each containing info from Shard#to_hash
       attr_accessor :shards
       
-      # Array of any of the following:
+      # Clean state DB nodes that are ready for use. Array of any of the following:
       # * hashes each containing key 'node'. could expand to include 'role' or other metadata as well,
       #   but currently not supported.
       # * objects responding to to_db, such as String or Jetpants::DB
@@ -70,4 +70,4 @@ module Jetpants
 end
 
 # load all the monkeypatches for other Jetpants classes
-%w(pool shard topology db).each {|mod| require "simple_tracker/#{mod}"}
+%w(pool shard topology db commandsuite).each {|mod| require "simple_tracker/#{mod}"}

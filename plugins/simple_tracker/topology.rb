@@ -58,7 +58,7 @@ module Jetpants
     # only.
     def update_tracker_data
       @tracker.global_pools = functional_partitions.map &:to_hash
-      @tracker.shards = shards.map &:to_hash
+      @tracker.shards = shards.reject {|s| s.state == :recycle}.map &:to_hash
       @tracker.save
     end
     

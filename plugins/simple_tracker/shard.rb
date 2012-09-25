@@ -8,6 +8,16 @@ module Jetpants
       sync_configuration
     end
     
+    def after_cleanup!
+      output 'This shard has now been fully split.'
+      nodes.each do |n|
+        n.output 'This node is no longer in use; please recycle or cancel it.'
+      end
+      puts 'If recycling nodes, be sure to completely clean them: wipe binlogs and all'
+      puts 'MySQL data, and put clean data files with proper grants in place, before'
+      puts 'you put the nodes back on the spare list.'
+    end
+    
     
     ##### NEW CLASS-LEVEL METHODS ##############################################
     
