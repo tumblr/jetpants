@@ -41,7 +41,7 @@ module Jetpants
       raise "Not enough spare machines -- requested #{count}, only have #{@tracker.spares.count}" if @tracker.spares.count < count
       hashes = @tracker.spares.shift(count)
       update_tracker_data
-      hashes.map {|h| h['node'] ? h['node'].to_db : h.to_db}
+      hashes.map {|h| h.is_a?(Hash) && h['node'] ? h['node'].to_db : h.to_db}
     end
     
     def count_spares(options={})
