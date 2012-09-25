@@ -138,8 +138,15 @@ module Jetpants
       Jetpants.pools.concurrent_each &:probe
       Jetpants.pools.each &:summary
       
+      # We could do this more compactly using DB#role, but it would incorrectly
+      # handle counts for shards in the middle of a split
       counts = {master: 0, active_slave: 0, standby_slave: 0, backup_slave: 0}
-      Jetpants.pools.map(&:nodes).flatten.each {|n| counts[n.role] += 1}
+      Jetpants.pools.each do |p|
+        counts[:master] += 1
+        counts[:active_slave] += p.active_slaves.count
+        counts[:backup_slave] += p.backup_slaves.count
+        counts[:standby_slave] += p.standby_slaves.count
+      end
       
       puts
       puts "%4d global pools" % Jetpants.functional_partitions.count

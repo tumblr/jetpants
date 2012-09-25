@@ -158,7 +158,8 @@ module Jetpants
 
       alias_text = @aliases.count > 0 ? '  (aliases: ' + @aliases.join(', ') + ')' : ''
       data_size = @master.running? ? "[#{master.data_set_size(true)}GB]" : ''
-      print "#{name}#{alias_text}  #{data_size}\n"
+      state_text = (respond_to?(:state) && state != :ready ? "  (state: #{state})" : '')
+      print "#{name}#{alias_text}#{state_text}  #{data_size}\n"
       
       if extended_info
         details = {}
