@@ -8,11 +8,12 @@ module Jetpants
     # Create a MySQL user. If you omit parameters, the defaults from Jetpants'
     # configuration will be used instead.  Does not automatically grant any
     # privileges; use DB#grant_privileges for that.
-    def create_user(username=false, database=false, password=false)
+    def create_user(username=false, database=false, password=false, skip_binlog=false)
       username ||= app_credentials[:user]
       database ||= app_schema
       password ||= app_credentials[:pass]
       commands = []
+      commands << 'SET sql_log_bin = 0' if skip_binlog
       Jetpants.mysql_grant_ips.each do |ip|
         commands << "CREATE USER '#{username}'@'#{ip}' IDENTIFIED BY '#{password}'"
       end
