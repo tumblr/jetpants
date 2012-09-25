@@ -302,7 +302,7 @@ module Jetpants
     end
     
     # Displays information about the shard
-    def summary(extended_info=false, with_children=true)
+    def summary(extended_info=false, with_children=false)
       super(extended_info)
       if with_children
         children.each {|c| c.summary}
