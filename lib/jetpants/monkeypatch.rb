@@ -17,6 +17,32 @@ module Enumerable
   def concurrent_each_with_index(&block)
     each_with_index.concurrent_each(&block)
   end
+  
+  # Alternative for concurrent_map which also has the ability to limit how
+  # many threads are used. Much less elegant :(
+  def limited_concurrent_map(thread_limit=40)
+    lock = Mutex.new
+    group = ThreadGroup.new
+    items = to_a
+    results = []
+    pos = 0
+    
+    # Number of concurrent threads is the lowest of: self length, supplied thread limit, global concurrency limit
+    [items.length, thread_limit, Jetpants.max_concurrency].min.times do
+      th = Thread.new do
+        while true do
+          my_pos = nil
+          lock.synchronize { my_pos = pos; pos += 1}
+          break unless my_pos < items.length
+          my_result = yield items[my_pos]
+          lock.synchronize { results[my_pos] = my_result }
+        end
+      end
+      group.add th
+    end
+    group.list.each {|th| th.join}
+    results
+  end
 end
 
 # Add Jetpants-specific conversion methods to Object.
