@@ -249,9 +249,17 @@ module Jetpants
       @slaves = []
       slaves_mutex = Mutex.new
       processes = mysql_root_cmd("SHOW PROCESSLIST", :terminator => ';').split("\n")
-      processes.grep(/Binlog Dump/).concurrent_each do |p|
+      
+      # We have to de-dupe the output, since it's possible in weird edge cases for
+      # the same slave to be listed twice
+      ips = {}
+      processes.grep(/Binlog Dump/).each do |p|
         tokens = p.split
         ip, dummy = tokens[2].split ':'
+        ips[ip] = true
+      end
+      
+      ips.keys.concurrent_each do |ip|
         db = ip.to_db
         db.probe
         slaves_mutex.synchronize {@slaves << db if db.master == self}
