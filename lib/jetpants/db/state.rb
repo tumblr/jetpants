@@ -105,7 +105,15 @@ module Jetpants
       sleep(interval)
       global_status[:Connections].to_i - conn_counter > threshold
     end
-
+    
+    # Confirms the binlog of this node has not moved during a duration
+    # of [interval] seconds.
+    def taking_writes?(interval=5.0)
+      coords = binlog_coordinates
+      sleep(interval)
+      coords != binlog_coordinates
+    end
+    
     # Returns true if this instance appears to be a standby slave,
     # false otherwise. Note that "standby" in this case is based
     # on whether the slave is actively receiving connections, not
