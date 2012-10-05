@@ -73,7 +73,7 @@ Or if you're deploying a brand new pool in an existing topology:
 5. Stop replicating writes from the parent shard, and then take the parent pool offline entirely.
 6. Remove rows that replicated to the wrong child shard. This data will be sparse, since it's only the writes that were made since the shard split process started.
 
-For more information, including diagrams of each step, please see {our presentation at Velocity Europe 2011}[https://github.com/tumblr/jetpants/blob/master/doc/VelocityEurope2011Presentation.pdf?raw=true].
+For more information, including diagrams of each step, please see {our presentation at Percona Live NYC 2012}[https://github.com/tumblr/jetpants/blob/master/doc/PerconaLiveNYC2012Presentation.pdf?raw=true].
 
 Separately, \Jetpants also allows you to alter the range of the last shard in your topology. In a range-based sharding scheme, the last shard has a range of X to infinity; eventually this will be too large of a range, so you need to truncate that shard range and create a "new" last shard after it.  We call this process "shard cutover".
 

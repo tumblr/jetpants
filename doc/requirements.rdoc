@@ -64,4 +64,4 @@ By default, the <tt>standby_slaves_per_pool</tt> config option is set to 2. This
 
 A "spare" machine in \Jetpants should be in a clean-slate state: MySQL should be installed and have the proper grants and root password, but there should be no data on these machines, and they should not be slaving. \Jetpants will set up replication appropriately when it assigns the nodes to their appropriate pools.
 
-For more information on the shard split process implemented by \Jetpants, including diagrams of each stage of the process, please see {Evan Elias's presentation at Velocity Europe 2011}[https://github.com/tumblr/jetpants/blob/master/doc/VelocityEurope2011Presentation.pdf?raw=true], starting at slide 19.
+For more information on the shard split process implemented by \Jetpants, including diagrams of each stage of the process, please see {Evan Elias's presentation at Percona Live NYC 2012}[https://github.com/tumblr/jetpants/blob/master/doc/PerconaLiveNYC2012Presentation.pdf?raw=true], starting at slide 20.
