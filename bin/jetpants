@@ -170,10 +170,10 @@ module Jetpants
     def pools_compact
       puts
       Jetpants.shards.each do |s| 
-        puts "[%-12s] %8s to %-11s = %3s GB" % [s.ip, s.min_id, s.max_id, s.data_set_size(true)]
+        puts "[%-15s] %8s to %-11s = %3s GB" % [s.ip, s.min_id, s.max_id, s.data_set_size(true)]
       end
       Jetpants.functional_partitions.each do |p| 
-        puts "[%-12s] %-23s = %3s GB" % [p.ip, p.name, p.data_set_size(true)]
+        puts "[%-15s] %-23s = %3s GB" % [p.ip, p.name, p.data_set_size(true)]
       end
       puts
     end
