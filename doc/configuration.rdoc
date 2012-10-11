@@ -20,8 +20,43 @@ mysql_repl_password::       mysql password for replication (mandatory)
 mysql_root_password::       mysql root password (default: false, indicating that \Jetpants should use /root/.my.cnf instead)
 mysql_grant_ips::           mysql user manipulations are applied to these IPs (array; mandatory)
 mysql_grant_privs::         mysql user manipulations grant this set of privileges by default (array; default: \['ALL'])
+compress_with::             command line to perform compression during large file copy operations; see below (default: 'pigz')
+decompress_with::           command line to perform decompression during large file copy operations; see below (default: 'pigz -d')
 export_location::           directory to use for data dumping (default: '/tmp')
 verify_replication::        raise exception if the actual replication topology differs from Jetpants' understanding of it (ie, disagreement between asset tracker and probed state), or if MySQL's two replication threads are in different states (one running and the other stopped) on a DB node. (default: true. master promotion tool ignores this, since the demoted master may legitimately be dead/offline)
 plugins::                   hash of plugin name => arbitrary plugin data, usually a nested hash of settings (default: \{})
 ssh_keys::                  array of SSH private key file locations, if not using standard id_dsa or id_rsa. Passed directly to Net::SSH.start's :keys parameter (default: nil)
 sharded_tables::            array of name => \{sharding_key=>X, chunks=>Y} hashes, describing all tables on shards. Required by shard split/rebuild processes (default: \[])
+
+== Compression
+
+\Jetpants has the ability to use compression during large file copy operations, which are performed by commands "jetpants clone_slave" and "jetpants shard_split". By default, \Jetpants uses <tt>pigz</tt>, an open-source parallel gzip tool by Mark Adler.
+
+The command lines that you specify should accept input from STDIN and supply output to STDOUT, because they will be used in the middle of a series of piped commands. The binary specified should be in root's PATH on all database nodes. We recommend use of a parallel compression tool, to take advantage of multiple cores.
+
+Some example values of these parameters are as follows:
+
+=== Disable compression
+<code>
+compress_with: false
+decompress_with: false
+</code>
+
+=== pigz (default if not specified in config!)
+<code>
+compress_with: pigz
+decompress_with: pigz -d
+</code>
+
+=== qpress, 10 threads
+<code>
+compress_with: qpress -io -T10
+decompress_with: qpress -dio -T10
+</code>
+
+=== lzop (single-threaded)
+<code>
+compress_with: lzop
+decompress_with: lzop -d
+</code>
+

@@ -192,7 +192,6 @@ module Jetpants
     ###### Directory Copying / Listing / Comparison methods ####################
     
     # Quickly and efficiently recursively copies a directory to one or more target hosts.
-    # Requires that pigz is installed on source (self) and all targets.
     # base_dir::  is base directory to copy from the source (self). Also the default destination base
     #             directory on the targets, if not supplied via next param.
     # targets::   is one of the following:
@@ -225,6 +224,11 @@ module Jetpants
       file_list = filenames.join ' '
       port = (options[:port] || 7000).to_i
       
+      if Jetpants.compress_with || Jetpants.decompress_with
+        comp_bin = Jetpants.compress_with.split(' ')[0]
+        confirm_installed comp_bin
+      end
+      
       # On each destination host, do any initial setup (and optional validation/erasing),
       # and then listen for new files.  If there are multiple destination hosts, all of them
       # except the last will use tee to "chain" the copy along to the next machine.
@@ -233,7 +237,10 @@ module Jetpants
         dir = destinations[t]
         raise "Directory #{t}:#{dir} looks suspicious" if dir.include?('..') || dir.include?('./') || dir == '/' || dir == ''
         
-        t.confirm_installed 'pigz'
+        if Jetpants.compress_with || Jetpants.decompress_with
+          decomp_bin = Jetpants.decompress_with.split(' ')[0]
+          t.confirm_installed decomp_bin
+        end
         t.ssh_cmd "mkdir -p #{dir}"
         
         # Check if contents already exist / non-empty.
@@ -244,8 +251,9 @@ module Jetpants
           dirlist.each {|name, size| raise "File #{name} exists on destination and has nonzero size!" if size.to_i > 0}
         end
         
+        decompression_pipe = Jetpants.decompress_with ? "| #{Jetpants.decompress_with}" : ''
         if i == 0
-          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} | pigz -d | tar xvf -" }
+          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} #{decompression_pipe} | tar xvf -" }
           t.confirm_listening_on_port port
           t.output "Listening with netcat."
         else
@@ -254,16 +262,16 @@ module Jetpants
           workers << Thread.new { t.ssh_cmd "cd #{dir} && mkfifo #{fifo} && nc #{tt.ip} #{port} <#{fifo} && rm #{fifo}" }
           checker_th = Thread.new { t.ssh_cmd "while [ ! -p #{dir}/#{fifo} ] ; do sleep 1; done" }
           raise "FIFO not found on #{t} after 10 tries" unless checker_th.join(10)
-          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} | tee #{fifo} | pigz -d | tar xvf -" }
+          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} | tee #{fifo} #{decompression_pipe} | tar xvf -" }
           t.confirm_listening_on_port port
           t.output "Listening with netcat, and chaining to #{tt}."
         end
       end
       
       # Start the copy chain.
-      confirm_installed 'pigz'
       output "Sending files over to #{targets[0]}: #{file_list}"
-      ssh_cmd "cd #{base_dir} && tar vc #{file_list} | pigz | nc #{targets[0].ip} #{port}"
+      compression_pipe = Jetpants.compress_with ? "| #{Jetpants.compress_with}" : ''
+      ssh_cmd "cd #{base_dir} && tar vc #{file_list} #{compression_pipe} | nc #{targets[0].ip} #{port}"
       workers.each {|th| th.join}
       output "File copy complete."
       

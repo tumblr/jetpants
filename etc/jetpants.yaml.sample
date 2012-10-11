@@ -27,6 +27,11 @@ mysql_grant_privs:
 # has higher capacity anyway.
 export_location:        /some/path/on/root/partition
 
+# If you want to speed up large copy operations in Jetpants, supply relevant
+# command lines here. See configuration.rdoc for more information on formatting.
+compress_with:          false
+decompress_with:        false
+
 # List all tables defined on the shards, along with what column name corresponds
 # to your app's sharding key (to determine which shard a given row lives on),
 # and how many "chunks" to split the data set into when doing an import or
