@@ -37,10 +37,9 @@ The command lines that you specify should accept input from STDIN and supply out
 Some example values of these parameters are as follows:
 
 === Disable compression
-<pre>
-compress_with: false
-decompress_with: false
-</pre>
+
+  compress_with: false
+  decompress_with: false
 
 === pigz (default if not specified in config!)
 
