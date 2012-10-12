@@ -253,7 +253,7 @@ module Jetpants
         
         decompression_pipe = Jetpants.decompress_with ? "| #{Jetpants.decompress_with}" : ''
         if i == 0
-          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} #{decompression_pipe} | tar xvf -" }
+          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} #{decompression_pipe} | tar xv" }
           t.confirm_listening_on_port port
           t.output "Listening with netcat."
         else
@@ -262,7 +262,7 @@ module Jetpants
           workers << Thread.new { t.ssh_cmd "cd #{dir} && mkfifo #{fifo} && nc #{tt.ip} #{port} <#{fifo} && rm #{fifo}" }
           checker_th = Thread.new { t.ssh_cmd "while [ ! -p #{dir}/#{fifo} ] ; do sleep 1; done" }
           raise "FIFO not found on #{t} after 10 tries" unless checker_th.join(10)
-          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} | tee #{fifo} #{decompression_pipe} | tar xvf -" }
+          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} | tee #{fifo} #{decompression_pipe} | tar xv" }
           t.confirm_listening_on_port port
           t.output "Listening with netcat, and chaining to #{tt}."
         end

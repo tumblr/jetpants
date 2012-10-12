@@ -34,6 +34,8 @@ sharded_tables::            array of name => \{sharding_key=>X, chunks=>Y} hashe
 
 The command lines that you specify should accept input from STDIN and supply output to STDOUT, because they will be used in the middle of a series of piped commands. The binary specified should be in root's PATH on all database nodes. We recommend use of a parallel compression tool, to take advantage of multiple cores.
 
+You will need to do some profiling to determine the best tool to use for your hardware and data set; there's no universal best choice of compression algorithm or settings.
+
 Some example values of these parameters are as follows:
 
 === Disable compression
@@ -46,11 +48,11 @@ Some example values of these parameters are as follows:
   compress_with: pigz
   decompress_with: pigz -d
 
-=== qpress, 10 threads
-In order to read from STDIN and write to STDOUT, use <tt>qpress -io</tt>. In this case qpress still requires a filename, even though it is unused.
+=== qpress, 4 threads
+In order to read from STDIN and write to STDOUT, use <tt>qpress -io</tt>. In this case qpress still requires a filename during compression, even though it is unused. Decompression does not have the same requirement.
 
-  compress_with: qpress -ioT10 dummyfilename
-  decompress_with: qpress -dioT10 dummyfilename
+  compress_with: qpress -ioT4 dummyfilename
+  decompress_with: qpress -dioT4
 
 === lzop (single-threaded)
 
