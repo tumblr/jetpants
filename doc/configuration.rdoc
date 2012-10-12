@@ -37,26 +37,27 @@ The command lines that you specify should accept input from STDIN and supply out
 Some example values of these parameters are as follows:
 
 === Disable compression
-<code>
+<pre>
 compress_with: false
 decompress_with: false
-</code>
+</pre>
 
 === pigz (default if not specified in config!)
-<code>
+<pre>
 compress_with: pigz
 decompress_with: pigz -d
-</code>
+</pre>
 
 === qpress, 10 threads
-<code>
-compress_with: qpress -io -T10
-decompress_with: qpress -dio -T10
-</code>
+In order to read from STDIN and write to STDOUT, use <tt>qpress -io</tt>. In this case qpress still requires a filename, even though it is unused.
+<pre>
+compress_with: qpress -ioT10 dummyfilename
+decompress_with: qpress -dioT10 dummyfilename
+</pre>
 
 === lzop (single-threaded)
-<code>
+<pre>
 compress_with: lzop
 decompress_with: lzop -d
-</code>
+</pre>
 
