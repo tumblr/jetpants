@@ -43,21 +43,18 @@ decompress_with: false
 </pre>
 
 === pigz (default if not specified in config!)
-<pre>
-compress_with: pigz
-decompress_with: pigz -d
-</pre>
+
+  compress_with: pigz
+  decompress_with: pigz -d
 
 === qpress, 10 threads
 In order to read from STDIN and write to STDOUT, use <tt>qpress -io</tt>. In this case qpress still requires a filename, even though it is unused.
-<pre>
-compress_with: qpress -ioT10 dummyfilename
-decompress_with: qpress -dioT10 dummyfilename
-</pre>
+
+  compress_with: qpress -ioT10 dummyfilename
+  decompress_with: qpress -dioT10 dummyfilename
 
 === lzop (single-threaded)
-<pre>
-compress_with: lzop
-decompress_with: lzop -d
-</pre>
+
+  compress_with: lzop
+  decompress_with: lzop -d
 
