@@ -227,6 +227,9 @@ module Jetpants
       if Jetpants.compress_with || Jetpants.decompress_with
         comp_bin = Jetpants.compress_with.split(' ')[0]
         confirm_installed comp_bin
+        output "Using #{comp_bin} for compression"
+      else
+        output "Compression disabled -- no compression method specified in Jetpants config file"
       end
       
       # On each destination host, do any initial setup (and optional validation/erasing),
