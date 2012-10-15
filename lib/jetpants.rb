@@ -36,8 +36,8 @@ module Jetpants
     'plugins'                 =>  {},         # hash of plugin name => arbitrary plugin data (usually a nested hash of settings)
     'ssh_keys'                =>  nil,        # array of SSH key file locations
     'sharded_tables'          =>  [],         # array of name => {sharding_key=>X, chunks=>Y} hashes
-    'compress_with'           =>  'pigz',     # command line to use for compression in large file transfers
-    'decompress_with'         =>  'pigz -d',  # command line to use for decompression in large file transfers
+    'compress_with'           =>  false,      # command line to use for compression in large file transfers
+    'decompress_with'         =>  false,      # command line to use for decompression in large file transfers
   }
   %w(/etc/jetpants.yaml ~/.jetpants.yml ~/.jetpants.yaml).each do |path|
     overrides = YAML.load_file(File.expand_path path) rescue {}

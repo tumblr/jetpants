@@ -12,7 +12,7 @@ Here's a more thorough description of the commands, grouped by function:
 
 \Jetpants copies data sets by shutting down the MySQL daemon on the source node and then copying all MySQL files. This is the fastest way to clone MySQL data sets, and is part of the reason why we recommend having 2 standby slaves per pool for high availability.
 
-The copy method in \Jetpants uses a combination of tar, netcat (nc), and whichever compression binary you have specified in your Jetpants configuration file (pigz by default). It does not use encryption; we assume you are transferring over a secure local network.  When copying to multiple destinations, \Jetpants creates a "copy chain" using tee and a fifo. For more information on this technique, please see {our post on the Tumblr engineering blog}[http://engineering.tumblr.com/post/7658008285/efficiently-copying-files-to-multiple-destinations].
+The copy method in \Jetpants uses a combination of tar, netcat (nc), and whichever compression binary you have specified in your Jetpants configuration file (if any). It does not use encryption; we assume you are transferring over a secure local network.  When copying to multiple destinations, \Jetpants creates a "copy chain" using tee and a fifo. For more information on this technique, please see {our post on the Tumblr engineering blog}[http://engineering.tumblr.com/post/7658008285/efficiently-copying-files-to-multiple-destinations].
 
 This command does not require an asset tracker plugin, but DOES require that all your database nodes have installed whichever compression binary you specified in the Jetpants config file.
 

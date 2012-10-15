@@ -20,8 +20,8 @@ mysql_repl_password::       mysql password for replication (mandatory)
 mysql_root_password::       mysql root password (default: false, indicating that \Jetpants should use /root/.my.cnf instead)
 mysql_grant_ips::           mysql user manipulations are applied to these IPs (array; mandatory)
 mysql_grant_privs::         mysql user manipulations grant this set of privileges by default (array; default: \['ALL'])
-compress_with::             command line to perform compression during large file copy operations; see below (default: 'pigz')
-decompress_with::           command line to perform decompression during large file copy operations; see below (default: 'pigz -d')
+compress_with::             command line to perform compression during large file copy operations; see below (default: false)
+decompress_with::           command line to perform decompression during large file copy operations; see below (default: false)
 export_location::           directory to use for data dumping (default: '/tmp')
 verify_replication::        raise exception if the actual replication topology differs from Jetpants' understanding of it (ie, disagreement between asset tracker and probed state), or if MySQL's two replication threads are in different states (one running and the other stopped) on a DB node. (default: true. master promotion tool ignores this, since the demoted master may legitimately be dead/offline)
 plugins::                   hash of plugin name => arbitrary plugin data, usually a nested hash of settings (default: \{})
@@ -30,7 +30,7 @@ sharded_tables::            array of name => \{sharding_key=>X, chunks=>Y} hashe
 
 == Compression
 
-\Jetpants has the ability to use compression during large file copy operations, which are performed by commands "jetpants clone_slave" and "jetpants shard_split". By default, \Jetpants uses <tt>pigz</tt>, an open-source parallel gzip tool by Mark Adler.
+\Jetpants has the ability to use compression during large file copy operations, which are performed by commands "jetpants clone_slave" and "jetpants shard_split". Compression is disabled by default in \Jetpants unless you specify a compression program to use via the <tt>compress_with</tt> and <tt>decompress_with</tt> config options. It is highly recommended that you do so, in order to speed up these operations when working with large data sets.
 
 The command lines that you specify should accept input from STDIN and supply output to STDOUT, because they will be used in the middle of a series of piped commands. The binary specified should be in root's PATH on all database nodes. We recommend use of a parallel compression tool, to take advantage of multiple cores.
 
@@ -38,23 +38,29 @@ You will need to do some profiling to determine the best tool to use for your ha
 
 Some example values of these parameters are as follows:
 
-=== Disable compression
+=== Disable compression (default)
 
   compress_with: false
   decompress_with: false
 
-=== pigz (default if not specified in config!)
+=== pigz
+pigz is an open-source parallel gzip tool by Mark Adler. It is available as a package in several Linux distros. It performs well, but is very CPU intensive. More information: http://zlib.net/pigz/
 
   compress_with: pigz
   decompress_with: pigz -d
 
-=== qpress, 4 threads
+=== qpress
+qpress is a multi-threaded portable file archiver using QuickLZ. A prebuilt package is not available for most Linux distros due to licensing reasons, but a binary can be downloaded from http://www.quicklz.com/. It performs extremely well, especially once tuned.
+
 In order to read from STDIN and write to STDOUT, use <tt>qpress -io</tt>. In this case qpress still requires a filename during compression, even though it is unused. Decompression does not have the same requirement.
 
-  compress_with: qpress -ioT4 dummyfilename
+The example below uses 4 threads and a block size of 32768KB.
+
+  compress_with: qpress -ioT4K32768 dummyfilename
   decompress_with: qpress -dioT4
 
-=== lzop (single-threaded)
+=== lzop
+lzop is a less CPU-intensive compressor. lzop is still single-threaded in v1.x, so its performance may not be ideal for the \Jetpants use-case. Multithreading is planned for v2.x. More information: http://www.lzop.org/
 
   compress_with: lzop
   decompress_with: lzop -d

@@ -72,7 +72,11 @@ The main downside to the range-based approach is lack of even distribution of "h
 
 \Jetpants clones slaves by stopping replication, shutting down the MySQL daemon, and then copying the raw files to the destination(s). This is the fastest way to get a consistent clone of a data set in MySQL. After the copy operation is complete, we start MySQL back up on the source and destinations, and then make the destination instances start slaving at the appropriate binlog coordinates.
 
-We perform the copy operation using a combination of tar (for archiving), a configurable compression tool (pigz by default), and nc (for transferring the data over the network). If there are multiple destinations, we create a serial "copy chain" using tee and a fifo.
+We perform the copy operation using a combination of:
+* <tt>tar</tt>, for archiving
+* a compression tool, if specified in your \Jetpants config file; we recommend <tt>qpress</tt> or <tt>pigz</tt>
+* <tt>nc</tt> (netcat), for transferring the data over the network
+* If there are multiple destinations, we create a serial "copy chain" using <tt>tee</tt> and a FIFO.
 
 Please note that we don't encrypt the data in this process, so we assume you are using it on a private LAN or over a VPN tunnel.
 
