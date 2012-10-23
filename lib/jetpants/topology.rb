@@ -92,6 +92,11 @@ module Jetpants
       [:master, :active_slave, :standby_slave, :backup_slave]
     end
     
+    # Returns a list of valid role symbols which indicate a slave status
+    def slave_roles
+      valid_roles.reject {|r| r == :master}
+    end
+    
     ###### Instance Methods ####################################################
     
     # Returns array of this topology's Jetpants::Pool objects of type Jetpants::Shard
@@ -153,10 +158,12 @@ module Jetpants
       valid_roles.include? role.to_s.downcase.to_sym
     end
     
-    # Converts the supplied role (string or symbol) into its lowercase symbol version
-    def normalize_role role
-      raise "#{role} is not a valid role" unless valid_role? role
-      role.to_s.downcase.to_sym
+    # Converts the supplied roles (strings or symbols) into lowercase symbol versions
+    # Will expand out special role of :slave to be all slave roles.
+    def normalize_roles(*roles)
+      roles = roles.flatten.map {|r| r.to_s.downcase == 'slave' ? slave_roles.map(&:to_s) : r.to_s.downcase}.flatten
+      roles.each {|r| raise "#{r} is not a valid role" unless valid_role? r}
+      roles.uniq.map &:to_sym
     end
     
     synchronized
