@@ -87,6 +87,10 @@ module Jetpants
       raise "Plugin must override Topology#count_spares"
     end
     
+    # Returns a list of valid role symbols in use in Jetpants.
+    def valid_roles
+      [:master, :active_slave, :standby_slave, :backup_slave]
+    end
     
     ###### Instance Methods ####################################################
     
@@ -142,6 +146,17 @@ module Jetpants
     # a single Jetpants::DB object instead of an array.
     def claim_spare(options={})
       claim_spares(1, options)[0]
+    end
+    
+    # Returns if the supplied role is valid
+    def valid_role? role
+      valid_roles.include? role.to_s.downcase.to_sym
+    end
+    
+    # Converts the supplied role (string or symbol) into its lowercase symbol version
+    def normalize_role role
+      raise "#{role} is not a valid role" unless valid_role? role
+      role.to_s.downcase.to_sym
     end
     
     synchronized
