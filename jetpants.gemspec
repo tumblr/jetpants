@@ -28,4 +28,5 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'thor', '~> 0.15'
   s.add_runtime_dependency 'highline', '~> 1.6.12'
   s.add_runtime_dependency 'colored', '~> 1.2'
+  s.add_runtime_dependency 'collins_client', '~> 0.2.7'
 end
