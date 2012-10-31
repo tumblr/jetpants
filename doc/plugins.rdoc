@@ -8,9 +8,9 @@ It is highly recommended that you tie \Jetpants into your site's asset tracker (
 
 Other recommended uses of plugins include integration with your site's monitoring system, trending system, query killers, and environment-specific overrides to various core methods.
 
-== Asset tracker
+== Asset tracker examples
 
-=== Example
+=== simple_tracker
 
 We supply a sample plugin called simple_tracker, demonstrating how to go about writing a very basic asset-tracking plugin. This plugin just uses an internal JSON file to keep track of database topology/state, and separately writes app configuration to a YAML file. This isn't actually suitable for production use, but should provide a reasonable starting point for learning the plugin system and building a real asset tracker.
 
@@ -24,8 +24,11 @@ When you first start using simple_tracker, there will be no pools, shards, or sp
 * <tt>jetpants add_shard</tt>
 * <tt>jetpants add_spare</tt>
 
+=== jetpants_collins
 
-=== Methods to override
+We also supply a plugin called jetpants_collins, offering integration with the Collins asset management software. This is fully intended for production use, and powers our automation at Tumblr. For more information on jetpants_collins, please see jetpants_collins.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/jetpants_collins.rdoc]).
+
+=== Rolling your own
 
 If you're writing your own asset-tracker plugin, you will need to override the following methods:
 
@@ -58,7 +61,7 @@ You may also want to override or implement these, though it's not strictly manda
 
 === Name and location
 
-If you define a plugin named "foo" in your \Jetpants config file, on startup \Jetpants will first attempt to require 'foo/foo', and failing that simply 'foo'.
+If you define a plugin named "foo" in your \Jetpants config file, on startup \Jetpants will first attempt to require 'foo/foo' (for loading bundled plugins in <tt>jetpants/plugins/<>tt>), if that fails then simply 'foo' (for loading a stand-alone gem).
 
 Plugins may be located anywhere on your Ruby load path, so packing them as standard gems should work perfectly. You may want to prefix the gem name with "\jetpants_" to avoid conflicts with other gems. \Jetpants also adds its plugins directory to its load path automatically, so that any pre-bundled plugins (like simple_tracker) can be loaded easily.
 

@@ -119,7 +119,7 @@ For any given operation that requires an asset tracker, there's one of two reaso
 
 * The operation inherently involves generating a new configuration for your application -- for example, setting a shard to read-only or promoting a standby slave to an active slave. These operations are meaningless outside of your application, since MySQL has no notion of "standby slave" or "degraded shard". \Jetpants has a notion of these things, but needs to persist the information somewhere, and it makes more sense to have \Jetpants relay this information to an external hardware management tool rather than maintain a separate (and potentially conflicting) source of truth.
 
-If you have enough servers to be using a sharded architecture, you hopefully already have some sort of hardware management / asset tracker system in place. \Jetpants is designed to be integrated with this system, but since every site runs something different, this requires that you write some custom plugin code to achieve.
+If you have enough servers to be using a sharded architecture, you hopefully already have some sort of hardware management / asset tracker system in place. \Jetpants is designed to be integrated with this system, but since every site runs something different, this requires that you write some custom plugin code to achieve. (Unless you use \Collins for tracking hardware, in which case you can use the bundled jetpants_collins plugin.)
 
 
 == Can I use \Jetpants with PostgreSQL?

@@ -1,0 +1,95 @@
+= jetpants_collins
+
+== OVERVIEW:
+
+This \Jetpants plugin offers integration with the \Collins hardware asset tracking system. This allows \Jetpants to automatically query the list of pools, shards, hosts, and databases in your topology at start-up time. Furthermore, every change you make to your topology using \Jetpants (master promotions, shard splits, new slaves cloned, etc) will automatically be reflected in \Collins immediately.
+
+== CONFIGURATION:
+
+This plugin has a number of configuration options, some of which are mandatory.
+
+user::          \Collins account username for \Jetpants to use (required)
+password::      \Collins account password (required)
+url::           \Collins URL (required)
+timeout::       \Collins client timeout, in seconds (default: 30)
+datacenter::    \Collins data center name that we're running \Jetpants in the context of (required if multi-datacenter, omit otherwise)
+remote_lookup:: Supply "remoteLookup" parameter for \Collins requests, to search multiple datacenters (default: false)
+
+To enable this plugin, add it to your \Jetpants configuration file (either <tt>/etc/jetpants.yaml</tt> or <tt>~/.jetpants.yaml</tt>). For example, in a single-datacenter environment, you configuration might look like this:
+
+    # ... rest of Jetpants config here
+    
+    plugins:
+        jetpants_collins:
+            user: jetpants
+            password: xxx
+            url: http://collins.yourdomain.com:8080
+        
+        # ... other plugins configured here
+
+== ASSUMPTIONS AND REQUIREMENTS:
+
+Use of this plugin assumes that you already have \Collins set up, and have performed hardware intake for all your servers already.
+
+This plugin also makes some assumptions about the way in which you use \Collins, namely:
+
+* All Linux servers have a TYPE of SERVER_NODE.
+* All MySQL database server hosts will have a PRIMARY_ROLE of DATABASE.
+* All MySQL database server hosts that are in-use will have a STATUS of either ALLOCATED or MAINTENANCE.
+* All MySQL database server hosts that are in-use will have a POOL set matching the name of their pool/shard, and a SECONDARY_ROLE set matching their \Jetpants role within the pool (MASTER, ACTIVE_SLAVE, STANDBY_SLAVE, or BACKUP_SLAVE).
+* You can initially assign PRIMARY_ROLE, STATUS, POOL, and SECONDARY_ROLE to database servers somewhat automatically; see GETTING STARTED, below.
+* All database server hosts that are "spares" (not yet in use, but ready for use in shard splits, shard cutover, or slave cloning) need to have a STATUS of PROVISIONED. These nodes must meet the requirements of spares as defined by the REQUIREMENTS doc that comes with \Jetpants. They should NOT have a POOL set, but they may have a ROLE set to either MASTER or STANDBY_SLAVE. The role will be used to select spare nodes for shard splits and shard cutover.
+* Database server hosts may optionally have an attribute called SLAVE_WEIGHT. The default weight, if omitted, is 100. This field has no effect in \Jetpants, but can be used by your custom configuration generator as needed, if your application supports a notion of different weights for slave selection.
+* Arbitrary metadata regarding pools and shards will be stored in assets with a TYPE of CONFIGURATION. These assets will have a POOL matching the pool's name, a TAG matching the pool's name but prefixed with 'mysql-', a STATUS reflecting the pool's state, and a PRIMARY_ROLE of either MYSQL_POOL or MYSQL_SHARD depending on the type of pool. You can make jetpants_collins create these automatically; see GETTING STARTED, below.
+
+Please note that jetpants_collins does not generate application configuration files, because every web app/framework uses a different format. You will need to write a custom plugin to generate a configuration file for your application as needed, by overriding the Topology#write_config method.
+
+== GETTING STARTED:
+
+Once you've met all of the requirements listed in the previous section, the next step is to tell \Jetpants about your existing pools/shards via <tt>jetpants console</tt>. You only need to do this process once.
+
+Adding functional partitions (global / unsharded pools):
+
+  # Create the pool object, specifying pool name and IP of current master
+  p = Pool.new('my-pool-name', '10.42.3.4')
+  
+  # Tell Jetpants about IPs of any existing active slaves (read slaves), if any.
+  # For example, say this pool has 2 active slaves and 2 standby slaves. \Jetpants
+  # can automatically figure out which slaves exist, but won't automatically know
+  # which ones are active for reads, so you need to tell it.
+  p.has_active_slave('10.42.3.30')
+  p.has_active_slave('10.42.3.32')
+  
+  # Sync the information to Collins
+  p.sync_configuration
+  
+Repeat this process for each functional partition, if you have more than one.
+
+Adding shard pools:
+
+  # Create and sync each shard object, specifying ID range and IP of current master
+  Shard.new(      1,    1000000, '10.42.4.10' ).sync_configuration
+  Shard.new(1000001,    2000000, '10.42.3.112').sync_configuration
+  Shard.new(2000001,    4000000, '10.42.3.45' ).sync_configuration
+  Shard.new(4000001, 'INFINITY', '10.42.3.26' ).sync_configuration
+
+The max ID of the last shard must be 'INFINITY' in order for <tt>jetpants shard_cutover</tt> to work.
+
+
+== MULTI-DATACENTER SUPPORT:
+
+This plugin offers preliminary support for multi-datacenter \Collins deployments. The assumed topology is:
+* Each datacenter has its own copy of \Collins, and they're configured to talk to each other
+* Each datacenter has a node to run \Jetpants from, with the jetpants_collins configuration options differing between datacenters
+* Every database pool has only one true, writable master. This is located in any datacenter.
+* The true master may have several slaves in its own datacenter.
+* The true master may have slaves in other datacenters, but should only have <i>one direct slave per remote datacenter</i>. These remote slaves should have a SECONDARY_ROLE of MASTER in their datacenter's copy of \Collins, and they may have additional slaves of their own (tiered replication).
+* In other words, each datacenter -- and hence each copy of \Collins -- still has at most one MASTER per database pool. However only one of these nodes is the true, writable master; the others are actually slaves of master, and are read-only.
+
+Also, jetpants_collins currently enforces several restrictions on interacting with databases in remote datacenters, to simplify handling of tiered replication:
+
+* jetpants_collins won't change Collins attributes on remote server node assets. If you need to manipulate those assets, do it from the copy of \Jetpants and copy of \Collins in that datacenter.
+* If a local slave node has a master in a remote datacenter, it is ignored/hidden by jetpants_collins. In other words, each datacenter's master is viewed as a "real" master, even if it's actually slaving from another remote master.
+* If a local master node has a slave in a remote datacenter, it's treated as a backup_slave, in order to prevent cross-datacenter master promotions. If any of these remote slaves have slaves of their own, they're ignored/hidden by jetpants_collins.
+
+Due to the nature of this implementation, it works best for setups with 1 active datacenter and 1 or more passive datacenters. This support will be expanded in future releases to better capture the tiered replication roles and support active/active topologies. At that time, these restrictions/simplifications will be lifted wherever possible.

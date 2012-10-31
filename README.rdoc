@@ -64,6 +64,8 @@ It is highly recommended that you tie \Jetpants into your site's asset tracker /
 
 Other recommended uses of plugins include integration with your site's monitoring system, trending system, query killers, and environment-specific overrides to various core methods.
 
+If you are using \Collins for asset management, \Jetpants now ships with a plugin that offers integration. Please see doc/jetpants_collins.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/jetpants_collins.rdoc]) for usage.
+
 For more information on how to write plugins and use the Jetpants::CallbackHandler system, please see doc/plugins.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/plugins.rdoc])
 
 == FREQUENTLY ASKED QUESTIONS:
