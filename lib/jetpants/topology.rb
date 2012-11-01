@@ -138,7 +138,7 @@ module Jetpants
     
     # Returns the Jetpants::Shard that handles the given ID.
     def shard_for_id(id)
-      @shards.select {|s| s.min_id <= id && (s.max_id == 'INFINITY' || s.max_id >= id)}[0]
+      shards.select {|s| s.min_id <= id && (s.max_id == 'INFINITY' || s.max_id >= id)}[0]
     end
     
     # Returns the Jetpants::DB that handles the given ID with the specified
