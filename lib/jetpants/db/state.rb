@@ -178,10 +178,15 @@ module Jetpants
     # Note that we consider a node with no master and no slaves to be
     # a :master, since we can't determine if it had slaves but they're
     # just offline/dead, vs it being an orphaned machine.
+    #
+    # In hierarchical replication scenarios (such as the child shard
+    # masters in the middle of a shard split), we return :master if
+    # Jetpants.topology considers the node to be the master for a pool.
     def role
       p = pool
       case
-      when !@master then :master
+      when !@master then :master                                # nodes that aren't slaves (including orphans) 
+      when p.master == self then :master                        # nodes that the topology thinks are masters
       when for_backups? then :backup_slave
       when p && p.active_slave_weights[self] then :active_slave # if pool in topology, determine based on expected/ideal state
       when !p && !is_standby? then :active_slave                # if pool missing from topology, determine based on actual state
