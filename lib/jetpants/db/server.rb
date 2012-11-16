@@ -9,6 +9,7 @@ module Jetpants
     # OK to use this if MySQL is already stopped; it's a no-op then.
     def stop_mysql
       output "Attempting to shutdown MySQL"
+      disconnect if @db
       output service(:stop, 'mysql')
       running = ssh_cmd "netstat -ln | grep #{@port} | wc -l"
       raise "[#{@ip}] Failed to shut down MySQL: Something is still listening on port #{@port}" unless running.chomp == '0'
@@ -25,6 +26,7 @@ module Jetpants
       output "Attempting to start MySQL"
       output service(:start, 'mysql')
       confirm_listening
+      disable_read_only! if role == :master
       @running = true
     end
     
@@ -42,6 +44,7 @@ module Jetpants
       output "Attempting to restart MySQL"
       output service(:restart, 'mysql')
       confirm_listening
+      disable_read_only! if role == :master
       @running = true
       
       # Reconnect if we were previously connected

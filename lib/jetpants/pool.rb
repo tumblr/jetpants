@@ -201,7 +201,7 @@ module Jetpants
       # If demoted machine is available, confirm it is read-only and binlog isn't moving,
       # and then wait for slaves to catch up to this position
       if demoted.running?
-        demoted.enable_read_only! unless demoted.read_only?
+        demoted.enable_read_only!
         raise "Unable to enable global read-only mode on demoted machine" unless demoted.read_only?
         coordinates = demoted.binlog_coordinates
         raise "Demoted machine still taking writes (from superuser or replication?) despite being read-only" unless coordinates == demoted.binlog_coordinates

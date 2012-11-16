@@ -435,7 +435,7 @@ module Jetpants
       
       # Now put another new shard after that one
       new_last_shard_master = Jetpants.topology.claim_spare(role: 'master')
-      new_last_shard_master.disable_read_only! if (new_last_shard_master.running? && new_last_shard_master.read_only?)
+      new_last_shard_master.disable_read_only! if new_last_shard_master.running?
       if Jetpants.standby_slaves_per_pool > 0
         new_last_shard_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: 'standby_slave')
         new_last_shard_slaves.each do |x| 

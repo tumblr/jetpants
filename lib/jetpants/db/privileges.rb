@@ -78,16 +78,26 @@ module Jetpants
     
     # Enables global read-only mode on the database.
     def enable_read_only!
-      output "Enabling global read_only mode"
-      mysql_root_cmd 'SET GLOBAL read_only = 1' unless read_only?
-      read_only?
+      if read_only?
+        output "Node already has read_only mode enabled"
+        true
+      else
+        output "Enabling read_only mode"
+        mysql_root_cmd 'SET GLOBAL read_only = 1'
+        read_only?
+      end
     end
     
     # Disables global read-only mode on the database.
     def disable_read_only!
-      output "Disabling global read_only mode"
-      mysql_root_cmd 'SET GLOBAL read_only = 0' if read_only?
-      not read_only?
+      if read_only?
+        output "Disabling read_only mode"
+        mysql_root_cmd 'SET GLOBAL read_only = 0'
+        not read_only?
+      else
+        output "Confirmed that read_only mode is already disabled"
+        true
+      end
     end
     
   end

@@ -104,6 +104,7 @@ module Jetpants
     # Creates a 'jetpants' db user with FILE permissions for the duration of the
     # import.
     def import_data(tables, min_id=false, max_id=false)
+      disable_read_only!
       import_export_user = 'jetpants'
       create_user(import_export_user)
       grant_privileges(import_export_user)               # standard privs
