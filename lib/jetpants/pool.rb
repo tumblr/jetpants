@@ -125,13 +125,20 @@ module Jetpants
     
     # Remove a slave from a pool entirely. This is destructive, ie, it does a
     # RESET SLAVE on the db.
+    #
     # Note that a plugin may want to override this (or implement after_remove_slave!)
     # to actually sync the change to an asset tracker, depending on how the plugin
     # implements Pool#sync_configuration. (If the implementation makes sync_configuration
     # work by iterating over the pool's current slaves to update their status/role/pool, it 
     # won't see any slaves that have been removed, and therefore won't update them.)
+    #
+    # This method has no effect on slaves that are unavailable via SSH or have MySQL
+    # stopped, because these are only considered to be in the pool if your asset tracker
+    # plugin intentionally adds them. Such plugins could also handle this in the
+    # after_remove_slave! callback.
     def remove_slave!(slave_db)
       raise "Slave is not in this pool" unless slave_db.pool == self
+      return false unless (slave_db.running? && slave_db.available?)
       slave_db.disable_monitoring
       slave_db.stop_replication
       slave_db.repl_binlog_coordinates # displays how far we replicated, in case you need to roll back this change manually

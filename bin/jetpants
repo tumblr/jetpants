@@ -259,7 +259,12 @@ module Jetpants
       puts "This task removes a standby/backup slave from its pool entirely. THIS IS PERMANENT, ie, it does a RESET SLAVE on the target."
       node = ask_node('Please enter node IP: ', options[:node])
       describe node
-      raise "Node is not a standby or backup slave" unless (node.is_standby? || node.for_backups?)
+      if node.running? && node.available?
+        raise "Node is not a standby or backup slave" unless (node.is_standby? || node.for_backups?)
+      else
+        puts "Please note that we cannot run a RESET SLAVE on the node, because MySQL is not running or is otherwise unreachable."
+        puts "If the node is not permanently dead, you will have to run this manually."
+      end
       raise "Aborting" unless ask('Please type YES in all capital letters to confirm removing node from its pool: ') == 'YES'
       node.pool.remove_slave!(node)
     end
