@@ -133,6 +133,7 @@ module Jetpants
                             log_pos:  pos,
                             user:     replication_credentials[:user],
                             password: replication_credentials[:pass]  )
+        t.enable_read_only!
       end
       resume_replication # should already have happened from the clone_to! restart anyway, but just to be explicit
       catch_up_to_master
