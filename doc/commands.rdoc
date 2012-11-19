@@ -16,6 +16,8 @@ The copy method in \Jetpants uses a combination of tar, netcat (nc), and whichev
 
 This command does not require an asset tracker plugin, but DOES require that all your database nodes have installed whichever compression binary you specified in the Jetpants config file.
 
+If you are using an asset tracker, when prompted for which nodes to clone TO, you may type "spare" (or equivalently just hit ENTER without typing any input) to claim a spare node with role STANDBY_SLAVE. You may clone to multiple spares at once by supplying comma-separated input like "spare, spare, spare". You can mix-and-match with supplying IP addresses of particular hosts as well.
+
 
 == Master/slave state changes
 

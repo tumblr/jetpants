@@ -232,7 +232,7 @@ module Jetpants
         size:             count,
       }
       selector[:secondary_role] = options[:role].to_s.downcase if options[:role]
-      Plugin::JetCollins.find selector
+      Plugin::JetCollins.find(selector).reject {|a| a.pool}
     end
     
   end

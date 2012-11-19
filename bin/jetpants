@@ -193,11 +193,24 @@ module Jetpants
       source = ask_node('Please enter IP of node to clone from: ', options[:source])
       describe source
       
-      target = options[:target] || ask('Please enter comma-separated list of IP addresses to clone to: ')
+      puts "You may clone to particular IP address(es), or can type \"spare\" to claim a node from the spare pool."
+      target = options[:target] || ask('Please enter comma-separated list of targets (IPs or "spare") to clone to: ')
+      spares_needed = target.split(',').count {|t| t.strip.upcase == 'SPARE'}
+      target = 'spare' if target.strip == '' || target.split(',').length == 0
+      if spares_needed > 0
+        spares_available = Jetpants.topology.count_spares(role: 'standby_slave')
+        raise "Not enough spare machines with role of standby slave! Requested #{spares_needed} but only have #{spares_available} available." if spares_needed > spares_available
+      end
+
       targets = target.split(',').map do |ip|
         ip.strip!
-        error "target (#{ip}) does not appear to be an IP." unless is_ip? ip
-        ip.to_db
+        if is_ip? ip
+          ip.to_db
+        elsif ip == '' || ip.upcase == 'SPARE'
+          Jetpants.topology.claim_spare(role: 'standby_slave')
+        else
+          error "target (#{ip}) does not appear to be an IP."
+        end
       end
       
       source.start_mysql if ! source.running?
