@@ -124,12 +124,20 @@ module Jetpants
     
     
     desc 'summary', 'display information about a node in the context of its pool'
-    method_option :node, :desc => 'IP address of node to query'
+    method_option :node, :desc => 'IP address of node to query, or name of pool'
     def summary
-      node = ask_node('Please enter node IP: ', options[:node])
-      node.pool(true).probe
-      describe node
-      node.pool(true).summary(true)
+      node = options[:node] || ask('Please enter node IP or name of pool: ')
+      if is_ip? node
+        node = node.to_db
+        node.pool(true).probe
+        describe node
+        node.pool(true).summary(true)
+      else
+        pool = Jetpants.topology.pool(node)
+        raise "#{node} is neither an IP address nor a pool name" unless pool
+        pool.probe
+        pool.summary(true)
+      end
     end
     
     
