@@ -256,6 +256,8 @@ module Jetpants
     desc 'destroy_slave', 'remove a standby slave from its pool'
     method_option :node, :desc => 'IP of standby slave to remove'
     def destroy_slave
+      # Permit slaves with broken replication to be destroyed
+      Jetpants.verify_replication = false
       puts "This task removes a standby/backup slave from its pool entirely. THIS IS PERMANENT, ie, it does a RESET SLAVE on the target."
       node = ask_node('Please enter node IP: ', options[:node])
       describe node
