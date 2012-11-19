@@ -26,8 +26,8 @@ module Jetpants
       output "Attempting to start MySQL"
       output service(:start, 'mysql')
       confirm_listening
-      disable_read_only! if role == :master
       @running = true
+      disable_read_only! if role == :master
     end
     
     # Restarts MySQL.
@@ -44,8 +44,8 @@ module Jetpants
       output "Attempting to restart MySQL"
       output service(:restart, 'mysql')
       confirm_listening
-      disable_read_only! if role == :master
       @running = true
+      disable_read_only! if role == :master
       
       # Reconnect if we were previously connected
       connect(user: user, schema: schema) if user || schema
