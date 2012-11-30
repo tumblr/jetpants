@@ -123,9 +123,9 @@ module Jetpants
         results = Plugin::JetCollins.find selector.dup # find apparently alters the selector object now, so we dup it
         done = results.count < per_page
         page += 1
-        assets.concat results
+        assets.concat(results.select {|a| a.pool}) # filter out any spare nodes, which will have no pool set
       end
-      
+
       # Next we need to update our @pool_role_assets cache. But first let's set it to [] for each pool/role
       # that we queried. This intentionally nukes any previous cached data, and also allows us to differentiate
       # between an empty result and a cache miss.
