@@ -235,9 +235,11 @@ module Jetpants
       else
         @master = self.class.new(status[:master_host], status[:master_port])
         if status[:slave_io_running] != status[:slave_sql_running]
-          message = "One replication thread is stopped and the other is not"
-          raise "#{self}: #{message}" if Jetpants.verify_replication
-          output message
+          output "One replication thread is stopped and the other is not."
+          if Jetpants.verify_replication
+            output "You must repair this node manually, OR remove it from its pool permanently if it is unrecoverable."
+            raise "Fatal replication problem on #{self}"
+          end
           pause_replication
         else
           @repl_paused = (status[:slave_io_running].downcase == 'no')

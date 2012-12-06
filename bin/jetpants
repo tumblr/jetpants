@@ -197,6 +197,7 @@ module Jetpants
     def clone_slave
       puts "This task clones the data set of a standby slave."
       source = ask_node('Please enter IP of node to clone from: ', options[:source])
+      source.master.probe if source.master # fail early if there are any replication issues in this pool
       describe source
       
       puts "You may clone to particular IP address(es), or can type \"spare\" to claim a node from the spare pool."
