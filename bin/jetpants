@@ -293,7 +293,7 @@ module Jetpants
     
     desc 'defrag_slave', 'export and re-import data set on a standby slave'
     method_option :node, :desc => 'IP of standby slave to defragment'
-    def rebuild_slave
+    def defrag_slave
       puts "This task exports all data on a standby/backup slave and then re-imports it."
       node = ask_node('Please enter node IP: ', options[:node])
       describe node
