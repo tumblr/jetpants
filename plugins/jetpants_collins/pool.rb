@@ -119,9 +119,9 @@ module Jetpants
       assets.reject! {|a| a.location && a.location.upcase != Plugin::JetCollins.datacenter}
       assets.map(&:to_db).each do |db|
         if db != @master || !db.running?
-          db.collins_status = 'Maintenance'
           db.collins_pool = ''
           db.collins_secondary_role = ''
+          db.output 'REMINDER: you must manually put this host into Maintenance status in Collins' unless db.collins_status == 'Maintenance'
         end
       end
     end
