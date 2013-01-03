@@ -199,7 +199,7 @@ module Jetpants
     # a metric gigabyte.  This puts it on the same scale as the output to tools like 
     # "du -h" and "df -h".
     def data_set_size(in_gb=false)
-      bytes = dir_size("#{mysql_directory}/#{app_schema}")
+      bytes = dir_size("#{mysql_directory}/#{app_schema}") + dir_size("#{mysql_directory}/ibdata1")
       in_gb ? (bytes / 1073741824.0).round : bytes
     end
     
