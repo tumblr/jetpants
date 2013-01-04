@@ -304,8 +304,7 @@ module Jetpants
       destinations = {}
       targets.each do |t| 
         destinations[t] = t.mysql_directory
-        existing_size = t.data_set_size + t.dir_size("#{t.mysql_directory}/ibdata1")
-        raise "Over 100 MB of existing MySQL data on target #{t}, aborting copy!" if existing_size > 100000000
+        raise "Over 100 MB of existing MySQL data on target #{t}, aborting copy!" if t.data_set_size > 100000000
       end
       [self, targets].flatten.concurrent_each {|t| t.stop_query_killer; t.stop_mysql}
       targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_logfile*"}
