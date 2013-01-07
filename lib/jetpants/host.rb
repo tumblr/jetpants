@@ -358,8 +358,8 @@ module Jetpants
     # methods that call Host#service with :status operation (such as 
     # DB#probe_running) in a custom plugin, to parse the output properly on 
     # your chosen Linux distro.
-    def service(operation, name)
-      ssh_cmd "service #{name} #{operation.to_s}"
+    def service(operation, name, options='')
+      ssh_cmd "service #{name} #{operation.to_s} #{options}".rstrip
     end
     
     # Changes the I/O scheduler to name (such as 'deadline', 'noop', 'cfq')
