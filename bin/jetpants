@@ -193,7 +193,7 @@ module Jetpants
     
     desc 'clone_slave', 'clone a standby slave'
     method_option :source, :desc => 'IP of node to clone from'
-    method_option :target, :desc => 'IP of node to clone to'
+    method_option :target, :desc => 'IP of node(s) to clone to'
     def clone_slave
       puts "This task clones the data set of a standby slave."
       source = ask_node('Please enter IP of node to clone from: ', options[:source])
@@ -232,11 +232,6 @@ module Jetpants
       source.pool.sync_configuration
       puts "Cloning complete."
       Jetpants.topology.write_config
-    end
-    def self.after_clone_slave
-      reminders(
-        'Add the new host(s) to trending and monitoring.'
-      )
     end
     
     
@@ -385,7 +380,6 @@ module Jetpants
     end
     def self.after_shard_split
       reminders(
-        'Trending and monitoring setup, as needed.',
         'Proceed to next step: jetpants shard_split_child_reads'
       )
     end
@@ -485,7 +479,6 @@ module Jetpants
     end
     def self.after_shard_cutover
       reminders(
-        'Trending and monitoring setup, as needed.',
         'Commit/push the configuration in version control.',
         'Deploy the configuration to all machines.',
       )
