@@ -155,8 +155,25 @@ module Jetpants
     # Returns an array of integers representing the version of the MySQL server.
     # For example, Percona Server 5.5.27-rel28.1-log would return [5, 5, 27]
     def version_tuple
-      raise "Cannot determine version of a stopped MySQL instance" unless running?
-      global_variables[:version].split('.', 3).map &:to_i
+      if running?
+        # If the server is running, we can just query it
+        global_variables[:version].split('.', 3).map &:to_i
+      else
+        # Otherwise we need to parse the output of mysqld --version
+        output = ssh_cmd 'mysqld --version'
+        matches = output.downcase.match('ver\s*(\d+)\.(\d+)\.(\d+)')
+        raise "Unable to determine version for #{self}" unless matches
+        matches[1, 3].map &:to_i
+      end
+    end
+    
+    # Return a string representing the version. The precision indicates how
+    # many major/minor version numbers to return.
+    # ie, on 5.5.29, normalized_version(3) returns '5.5.29',
+    # normalized_version(2) returns '5.5', and normalized_version(1) returns '5'
+    def normalized_version(precision=2)
+      raise "Invalid precision #{precision}" if precision < 1 || precision > 3
+      version_tuple[0, precision].join('.')
     end
     
     # Returns the Jetpants::Pool that this instance belongs to, if any.

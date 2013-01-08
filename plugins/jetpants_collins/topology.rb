@@ -6,7 +6,7 @@ require 'json'
 module Jetpants
   class Topology
     
-    ##### METHOD OVERRIDES #####################################################
+    ##### METHODS THAT OTHER PLUGINS CAN OVERRIDE ##############################
     
     # IMPORTANT NOTE
     # This plugin does NOT implement write_config, since this format of
@@ -17,6 +17,22 @@ module Jetpants
     # on each @pool, writing out to a file or pinging a config service, depending
     # on whatever your application uses.
     
+    
+    # Handles extra options for querying spare nodes. Takes a Collins selector
+    # hash and an options hash, and returns a potentially-modified Collins
+    # selector hash.
+    # For example, if you're in the middle of upgrading to a new version of
+    # MySQL and need to support a notion of MySQL 5.1 spares vs 5.5 spares,
+    # you could override process_spare_selector_options to support a :version
+    # option. (You would also need to override the methods calling claim_spares
+    # and count_spares to supply :version in the first place...)
+    def process_spare_selector_options(selector, options)
+      # Default implementation: return selector unchanged (ignore any nonstandard
+      # options passed through)
+      return selector
+    end
+    
+    ##### METHOD OVERRIDES #####################################################
     
     # Initializes list of pools + shards from Collins
     def load_pools
@@ -232,6 +248,9 @@ module Jetpants
         size:             count,
       }
       selector[:secondary_role] = options[:role].to_s.downcase if options[:role]
+      
+      selector = process_spare_selector_options(selector, options)
+      
       Plugin::JetCollins.find(selector).reject {|a| a.pool}
     end
     
