@@ -21,15 +21,12 @@ module Jetpants
     # Handles extra options for querying spare nodes. Takes a Collins selector
     # hash and an options hash, and returns a potentially-modified Collins
     # selector hash.
-    # For example, if you're in the middle of upgrading to a new version of
-    # MySQL and need to support a notion of MySQL 5.1 spares vs 5.5 spares,
-    # you could override process_spare_selector_options to support a :version
-    # option. (You would also need to override the methods calling claim_spares
-    # and count_spares to supply :version in the first place...)
+    # The default implementation here respects :role but not :pool. Custom
+    # plugins may override this to handle :pool, and/or ignore :role, and/or
+    # add support for additional custom options.
     def process_spare_selector_options(selector, options)
-      # Default implementation: return selector unchanged (ignore any nonstandard
-      # options passed through)
-      return selector
+      selector[:secondary_role] = options[:role].to_s.downcase if options[:role]
+      selector
     end
     
     ##### METHOD OVERRIDES #####################################################
@@ -247,8 +244,6 @@ module Jetpants
         primary_role:     'DATABASE',
         size:             count,
       }
-      selector[:secondary_role] = options[:role].to_s.downcase if options[:role]
-      
       selector = process_spare_selector_options(selector, options)
       
       Plugin::JetCollins.find(selector).reject {|a| a.pool}

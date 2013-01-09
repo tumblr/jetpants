@@ -71,18 +71,30 @@ module Jetpants
     synchronized
     # Plugin should override so that this returns an array of [count] Jetpants::DB
     # objects, or throws an exception if not enough left.
-    # Options hash is plugin-specific. The only assumed option used by the rest of
-    # Jetpants is :role of 'MASTER' or 'STANDBY_SLAVE', for grabbing hardware
-    # suited for a particular purpose. This can be ignored if your hardware is
-    # entirely uniform and/or a burn-in process is already performed on all new
-    # hardware intakes.
+    #
+    # Options hash is plugin-specific. Jetpants core will provide these two options,
+    # but it's up to a plugin to handle (or ignore) them:
+    #
+    # :role   =>  :master or :standby_slave, indicating what purpose the new node(s)
+    #             will be used for. Useful if your hardware spec varies by node role
+    #             (not recommended!) or if you vet your master candidates more carefully.
+    # :pool   =>  a Jetpants::Pool object (or subclass like Jetpants::Shard), indicating
+    #             that the node hardware spec should be like the indicated pool's spec.
+    #
+    # Note that this method should NOT actually set a role or pool on the returned
+    # spare nodes! The parameters are supplied simply so that the correct hardware
+    # spec can be selected. In shard contexts, the provided :pool is NOT necessarily
+    # the pool the spare node(s) will be used in, but rather just a "similar" pool 
+    # (such as the parent shard being split, since we can assume the hardware spec
+    # for the spares should be the same as the specified pool/shard.)
     def claim_spares(count, options={})
       raise "Plugin must override Topology#claim_spares"
     end
     
     synchronized
     # Plugin should override so that this returns a count of spare machines
-    # matching the selected options.
+    # matching the selected options. options hash follows same format as for
+    # Topology#claim_spares.
     def count_spares(options={})
       raise "Plugin must override Topology#count_spares"
     end
