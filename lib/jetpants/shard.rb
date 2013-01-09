@@ -126,9 +126,12 @@ module Jetpants
     # If you omit id_ranges, the parent's ID range will be divided evenly amongst the
     # children automatically.
     def init_children(count, id_ranges=false)
+      # When requesting spares, use same version as the shard we're splitting
+      version = master.normalized_version
+      
       # Make sure we have enough machines in spare pool
-      raise "Not enough master role machines in spare pool!" if count > Jetpants.topology.count_spares(role: 'master')
-      raise "Not enough standby_slave role machines in spare pool!" if count * Jetpants.standby_slaves_per_pool > Jetpants.topology.count_spares(role: 'standby_slave')
+      raise "Not enough master role machines in spare pool!" if count > Jetpants.topology.count_spares(role: 'master', version: version)
+      raise "Not enough standby_slave role machines in spare pool!" if count * Jetpants.standby_slaves_per_pool > Jetpants.topology.count_spares(role: 'standby_slave', version: version)
       
       # Make sure enough slaves of shard being split
       raise "Must have at least #{Jetpants.standby_slaves_per_pool} slaves of shard being split" if master.slaves.count < Jetpants.standby_slaves_per_pool
@@ -149,7 +152,7 @@ module Jetpants
       end
       
       count.times do |i|
-        spare = Jetpants.topology.claim_spare(role: 'master')
+        spare = Jetpants.topology.claim_spare(role: 'master', version: version)
         spare.disable_read_only! if (spare.running? && spare.read_only?)
         spare.output "Using ID range of #{id_ranges[i][0]} to #{id_ranges[i][1]} (inclusive)"
         s = Shard.new(id_ranges[i][0], id_ranges[i][1], spare, :initializing)
@@ -258,7 +261,7 @@ module Jetpants
         @state = :replicating
         sync_configuration
         if Jetpants.standby_slaves_per_pool > 0
-          my_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: 'standby_slave')
+          my_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: 'standby_slave', version: normalized_version)
           enslave!(my_slaves)
           my_slaves.each {|slv| slv.resume_replication}
           [self, my_slaves].flatten.each {|db| db.catch_up_to_master}
