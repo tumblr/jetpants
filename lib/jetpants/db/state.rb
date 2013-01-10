@@ -134,6 +134,27 @@ module Jetpants
       @host.hostname.start_with? 'backup'
     end
     
+    # Returns true if the node can be promoted to be the master of its pool,
+    # false otherwise (also false if node is ALREADY the master)
+    # Don't use this in hierarchical replication scenarios, result may be
+    # unexpected.
+    def promotable_to_master?(ignore_version_mismatches=false)
+      # backup_slaves are non-promotable
+      return false if for_backups?
+      
+      # already the master
+      p = pool(true)
+      return false if p.master == self
+      
+      if ignore_version_mismatches
+        true
+      else
+        # ordinarily, cannot promote a slave that's running a higher version of
+        # MySQL than any other node in the pool.
+        p.nodes.all? {|db| db == self || !db.available? || db.version_cmp(self) >= 0}
+      end
+    end
+    
     # Returns a hash mapping global MySQL variables (as symbols)
     # to their values (as strings).
     def global_variables
@@ -155,16 +176,19 @@ module Jetpants
     # Returns an array of integers representing the version of the MySQL server.
     # For example, Percona Server 5.5.27-rel28.1-log would return [5, 5, 27]
     def version_tuple
+      result = nil
       if running?
         # If the server is running, we can just query it
-        global_variables[:version].split('.', 3).map &:to_i
-      else
+        result = global_variables[:version].split('.', 3).map(&:to_i) rescue nil
+      end
+      if result.nil?
         # Otherwise we need to parse the output of mysqld --version
         output = ssh_cmd 'mysqld --version'
         matches = output.downcase.match('ver\s*(\d+)\.(\d+)\.(\d+)')
         raise "Unable to determine version for #{self}" unless matches
-        matches[1, 3].map &:to_i
+        result = matches[1, 3].map(&:to_i)
       end
+      result
     end
     
     # Return a string representing the version. The precision indicates how
@@ -174,6 +198,19 @@ module Jetpants
     def normalized_version(precision=2)
       raise "Invalid precision #{precision}" if precision < 1 || precision > 3
       version_tuple[0, precision].join('.')
+    end
+    
+    # Returns -1 if self is running a lower version than db; 1 if self is running
+    # a higher version; and 0 if running same version.
+    def version_cmp(db, precision=2)
+      raise "Invalid precision #{precision}" if precision < 1 || precision > 3
+      my_tuple = version_tuple[0, precision]
+      other_tuple = db.version_tuple[0, precision]
+      my_tuple.each_with_index do |subver, i|
+        return -1 if subver < other_tuple[i]
+        return 1 if subver > other_tuple[i]
+      end
+      0
     end
     
     # Returns the Jetpants::Pool that this instance belongs to, if any.

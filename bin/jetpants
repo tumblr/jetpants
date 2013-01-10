@@ -107,7 +107,7 @@ module Jetpants
       
       error "Unable to determine a node to demote and a node to promote" unless demoted.kind_of?(Jetpants::DB) && promoted.kind_of?(Jetpants::DB)
       error "Node to promote #{promoted} is not a slave of node to demote #{demoted}" unless promoted.master == demoted
-      error "Cannot promote a backup slave. Please choose another." if promoted.for_backups?
+      error "The chosen node cannot be promoted. Please choose another." unless promoted.promotable_to_master?
       
       inform "Going to DEMOTE existing master #{demoted} and PROMOTE new master #{promoted}."
       error "Aborting." unless agree "Proceed? [yes/no]: "
