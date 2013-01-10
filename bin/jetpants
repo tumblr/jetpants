@@ -225,6 +225,7 @@ module Jetpants
       
       targets.each do |t|
         error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
+        error "target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0
       end
       
       source.enslave_siblings!(targets)
