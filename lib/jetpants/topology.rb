@@ -78,15 +78,8 @@ module Jetpants
     # :role   =>  :master or :standby_slave, indicating what purpose the new node(s)
     #             will be used for. Useful if your hardware spec varies by node role
     #             (not recommended!) or if you vet your master candidates more carefully.
-    # :pool   =>  a Jetpants::Pool object (or subclass like Jetpants::Shard), indicating
-    #             that the node hardware spec should be like the indicated pool's spec.
-    #
-    # Note that this method should NOT actually set a role or pool on the returned
-    # spare nodes! The parameters are supplied simply so that the correct hardware
-    # spec can be selected. In shard contexts, the provided :pool is NOT necessarily
-    # the pool the spare node(s) will be used in, but rather just a "similar" pool 
-    # (such as the parent shard being split, since we can assume the hardware spec
-    # for the spares should be the same as the specified pool/shard.)
+    # :like   =>  a Jetpants::DB object, indicating that the spare node hardware spec
+    #             should be like the specified DB's spec.
     def claim_spares(count, options={})
       raise "Plugin must override Topology#claim_spares"
     end

@@ -127,8 +127,8 @@ module Jetpants
     # children automatically.
     def init_children(count, id_ranges=false)
       # Make sure we have enough machines (of correct hardware spec and role) in spare pool
-      raise "Not enough master role machines in spare pool!" if count > Jetpants.topology.count_spares(role: :master, pool: self)
-      raise "Not enough standby_slave role machines in spare pool!" if count * Jetpants.standby_slaves_per_pool > Jetpants.topology.count_spares(role: :standby_slave, pool: self)
+      raise "Not enough master role machines in spare pool!" if count > Jetpants.topology.count_spares(role: :master, like: master)
+      raise "Not enough standby_slave role machines in spare pool!" if count * Jetpants.standby_slaves_per_pool > Jetpants.topology.count_spares(role: :standby_slave, like: slaves.first)
       
       # Make sure enough slaves of shard being split
       raise "Must have at least #{Jetpants.standby_slaves_per_pool} slaves of shard being split" if master.slaves.count < Jetpants.standby_slaves_per_pool
@@ -149,10 +149,7 @@ module Jetpants
       end
       
       count.times do |i|
-        # For the :pool param, we supply self because the child shard doesn't exist yet.
-        # This param won't actually set the pool of the returned node; it's just to indicate
-        # what hardware spec to use.
-        spare = Jetpants.topology.claim_spare(role: :master, pool: self)
+        spare = Jetpants.topology.claim_spare(role: :master, like: master)
         spare.disable_read_only! if (spare.running? && spare.read_only?)
         spare.output "Using ID range of #{id_ranges[i][0]} to #{id_ranges[i][1]} (inclusive)"
         s = Shard.new(id_ranges[i][0], id_ranges[i][1], spare, :initializing)
@@ -261,7 +258,7 @@ module Jetpants
         @state = :replicating
         sync_configuration
         if Jetpants.standby_slaves_per_pool > 0
-          my_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, pool: self)
+          my_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: parent.slaves.first)
           enslave!(my_slaves)
           my_slaves.each {|slv| slv.resume_replication}
           [self, my_slaves].flatten.each {|db| db.catch_up_to_master}
