@@ -138,7 +138,7 @@ module Jetpants
     # false otherwise (also false if node is ALREADY the master)
     # Don't use this in hierarchical replication scenarios, result may be
     # unexpected.
-    def promotable_to_master?(ignore_version_mismatches=false)
+    def promotable_to_master?(detect_version_mismatches=true)
       # backup_slaves are non-promotable
       return false if for_backups?
       
@@ -146,12 +146,12 @@ module Jetpants
       p = pool(true)
       return false if p.master == self
       
-      if ignore_version_mismatches
-        true
-      else
-        # ordinarily, cannot promote a slave that's running a higher version of
-        # MySQL than any other node in the pool.
+      # ordinarily, cannot promote a slave that's running a higher version of
+      # MySQL than any other node in the pool.
+      if detect_version_mismatches
         p.nodes.all? {|db| db == self || !db.available? || db.version_cmp(self) >= 0}
+      else
+        true
       end
     end
     
