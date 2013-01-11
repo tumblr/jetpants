@@ -198,7 +198,9 @@ module Jetpants
     end
     
     # Demotes the pool's existing master, promoting a slave in its place.
-    def master_promotion!(promoted)
+    # The old master will become a slave of the new master if enslave_old_master is true,
+    # unless the old master is unavailable/crashed.
+    def master_promotion!(promoted, enslave_old_master=true)
       demoted = @master
       raise "Demoted node is already the master of this pool!" if demoted == promoted
       raise "Promoted host is not in the right pool!" unless demoted.slaves.include?(promoted)
@@ -248,7 +250,7 @@ module Jetpants
       
       # gather our new replicas
       replicas.delete promoted
-      replicas << demoted if demoted.running?
+      replicas << demoted if demoted.running? && enslave_old_master
       
       # perform promotion
       replicas.each do |r|
