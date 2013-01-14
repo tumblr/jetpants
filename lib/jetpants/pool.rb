@@ -191,7 +191,7 @@ module Jetpants
         slave_list.sort.each_with_index do |s, i|
           binlog_pos = extended_info ? details[s][:coordinates].join(':') : ''
           slave_lag = extended_info ? "lag=#{details[s][:lag]}" : ''
-          print "\t%-7s slave #{i + 1} = %-15s %-30s %-26s %s\n" % [type, s.ip, s.hostname, binlog_pos, slave_lag]
+          print "\t%-7s slave #{i + 1} = %-15s %-33s %-26s %s\n" % [type, s.ip, s.hostname, binlog_pos, slave_lag]
         end
       end
       true
