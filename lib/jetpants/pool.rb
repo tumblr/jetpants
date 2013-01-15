@@ -184,14 +184,14 @@ module Jetpants
       end
       
       binlog_pos = extended_info ? details[@master][:coordinates].join(':') : ''
-      print "\tmaster          = %-15s %-30s %s\n" % [@master.ip, @master.hostname, binlog_pos]
+      print "\tmaster          = %-15s %-32s %s\n" % [@master.ip, @master.hostname, binlog_pos]
       
       [:active, :standby, :backup].each do |type|
         slave_list = slaves(type)
         slave_list.sort.each_with_index do |s, i|
           binlog_pos = extended_info ? details[s][:coordinates].join(':') : ''
           slave_lag = extended_info ? "lag=#{details[s][:lag]}" : ''
-          print "\t%-7s slave #{i + 1} = %-15s %-33s %-26s %s\n" % [type, s.ip, s.hostname, binlog_pos, slave_lag]
+          print "\t%-7s slave #{i + 1} = %-15s %-32s %-26s %s\n" % [type, s.ip, s.hostname, binlog_pos, slave_lag]
         end
       end
       true
