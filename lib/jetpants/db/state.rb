@@ -107,30 +107,23 @@ module Jetpants
     end
 
     # Gets the max theads connected over a time period
-    def max_threads(tries=4, interval=8.0)
-      return check_values(:Threads_connected,'max', tries, interval)
-      max = 0
-      for i in 1..tries
-        threads = global_status[:Threads_connected].to_i
-        max = threads unless max > threads
-        sleep(interval)
-      end
-      max
+    def max_threads(tries=8, interval=1.0)
+      poll_status_value(:Threads_connected,:max, tries, interval)
     end
 
     # Gets the max or avg for a mysql value
-    def check_values(value, type='max', tries=4, interval=8.0)
+    def poll_status_value(field, type=:max, tries=8, interval=1.0)
       max = 0
       sum = 0
-      for i in 1..tries
-        threads = global_status[value].to_i
-        max = threads unless max > threads
-        sum += threads
+      tries.times do
+        value = global_status[field].to_i
+        max = value unless max > value
+        sum += value
         sleep(interval)
       end
-      if type == 'max'
+      if type == :max
         max
-      elsif type == 'avg'
+      elsif type == :avg
         sum.to_f/tries.to_f
       end
     end

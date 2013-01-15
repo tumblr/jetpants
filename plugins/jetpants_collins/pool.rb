@@ -11,7 +11,7 @@ module Jetpants
     attr_accessor :has_parent
     
     # Collins accessors for configuration asset metadata
-    collins_attr_accessor :slave_pool_name, :aliases, :master_read_weight, :config_sort_order, :meta
+    collins_attr_accessor :slave_pool_name, :aliases, :master_read_weight, :config_sort_order
     
     # Returns a Collins::Asset for this pool. Can optionally create one if not found.
     def collins_asset(create_if_missing=false)
