@@ -442,6 +442,11 @@ module Jetpants
       last_shard = Jetpants.topology.shards.select {|s| s.max_id == 'INFINITY' && s.in_config?}.first
       last_shard_master = last_shard.master
       
+      # Simple sanity-check that the cutover ID is greater than the current last shard's MIN id.
+      # (in a later release, this may be improved to also ensure it's greater than any sharding
+      # key value in use on the last shard.)
+      raise "Specified cutover ID is too low!" unless cutover_id > last_shard.min_id
+      
       # Ensure enough spare nodes are available before beginning.
       # We supply the *previous* last shard as context for counting/claiming spares
       # because the new last shard can't be created yet (chicken-and-egg problem -- master
