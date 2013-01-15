@@ -105,6 +105,28 @@ module Jetpants
       sleep(interval)
       global_status[:Connections].to_i - conn_counter > threshold
     end
+
+    # Gets the max theads connected over a time period
+    def max_threads_running(tries=8, interval=1.0)
+      poll_status_value(:Threads_running,:max, tries, interval)
+    end
+
+    # Gets the max or avg for a mysql value
+    def poll_status_value(field, type=:max, tries=8, interval=1.0)
+      max = 0
+      sum = 0
+      tries.times do
+        value = global_status[field].to_i
+        max = value unless max > value
+        sum += value
+        sleep(interval)
+      end
+      if type == :max
+        max
+      elsif type == :avg
+        sum.to_f/tries.to_f
+      end
+    end
     
     # Confirms the binlog of this node has not moved during a duration
     # of [interval] seconds.
