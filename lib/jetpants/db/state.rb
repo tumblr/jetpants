@@ -107,8 +107,8 @@ module Jetpants
     end
 
     # Gets the max theads connected over a time period
-    def max_threads(tries=8, interval=1.0)
-      poll_status_value(:Threads_connected,:max, tries, interval)
+    def max_threads_running(tries=8, interval=1.0)
+      poll_status_value(:Threads_running,:max, tries, interval)
     end
 
     # Gets the max or avg for a mysql value
