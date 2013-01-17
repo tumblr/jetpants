@@ -376,6 +376,19 @@ module Jetpants
       true
     end
     
+    # Checks if there's a process with the given process ID running on this host.
+    # Optionally also checks if matching_string is contained in the process name.
+    # Returns true if so, false if not.
+    # Warning: this implementation assumes Linux-style "ps" command; will not work
+    # on BSD hosts.
+    def pid_running?(pid, matching_string=false)
+      if matching_string
+        ssh_cmd("ps --no-headers -o command #{pid} | grep '#{matching_string}' | wc -l").chomp.to_i > 0
+      else
+        ssh_cmd("ps --no-headers #{pid} | wc -l").chomp.to_i > 0
+      end
+    end
+    
     # Returns number of cores on machine. (reflects virtual cores if hyperthreading
     # enabled, so might be 2x real value in that case.)
     # Not currently used by anything in Jetpants base, but might be useful for plugins
