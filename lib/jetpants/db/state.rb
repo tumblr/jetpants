@@ -279,6 +279,11 @@ module Jetpants
       in_gb ? (bytes / 1073741824.0).round : bytes
     end
     
+    def mount_stats(mount=false)
+      mount ||= mysql_directory
+
+      host.mount_stats(mount)
+    end
     
     ###### Private methods #####################################################
     
