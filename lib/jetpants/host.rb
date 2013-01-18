@@ -346,6 +346,22 @@ module Jetpants
       end
       total_size
     end
+
+    def mount_stats(mount)
+      mount_stats = {}
+
+      output = ssh_cmd "df -k " + mount + "|tail -1| awk '{print $2\",\"$3\",\"$4}'" 
+      if output
+        output = output.split(',').map{|s| s.to_i}
+
+        mount_stats['total'] = output[0] * 1024
+        mount_stats['used'] = output[1] * 1024
+        mount_stats['available'] = output[2] * 1024
+        return mount_stats
+      else
+        false
+      end
+    end
     
     
     ###### Misc methods ########################################################
