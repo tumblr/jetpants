@@ -38,7 +38,8 @@ module Jetpants
     end
     
     # Returns a Host object for the machine Jetpants is running on.
-    def self.local(interface='bond0')
+    def self.local(interface=false)
+      interface ||= Jetpants.private_interface
       # This technique is adapted from Sergio Rubio Gracia's, described at
       # http://blog.frameos.org/2006/12/09/getting-network-interface-addresses-using-ioctl-pure-ruby-2/
       sock = Socket.new(Socket::AF_INET, Socket::SOCK_DGRAM,0)

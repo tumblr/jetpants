@@ -38,6 +38,7 @@ module Jetpants
     'sharded_tables'          =>  [],         # array of name => {sharding_key=>X, chunks=>Y} hashes
     'compress_with'           =>  false,      # command line to use for compression in large file transfers
     'decompress_with'         =>  false,      # command line to use for decompression in large file transfers
+    'private_interface'       =>  'bond0',    # network interface corresponding to private IP
   }
   %w(/etc/jetpants.yaml ~/.jetpants.yml ~/.jetpants.yaml).each do |path|
     overrides = YAML.load_file(File.expand_path path) rescue {}
