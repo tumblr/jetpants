@@ -7,7 +7,8 @@ module Jetpants
   class DB
     # Create a MySQL user. If you omit parameters, the defaults from Jetpants'
     # configuration will be used instead.  Does not automatically grant any
-    # privileges; use DB#grant_privileges for that.
+    # privileges; use DB#grant_privileges for that.  Intentionally cannot
+    # create a passwordless user. 
     def create_user(username=false, password=false, skip_binlog=false)
       username ||= app_credentials[:user]
       password ||= app_credentials[:pass]
@@ -112,6 +113,13 @@ module Jetpants
         output "Confirmed that read_only mode is already disabled"
         true
       end
+    end
+    
+    # Generate and return a random string consisting of uppercase
+    # letters, lowercase letters, and digits.
+    def self.random_password(length=50)
+      chars = [('a'..'z'), ('A'..'Z'), (0..9)].map(&:to_a).flatten
+      (1..length).map{ chars[rand(chars.length)] }.join
     end
     
   end
