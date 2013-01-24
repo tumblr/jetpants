@@ -19,6 +19,11 @@ module Jetpants
       commands << "FLUSH PRIVILEGES"
       commands = commands.join '; '
       mysql_root_cmd commands, schema: true
+      Jetpants.mysql_grant_ips.each do |ip|
+        message = "Created user '#{username}'@'#{ip}'"
+        message += ' (only on this node - skipping binlog!)' if skip_binlog
+        output message
+      end
     end
     
     # Drops a user. Can optionally make this statement skip replication, if you
@@ -33,6 +38,11 @@ module Jetpants
       commands << "FLUSH PRIVILEGES"
       commands = commands.join '; '
       mysql_root_cmd commands, schema: true
+      Jetpants.mysql_grant_ips.each do |ip|
+        message = "Dropped user '#{username}'@'#{ip}'"
+        message += ' (only on this node - skipping binlog!)' if skip_binlog
+        output message
+      end
     end
     
     # Grants privileges to the given username for the specified database.
@@ -64,6 +74,11 @@ module Jetpants
       commands << "FLUSH PRIVILEGES"
       commands = commands.join '; '
       mysql_root_cmd commands, schema: true
+      Jetpants.mysql_grant_ips.each do |ip|
+        verb = (statement.downcase == 'revoke' ? 'Revoking' : 'Granting')
+        target_db = (database == '*' ? 'globally' : "on #{database}.*")
+        output "#{verb} privileges #{preposition.downcase} '#{username}'@'#{ip}' #{target_db}: #{privileges.downcase}"
+      end
     end
     
     # Disables access to a DB by the application user, and sets the DB to 
@@ -72,8 +87,7 @@ module Jetpants
     def revoke_all_access!
       user_name = app_credentials[:user]
       enable_read_only!
-      output "Revoking access for user #{user_name}."
-      output(drop_user(user_name, true)) # drop the user without replicating the drop statement to slaves
+      drop_user(user_name, true) # drop the user without replicating the drop statement to slaves
     end
     
     # Enables global read-only mode on the database.
