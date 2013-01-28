@@ -124,6 +124,9 @@ module Jetpants
 
     # override Jetpants.mysql_grant_ips temporarily before executing a block
     # then set Jetpants.mysql_grant_ips back to the original values
+    #   eg. master.override_mysql_grant_ips(['10.10.10.10']) do
+    #         #something
+    #       end
     def override_mysql_grant_ips(ips)
       ip_holder = Jetpants.mysql_grant_ips
       Jetpants.mysql_grant_ips = ips
