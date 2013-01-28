@@ -24,6 +24,7 @@ compress_with::             command line to perform compression during large fil
 decompress_with::           command line to perform decompression during large file copy operations; see below (default: false)
 export_location::           directory to use for data dumping (default: '/tmp')
 verify_replication::        raise exception if the actual replication topology differs from Jetpants' understanding of it (ie, disagreement between asset tracker and probed state), or if MySQL's two replication threads are in different states (one running and the other stopped) on a DB node. (default: true. master promotion tool ignores this, since the demoted master may legitimately be dead/offline)
+private_interface::         name of private interface on your servers, such as eth0 or bond0. Not used by any core \Jetpants commands, but can be useful in plugings that wrap tcpdump, or code calling the Jetpants::Host.local method. (default: 'bond0')
 plugins::                   hash of plugin name => arbitrary plugin data, usually a nested hash of settings (default: \{})
 ssh_keys::                  array of SSH private key file locations, if not using standard id_dsa or id_rsa. Passed directly to Net::SSH.start's :keys parameter (default: nil)
 sharded_tables::            array of name => \{sharding_key=>X, chunks=>Y} hashes, describing all tables on shards. Required by shard split/rebuild processes (default: \[])
