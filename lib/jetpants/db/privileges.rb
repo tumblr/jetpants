@@ -121,6 +121,23 @@ module Jetpants
       chars = [('a'..'z'), ('A'..'Z'), (0..9)].map(&:to_a).flatten
       (1..length).map{ chars[rand(chars.length)] }.join
     end
+
+    # override Jetpants.mysql_grant_ips temporarily before executing a block
+    # then set Jetpants.mysql_grant_ips back to the original values
+    #   eg. master.override_mysql_grant_ips(['10.10.10.10']) do
+    #         #something
+    #       end
+    def override_mysql_grant_ips(ips)
+      ip_holder = Jetpants.mysql_grant_ips
+      Jetpants.mysql_grant_ips = ips
+      begin
+        yield
+      rescue StandardError, Interrupt, IOError
+        Jetpants.mysql_grant_ips = ip_holder
+        raise
+      end
+      Jetpants.mysql_grant_ips = ip_holder
+    end
     
   end
 end
