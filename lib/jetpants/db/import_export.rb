@@ -308,10 +308,17 @@ module Jetpants
       end
       [self, targets].flatten.concurrent_each {|t| t.stop_query_killer; t.stop_mysql}
       targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_logfile*"}
+      
+      # Construct the list of files and dirs to copy. We include ib_lru_dump if present
+      # (ie, if using Percona Server with innodb_buffer_pool_restore_at_startup enabled)
+      # since this will greatly improve warm-up time of the cloned nodes
+      files = ['ibdata1', 'mysql', 'test', app_schema]
+      files << 'ib_lru_dump' if ssh_cmd("test -f #{mysql_directory}/ib_lru_dump 2>/dev/null; echo $?").chomp.to_i == 0
+      
       fast_copy_chain(mysql_directory, 
                       destinations,
                       port: 3306,
-                      files: ['ibdata1', 'mysql', 'test', app_schema],
+                      files: files,
                       overwrite: true)
       [self, targets].flatten.concurrent_each {|t| t.start_mysql; t.start_query_killer}
     end
