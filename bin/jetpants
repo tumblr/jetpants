@@ -207,6 +207,7 @@ module Jetpants
       if spares_needed > 0
         spares_available = Jetpants.topology.count_spares(role: :standby_slave, like: source)
         raise "Not enough spare machines with role of standby slave! Requested #{spares_needed} but only have #{spares_available} available." if spares_needed > spares_available
+        claimed_spares = Jetpants.topology.claim_spares(spares_needed, role: :standby_slave, like: source)
       end
 
       targets = target.split(',').map do |ip|
@@ -214,7 +215,7 @@ module Jetpants
         if is_ip? ip
           ip.to_db
         elsif ip == '' || ip.upcase == 'SPARE'
-          Jetpants.topology.claim_spare(role: :standby_slave, like: source)
+          claimed_spares.shift
         else
           error "target (#{ip}) does not appear to be an IP."
         end
