@@ -46,6 +46,10 @@ module Jetpants
     # Create a Table. Params should have string keys, not symbols. Possible keys include
     # 'sharding_key' (or equivalently 'primary_key'), 'chunks', and 'order_by'.
     def initialize(name, params={})
+      parse_params(params)
+    end
+
+    def parse_params(params = {})
       @name = name
       params['sharding_key'] ||= params['primary_keys'] || params['primary_key'] || 'user_id'
       @sharding_keys = (params['sharding_key'].is_a?(Array) ? params['sharding_key'] : [params['sharding_key']])
