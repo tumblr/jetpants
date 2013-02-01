@@ -47,6 +47,10 @@ module Jetpants
     # 'sharding_key' (or equivalently 'primary_key'), 'chunks', and 'order_by'.
     def initialize(name, params={})
       @name = name
+      parse_params(params)
+    end
+
+    def parse_params(params = {})
       params['sharding_key'] ||= params['primary_keys'] || params['primary_key'] || 'user_id'
       @sharding_keys = (params['sharding_key'].is_a?(Array) ? params['sharding_key'] : [params['sharding_key']])
       @chunks = params['chunks'] || 1
