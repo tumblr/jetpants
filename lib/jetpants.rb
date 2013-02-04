@@ -40,9 +40,25 @@ module Jetpants
     'decompress_with'         =>  false,      # command line to use for decompression in large file transfers
     'private_interface'       =>  'bond0',    # network interface corresponding to private IP
   }
-  %w(/etc/jetpants.yaml ~/.jetpants.yml ~/.jetpants.yaml).each do |path|
-    overrides = YAML.load_file(File.expand_path path) rescue {}
-    @config.merge! overrides
+
+  config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
+  config_loaded = false
+
+  config_paths.each do |path|
+    begin
+      overrides = YAML.load_file(File.expand_path path)
+      @config.merge! overrides
+      config_loaded = true
+    rescue Errno::ENOENT => error
+    rescue ArgumentError => error
+      puts "YAML parsing error in configuration file #{path} : #{error.message}\n\n"
+      exit
+    end
+  end
+
+  unless config_loaded
+    puts "Could not find any readable configuration files at either /etc/jetpants.yaml or ~/.jetpants.yaml\n\n"
+    exit
   end
   
   class << self
