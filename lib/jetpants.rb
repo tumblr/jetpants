@@ -49,12 +49,15 @@ module Jetpants
       overrides = YAML.load_file(File.expand_path path)
       @config.merge! overrides
       config_loaded = true
-    rescue
+    rescue Errno::ENOENT => error
+    rescue ArgumentError => error
+      puts "YAML parsing error in configuration file #{path} : #{error.message}\n\n"
+      exit
     end
   end
 
   unless config_loaded
-    puts "Please provide a valid config"
+    puts "Could not find any readable configuration files at either /etc/jetpants.yaml or ~/.jetpants.yaml\n\n"
     exit
   end
   
