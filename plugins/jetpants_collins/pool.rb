@@ -111,7 +111,7 @@ module Jetpants
     
     # If the demoted master was offline, record some info in Collins, otherwise
     # there will be 2 masters listed
-    def after_master_promotion!(promoted)
+    def after_master_promotion!(promoted, enslave_old_master=true)
       Jetpants.topology.clear_asset_cache
       
       # Find the master asset(s) for this pool, filtering down to only current datacenter
