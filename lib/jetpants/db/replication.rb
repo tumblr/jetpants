@@ -76,8 +76,9 @@ module Jetpants
       
       # sibling ahead of self: catch up to sibling
       sibling_coords = sibling.repl_binlog_coordinates
+      output "Resuming replication from #{@master} until (#{sibling_coords[0]}, #{sibling_coords[1]})."
       output(mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{sibling_coords[0]}', MASTER_LOG_POS = #{sibling_coords[1]}")
-      sleep 1 while repl_binlog_coordinates != sibling.repl_binlog_coordinates
+      sleep 1 while repl_binlog_coordinates != sibling_coords
       true
     end
     
