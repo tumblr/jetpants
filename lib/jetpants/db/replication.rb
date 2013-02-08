@@ -64,6 +64,23 @@ module Jetpants
     end
     alias start_replication resume_replication
     
+    # Stops replication at the same coordinates on two nodes
+    def pause_replication_with(sibling)
+      [self, sibling].each &:pause_replication
+      
+      # self and sibling at same coordinates: all done
+      return true if repl_binlog_coordinates == sibling.repl_binlog_coordinates
+      
+      # self ahead of sibling: handle via recursion with roles swapped
+      return sibling.pause_replication_with(self) if ahead_of? sibling
+      
+      # sibling ahead of self: catch up to sibling
+      sibling_coords = sibling.repl_binlog_coordinates
+      output(mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{sibling_coords[0]}', MASTER_LOG_POS = #{sibling_coords[1]}")
+      sleep 1 while repl_binlog_coordinates != sibling.repl_binlog_coordinates
+      true
+    end
+    
     # Permanently disables replication. Clears out the SHOW SLAVE STATUS output
     # entirely in MySQL versions that permit this.
     def disable_replication!
@@ -253,6 +270,32 @@ module Jetpants
     def enable_binary_logging
       output "Re-enabling binary logging in MySQL configuration; will take effect at next restart"
       uncomment_out_ini(mysql_config_file, 'log-bin', 'log-slave-updates')
+    end
+    
+    # Return true if this node's replication progress is ahead of the provided
+    # node, or false otherwise. The nodes must be in the same pool for coordinates
+    # to be comparable. Does not work in hierarchical replication scenarios!
+    def ahead_of?(node)
+      my_pool = pool(true)
+      raise "Node #{node} is not in the same pool as #{self}" unless node.pool(true) == my_pool
+      
+      my_coords   = (my_pool.master == self ? binlog_coordinates      : repl_binlog_coordinates)
+      node_coords = (my_pool.master == node ? node.binlog_coordinates : node.repl_binlog_coordinates)
+      
+      # Same coordinates
+      if my_coords == node_coords
+        false
+      
+      # Same logfile: simply compare position
+      elsif my_coords[0] == node_coords[0]
+        my_coords[1] > node_coords[1]
+        
+      # Different logfile
+      else
+        my_logfile_num = my_coords[0].match(/^[a-zA-Z.0]+(\d+)$/)[1].to_i
+        node_logfile_num = node_coords[0].match(/^[a-zA-Z.0]+(\d+)$/)[1].to_i
+        my_logfile_num > node_logfile_num
+      end
     end
     
   end
