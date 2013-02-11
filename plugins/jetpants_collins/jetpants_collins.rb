@@ -180,6 +180,11 @@ module Jetpants
               raise "#{self}: Unable to set Collins status to #{val}" unless success
               output "Collins status changed from #{previous_value} to #{val}"
             end
+          when :state
+            unless asset && assset.status
+              output "WARNING: unable to set Collins state to #{val}"
+              next
+            end
           else
             unless asset
               output "WARNING: unable to set Collins attribute #{key} to #{val}"
