@@ -242,7 +242,7 @@ module Jetpants
         type:             'SERVER_NODE',
         status:           'Provisioned',
         primary_role:     'DATABASE',
-        size:             count,
+        size:             100,
       }
       selector = process_spare_selector_options(selector, options)
       
@@ -255,8 +255,7 @@ module Jetpants
           nodes.delete(node)
         end
       end
-
-      nodes
+      nodes.slice(0,count)
     end
     
   end
