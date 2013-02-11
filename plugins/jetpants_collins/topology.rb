@@ -246,7 +246,17 @@ module Jetpants
       }
       selector = process_spare_selector_options(selector, options)
       
-      Plugin::JetCollins.find(selector).reject {|a| a.pool}
+      nodes = Plugin::JetCollins.find(selector)
+
+      nodes.each do |node|
+        db = node.to_db
+        if node.pool || !db.probe || !db.available? || !db.running? || !db.usable_spare?
+          puts db.ip.to_s + " removed from potential spare pool for failing checks"
+          nodes.delete(node)
+        end
+      end
+
+      nodes
     end
     
   end

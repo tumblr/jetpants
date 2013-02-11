@@ -72,6 +72,10 @@ module Jetpants
     def in_remote_datacenter?
       @host.collins_location != Plugin::JetCollins.datacenter
     end
+
+    def usable_spare?
+      collins_status == 'Provisioned'
+    end
     
   end
 end
