@@ -258,7 +258,7 @@ module Jetpants
         @state = :replicating
         sync_configuration
         if Jetpants.standby_slaves_per_pool > 0
-          my_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, like: parent.slaves.first)
+          my_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: parent.slaves.first)
           enslave!(my_slaves)
           my_slaves.each {|slv| slv.resume_replication}
           [self, my_slaves].flatten.each {|db| db.catch_up_to_master}

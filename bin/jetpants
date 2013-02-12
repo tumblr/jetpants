@@ -205,9 +205,9 @@ module Jetpants
       spares_needed = target.split(',').count {|t| t.strip.upcase == 'SPARE'}
       target = 'spare' if target.strip == '' || target.split(',').length == 0
       if spares_needed > 0
-        spares_available = Jetpants.topology.count_spares(like: source)
+        spares_available = Jetpants.topology.count_spares(role: :standby_slave, like: source)
         raise "Not enough spare machines with role of standby slave! Requested #{spares_needed} but only have #{spares_available} available." if spares_needed > spares_available
-        claimed_spares = Jetpants.topology.claim_spares(spares_needed, like: source)
+        claimed_spares = Jetpants.topology.claim_spares(spares_needed, role: :standby_slave, like: source)
       end
 
       targets = target.split(',').map do |ip|
@@ -454,7 +454,7 @@ module Jetpants
       # must exist before we create the pool). The assumption is the hardware spec
       # of the new last shard and previous last shard will be the same.
       raise "Not enough total spare machines!" unless Jetpants.topology.count_spares(like: last_shard_master) >= Jetpants.standby_slaves_per_pool + 1
-      raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(like: last_shard_master) >= Jetpants.standby_slaves_per_pool
+      raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: last_shard_master) >= Jetpants.standby_slaves_per_pool
       raise "Cannot find a spare master-role machine!" unless Jetpants.topology.count_spares(role: :master, like: last_shard_master) >= 1
       
       # In asset tracker, remove the last shard pool and replace it with a new pool. The new pool
@@ -471,7 +471,7 @@ module Jetpants
       new_last_shard_master = Jetpants.topology.claim_spare(role: :master, like: last_shard_master)
       new_last_shard_master.disable_read_only! if new_last_shard_master.running?
       if Jetpants.standby_slaves_per_pool > 0
-        new_last_shard_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, like: last_shard_master)
+        new_last_shard_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: last_shard_master)
         new_last_shard_slaves.each do |x| 
           x.change_master_to new_last_shard_master
           x.resume_replication
