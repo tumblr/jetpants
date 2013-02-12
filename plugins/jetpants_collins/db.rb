@@ -69,10 +69,18 @@ module Jetpants
     
     ##### NEW METHODS ##########################################################
     
+    # Returns true if this database is located in the same datacenter as jetpants_collins
+    # has been figured for, false otherwise.
     def in_remote_datacenter?
       @host.collins_location != Plugin::JetCollins.datacenter
     end
-
+    
+    # Returns true if this database is a spare node and looks ready for use, false otherwise.
+    # The default implementation just ensures a collins status of Provisioned.
+    # Downstream plugins may override this to do additional checks to ensure the node is
+    # in a sane state. (The caller of this method already checks that the node is SSHable,
+    # and that MySQL is running, and the node isn't already in a pool -- so no need to
+    # check any of those here.)
     def usable_spare?
       collins_status == 'Provisioned'
     end

@@ -21,11 +21,18 @@ module Jetpants
     # Handles extra options for querying spare nodes. Takes a Collins selector
     # hash and an options hash, and returns a potentially-modified Collins
     # selector hash.
-    # The default implementation here respects :role but not :pool. Custom
-    # plugins may override this to handle :pool, and/or ignore :role, and/or
-    # add support for additional custom options.
+    # The default implementation here implements no special logic. Custom plugins
+    # (loaded AFTER jetpants_collins is loaded) can override this method to
+    # manipulate the selector; see commented-out example below. 
     def process_spare_selector_options(selector, options)
-      selector[:secondary_role] = options[:role].to_s.downcase if options[:role]
+      # If you wanted to support an option of :role, and map this to the Collins
+      # SECONDARY_ROLE attribute, you could implement this via:
+      #    selector[:secondary_role] = options[:role].to_s.downcase if options[:role]
+      # This could be useful if, for example, you use a different hardware spec
+      # for masters vs slaves. (doing so isn't really recommended, which is why
+      # we omit this logic by default.)
+      
+      # return the selector
       selector
     end
     
