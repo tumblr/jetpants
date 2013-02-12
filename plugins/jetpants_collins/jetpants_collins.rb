@@ -62,7 +62,7 @@ module Jetpants
             end
             
             # We make these 4 accessors available to ANY class including this mixin
-            collins_attr_accessor :primary_role, :secondary_role, :pool, :status
+            collins_attr_accessor :primary_role, :secondary_role, :pool, :status, :state
           end
         end
         
@@ -181,9 +181,19 @@ module Jetpants
               output "Collins status changed from #{previous_value} to #{val}"
             end
           when :state
-            unless asset && assset.status
+            unless asset && assset.status && attrs[:status]
               output "WARNING: unable to set Collins state to #{val}"
               next
+            end
+            previous_value = asset.state
+            if previous_value != val.to_s
+              success = Jetpants::Plugin::JetCollins.set_status!(asset, attrs[:status], 'changed through jetpants', val)
+              unless success
+                Jetpants::Plugin::JetCollins.state_create!(val, val, val, attrs[:status])
+                success = Jetpants::Plugin::JetCollins.set_status!(asset, attrs[:status], 'changed through jetpants', val)
+              end
+              raise "#{self}: Unable to set Collins state to #{val}" unless success
+              output "Collins state changed from #{previous_value} to #{val}"
             end
           else
             unless asset
