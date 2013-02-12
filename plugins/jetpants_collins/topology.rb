@@ -242,11 +242,20 @@ module Jetpants
         type:             'SERVER_NODE',
         status:           'Provisioned',
         primary_role:     'DATABASE',
-        size:             count,
+        size:             100,
       }
       selector = process_spare_selector_options(selector, options)
       
-      Plugin::JetCollins.find(selector).reject {|a| a.pool}
+      nodes = Plugin::JetCollins.find(selector)
+
+      nodes.each do |node|
+        db = node.to_db
+        if node.pool || !db.probe || !db.available? || !db.running? || !db.usable_spare?
+          db.output "Removed from potential spare pool for failing checks"
+          nodes.delete(node)
+        end
+      end
+      nodes.slice(0,count)
     end
     
   end
