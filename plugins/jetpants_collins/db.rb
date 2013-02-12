@@ -82,7 +82,7 @@ module Jetpants
     # and that MySQL is running, and the node isn't already in a pool -- so no need to
     # check any of those here.)
     def usable_spare?
-      collins_status == 'Provisioned'
+      collins_status.downcase == 'provisioned'
     end
     
   end

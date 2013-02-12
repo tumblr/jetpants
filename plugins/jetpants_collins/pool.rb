@@ -122,7 +122,7 @@ module Jetpants
           db.collins_pool = ''
           db.collins_secondary_role = ''
           if enslave_old_master
-            db.output 'REMINDER: you must manually put this host into Maintenance status in Collins' unless db.collins_status == 'Maintenance'
+            db.output 'REMINDER: you must manually put this host into Maintenance status in Collins' unless db.collins_status.downcase == 'maintenance'
           else
             db.collins_status = 'Unallocated'
           end
