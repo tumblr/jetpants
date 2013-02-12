@@ -251,7 +251,7 @@ module Jetpants
       nodes.each do |node|
         db = node.to_db
         if node.pool || !db.probe || !db.available? || !db.running? || !db.usable_spare?
-          puts db.ip.to_s + " removed from potential spare pool for failing checks"
+          db.output "Removed from potential spare pool for failing checks"
           nodes.delete(node)
         end
       end
