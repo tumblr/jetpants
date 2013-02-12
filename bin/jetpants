@@ -286,6 +286,7 @@ module Jetpants
       end
       raise "Aborting" unless ask('Please type YES in all capital letters to confirm removing node from its pool: ') == 'YES'
       node.pool.remove_slave!(node)
+      node.revoke_all_access!
     end
     
     

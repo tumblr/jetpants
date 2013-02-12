@@ -84,7 +84,7 @@ module Jetpants
     
     # Disables access to a DB by the application user, and sets the DB to 
     # read-only. Useful when decommissioning instances from a shard that's
-    # been split.
+    # been split, or a former slave that's been permanently removed from the pool
     def revoke_all_access!
       user_name = app_credentials[:user]
       enable_read_only!
