@@ -137,12 +137,16 @@ module Jetpants
         asset = collins_asset
         if field_names.count > 1 || field_names[0].is_a?(Array)
           field_names.flatten!
-          results = Hash[field_names.map {|field| [field, (asset ? asset.send(field) : '')]}]
+          results = Hash[field_names.map {|field| [field, (asset ? ( field == :state ? asset.send(field_names[0]).name : asset.send(field)) : '')]}]
           results[:asset] = asset
           results
         elsif field_names.count == 1
           return '' unless asset
-          asset.send field_names[0]
+          if field_names[0] == :state
+            asset.send(field_names[0]).name
+          else
+            asset.send field_names[0]
+          end
         else
           nil
         end
@@ -181,7 +185,7 @@ module Jetpants
               output "Collins status changed from #{previous_value} to #{val}"
             end
           when :state
-            unless asset && assset.status && attrs[:status]
+            unless asset && asset.status && attrs[:status]
               output "WARNING: unable to set Collins state to #{val}"
               next
             end
