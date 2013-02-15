@@ -136,7 +136,7 @@ module Jetpants
       def collins_get(*field_names)
         asset = collins_asset
         if field_names.count > 1 || field_names[0].is_a?(Array)
-          field_names.flatten!          
+          field_names.flatten!
           want_state = !! field_names.delete(:state)
           results = Hash[field_names.map {|field| [field, (asset ? asset.send(field) : '')]}]
           results[:state] = asset.state.name if want_state
