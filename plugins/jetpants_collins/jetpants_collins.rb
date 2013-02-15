@@ -136,14 +136,16 @@ module Jetpants
       def collins_get(*field_names)
         asset = collins_asset
         if field_names.count > 1 || field_names[0].is_a?(Array)
-          field_names.flatten!
-          results = Hash[field_names.map {|field| [field, (asset ? ( field == :state ? asset.send(field_names[0]).name : asset.send(field)) : '')]}]
+          field_names.flatten!          
+          want_state = !! field_names.delete(:state)
+          results = Hash[field_names.map {|field| [field, (asset ? asset.send(field) : '')]}]
+          results[:state] = asset.state.name if want_state
           results[:asset] = asset
           results
         elsif field_names.count == 1
           return '' unless asset
           if field_names[0] == :state
-            asset.send(field_names[0]).name
+            asset.state.name
           else
             asset.send field_names[0]
           end
@@ -178,26 +180,32 @@ module Jetpants
               output "WARNING: unable to set Collins status to #{val}"
               next
             end
-            previous_value = asset.status
-            if previous_value != val.to_s
-              success = Jetpants::Plugin::JetCollins.set_status!(asset, val)
-              raise "#{self}: Unable to set Collins status to #{val}" unless success
-              output "Collins status changed from #{previous_value} to #{val}"
+            if attrs[:state]
+              previous_state = asset.state.name
+              previous_status = asset.status
+              if previous_state != attrs[:state].to_s and previous_status != attrs[:status].to_s
+                success = Jetpants::Plugin::JetCollins.set_status!(asset, attrs[:status], 'changed through jetpants', attrs[:state])
+                unless success
+                  Jetpants::Plugin::JetCollins.state_create!(attrs[:state], attrs[:state], attrs[:state], attrs[:status])
+                  success = Jetpants::Plugin::JetCollins.set_status!(asset, attrs[:status], 'changed through jetpants', attrs[:state])
+                end
+                raise "#{self}: Unable to set Collins state to #{attrs[:state]} and Unable to set Collins status to #{attrs[:status]}" unless success
+                output "Collins state changed from #{previous_state} to #{attrs[:state]}"
+                output "Collins status changed from #{previous_status} to #{attrs[:status]}"
+              end              
+            else
+              previous_value = asset.status
+              if previous_value != val.to_s
+                success = Jetpants::Plugin::JetCollins.set_status!(asset, val)
+                raise "#{self}: Unable to set Collins status to #{val}" unless success
+                output "Collins status changed from #{previous_value} to #{val}"
+              end
             end
           when :state
             unless asset && asset.status && attrs[:status]
+              raise "#{self}: Unable to set state without settings a status" unless attrs[:status]
               output "WARNING: unable to set Collins state to #{val}"
               next
-            end
-            previous_value = asset.state
-            if previous_value != val.to_s
-              success = Jetpants::Plugin::JetCollins.set_status!(asset, attrs[:status], 'changed through jetpants', val)
-              unless success
-                Jetpants::Plugin::JetCollins.state_create!(val, val, val, attrs[:status])
-                success = Jetpants::Plugin::JetCollins.set_status!(asset, attrs[:status], 'changed through jetpants', val)
-              end
-              raise "#{self}: Unable to set Collins state to #{val}" unless success
-              output "Collins state changed from #{previous_value} to #{val}"
             end
           else
             unless asset
