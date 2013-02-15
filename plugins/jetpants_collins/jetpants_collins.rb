@@ -183,7 +183,7 @@ module Jetpants
             if attrs[:state]
               previous_state = asset.state.name
               previous_status = asset.status
-              if previous_state != attrs[:state].to_s and previous_status != attrs[:status].to_s
+              if previous_state != attrs[:state].to_s || previous_status != attrs[:status].to_s
                 success = Jetpants::Plugin::JetCollins.set_status!(asset, attrs[:status], 'changed through jetpants', attrs[:state])
                 unless success
                   Jetpants::Plugin::JetCollins.state_create!(attrs[:state], attrs[:state], attrs[:state], attrs[:status])
