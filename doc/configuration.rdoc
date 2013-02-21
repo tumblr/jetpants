@@ -4,7 +4,7 @@
 
 At least one of these files must exist for \Jetpants to function properly.
 
-If both exist, the user configuration will be merged on top of the global configuration, but please note that this is not a "deep" merge. So if the user configuration defines a "plugins" section, this will used as-is and the global "plugins" section will be ignored. This may change in a future release.
+If both exist, the user configuration will be merged on top of the global configuration, this is a "deep" merge. So if the user a "plugins" section this will be combined with the global "plugins" section.
 
 For an example global configuration file, please see the included <tt>etc/jetpants.yaml.sample</tt> file.
 

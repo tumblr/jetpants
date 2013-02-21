@@ -47,7 +47,7 @@ module Jetpants
   config_paths.each do |path|
     begin
       overrides = YAML.load_file(File.expand_path path)
-      @config.merge! overrides
+      @config.deep_merge! overrides
       config_loaded = true
     rescue Errno::ENOENT => error
     rescue ArgumentError => error
