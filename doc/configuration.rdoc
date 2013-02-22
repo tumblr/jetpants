@@ -10,7 +10,7 @@ For an example global configuration file, please see the included <tt>etc/jetpan
 
 == Configuration settings
 
-max_concurrency::           Maximum threads to use in import/export operations, or equivalently the maximum connection pool size per database host (default: 40)
+max_concurrency::           Maximum threads to use in import/export operations, or equivalently the maximum connection pool size per database host. You will need to tune this to your specific database hardware, especially number of CPU cores and number/type of disks (default: 20)
 standby_slaves_per_pool::   Minimum number of standby slaves to keep in every pool (default: 2)
 mysql_schema::              database name (mandatory)
 mysql_app_user::            mysql user that your application uses (mandatory)

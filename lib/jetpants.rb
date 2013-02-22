@@ -21,7 +21,7 @@ module Jetpants
   # Establish default configuration values, and then merge in whatever we find globally
   # in /etc/jetpants.yaml and per-user in ~/.jetpants.yaml
   @config = {
-    'max_concurrency'         =>  40,         # max threads/conns per database
+    'max_concurrency'         =>  20,         # max threads/conns per database
     'standby_slaves_per_pool' =>  2,          # number of standby slaves in every pool
     'mysql_schema'            =>  'test',     # database name
     'mysql_app_user'          =>  'appuser',  # mysql user for application
