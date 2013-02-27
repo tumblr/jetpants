@@ -66,6 +66,10 @@ module Jetpants
       # These get set upon DB#connect being run
       @user = nil
       @schema = nil
+      
+      # This is ephemeral, only known to Jetpants if you previously called
+      # DB#start_mysql or DB#restart_mysql in this process
+      @options = []
     end
     
     ###### Host methods ########################################################

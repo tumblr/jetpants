@@ -13,25 +13,31 @@ module Jetpants
       output service(:stop, 'mysql')
       running = ssh_cmd "netstat -ln | grep #{@port} | wc -l"
       raise "[#{@ip}] Failed to shut down MySQL: Something is still listening on port #{@port}" unless running.chomp == '0'
+      @options = []
       @running = false
     end
     
     # Starts MySQL, and confirms that something is now listening on the port.
     # Raises an exception if MySQL is already running or if something else is
     # already running on its port.
-    def start_mysql
+    # Options should be supplied as positional method args, for example:
+    #   start_mysql '--skip-networking', '--skip-grant-tables'
+    def start_mysql(*options)
       @repl_paused = false if @master
       running = ssh_cmd "netstat -ln | grep #{@port} | wc -l"
       raise "[#{@ip}] Failed to start MySQL: Something is already listening on port #{@port}" unless running.chomp == '0'
       output "Attempting to start MySQL"
-      output service(:start, 'mysql')
+      output service(:start, 'mysql', options.join(' '))
+      @options = options
       confirm_listening
       @running = true
-      disable_read_only! if role == :master
+      if role == :master && ! @options.include?('--skip-networking')
+        disable_read_only!
+      end
     end
     
     # Restarts MySQL.
-    def restart_mysql
+    def restart_mysql(*options)
       @repl_paused = false if @master
       
       # Disconnect if we were previously connected
@@ -42,13 +48,16 @@ module Jetpants
       end
       
       output "Attempting to restart MySQL"
-      output service(:restart, 'mysql')
+      output service(:restart, 'mysql', options.join(' '))
+      @options = options
       confirm_listening
       @running = true
-      disable_read_only! if role == :master
-      
-      # Reconnect if we were previously connected
-      connect(user: user, schema: schema) if user || schema
+      unless @options.include?('--skip-networking')
+        disable_read_only! if role == :master
+        
+        # Reconnect if we were previously connected
+        connect(user: user, schema: schema) if user || schema
+      end
     end
     
     # Has no built-in effect. Plugins can override it, and/or implement
@@ -63,7 +72,12 @@ module Jetpants
     
     # Confirms that a process is listening on the DB's port
     def confirm_listening(timeout=10)
-      confirm_listening_on_port(@port, timeout)
+      if @options.include? '--skip-networking'
+        output 'Unable to confirm mysqld listening because server started with --skip-networking'
+        false
+      else
+        confirm_listening_on_port(@port, timeout)
+      end
     end
     
     # Returns the MySQL data directory for this instance. A plugin can override this

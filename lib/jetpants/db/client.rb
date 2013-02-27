@@ -44,6 +44,11 @@ module Jetpants
     # Valid options include :user, :pass, :schema, :max_conns or omit these to use
     # defaults.
     def connect(options={})
+      if @options.include? '--skip-networking'
+        output 'Skipping connection attempt because server started with --skip-networking'
+        return nil
+      end
+      
       options[:user]    ||= app_credentials[:user]
       options[:schema]  ||= app_schema
       
