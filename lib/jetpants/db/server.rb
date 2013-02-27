@@ -23,7 +23,9 @@ module Jetpants
     # Options should be supplied as positional method args, for example:
     #   start_mysql '--skip-networking', '--skip-grant-tables'
     def start_mysql(*options)
-      @repl_paused = false if @master
+      if @master
+        @repl_paused = options.include?('--skip-slave-start')
+      end
       running = ssh_cmd "netstat -ln | grep #{@port} | wc -l"
       raise "[#{@ip}] Failed to start MySQL: Something is already listening on port #{@port}" unless running.chomp == '0'
       output "Attempting to start MySQL"
@@ -38,7 +40,9 @@ module Jetpants
     
     # Restarts MySQL.
     def restart_mysql(*options)
-      @repl_paused = false if @master
+      if @master
+        @repl_paused = options.include?('--skip-slave-start')
+      end
       
       # Disconnect if we were previously connected
       user, schema = false, false

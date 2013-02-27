@@ -260,16 +260,20 @@ module Jetpants
     end
     
     # Disables binary logging in my.cnf.  Does not take effect until you restart
-    # mysql.
+    # mysql. Deprecated! Better to use DB#restart_mysql with params 
+    # '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
     def disable_binary_logging
       output "Disabling binary logging in MySQL configuration; will take effect at next restart"
+      output "WARNING: DB#disable_binary_logging is deprecated"
       comment_out_ini(mysql_config_file, 'log-bin', 'log-slave-updates')
     end
     
     # Re-enables binary logging in my.cnf after a prior call to disable_bin_log.
     # Does not take effect until you restart mysql.
+    # Deprecated! better to use DB#restart_mysql with no params
     def enable_binary_logging
       output "Re-enabling binary logging in MySQL configuration; will take effect at next restart"
+      output "WARNING: DB#enable_binary_logging is deprecated"
       uncomment_out_ini(mysql_config_file, 'log-bin', 'log-slave-updates')
     end
     
