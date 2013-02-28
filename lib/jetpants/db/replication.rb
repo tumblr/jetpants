@@ -259,22 +259,16 @@ module Jetpants
       user && pass ? {user: user, pass: pass} : Jetpants.replication_credentials
     end
     
-    # Disables binary logging in my.cnf.  Does not take effect until you restart
-    # mysql. Deprecated! Better to use DB#restart_mysql with params 
-    # '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
+    # This method is no longer supported. It used to manipulate /etc/my.cnf directly, which was too brittle.
+    # You can achieve the same effect by passing parameters to DB#restart_mysql.
     def disable_binary_logging
-      output "Disabling binary logging in MySQL configuration; will take effect at next restart"
-      output "WARNING: DB#disable_binary_logging is deprecated"
-      comment_out_ini(mysql_config_file, 'log-bin', 'log-slave-updates')
+      raise "DB#disable_binary_logging is no longer supported, please use DB#restart_mysql('--skip-log-bin', '--skip-log-slave-updates') instead"
     end
     
-    # Re-enables binary logging in my.cnf after a prior call to disable_bin_log.
-    # Does not take effect until you restart mysql.
-    # Deprecated! better to use DB#restart_mysql with no params
+    # This method is no longer supported. It used to manipulate /etc/my.cnf directly, which was too brittle.
+    # You can achieve the same effect by passing (or NOT passing) parameters to DB#restart_mysql.
     def enable_binary_logging
-      output "Re-enabling binary logging in MySQL configuration; will take effect at next restart"
-      output "WARNING: DB#enable_binary_logging is deprecated"
-      uncomment_out_ini(mysql_config_file, 'log-bin', 'log-slave-updates')
+      raise "DB#enable_binary_logging is no longer supported, please use DB#restart_mysql() instead"
     end
     
     # Return true if this node's replication progress is ahead of the provided

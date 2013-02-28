@@ -90,16 +90,6 @@ module Jetpants
       '/var/lib/mysql'
     end
     
-    # Returns the MySQL server configuration file for this instance. A plugin can
-    # override this if needed, especially if running multiple MySQL instances on
-    # the same host. 
-    # DEPRECATED - the only callers of this method are also in turn deprecated,
-    # so you can largely ignore it even if your config file lives at another
-    # location.
-    def mysql_config_file
-      '/etc/my.cnf'
-    end
-    
     # Has no built-in effect. Plugins can override it, and/or implement
     # before_enable_monitoring and after_enable_monitoring callbacks.
     def enable_monitoring(*services)
