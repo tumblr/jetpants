@@ -170,7 +170,6 @@ module Jetpants
       
       init_children(pieces) unless @children.count > 0
       
-      @children.concurrent_each {|c| c.disable_binary_logging}
       clone_to_children!
       @children.concurrent_each {|c| c.rebuild!}
       @children.each {|c| c.sync_configuration}
@@ -208,7 +207,6 @@ module Jetpants
           raise "Child shard master #{child_shard.master} is already a slave of another pool"
         elsif child_shard.master.is_slave?
           child_shard.output "Already slaving from parent shard master"
-          child_shard.restart_mysql # to make previous disable of binary logging take effect
         else
           targets << child_shard.master
         end
@@ -248,13 +246,13 @@ module Jetpants
         sync_configuration
         import_schemata!
         alter_schemata if respond_to? :alter_schemata
+        restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
         import_data tables, @min_id, @max_id
+        restart_mysql # to clear out previous options '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
         start_query_killer
       end
       
       if [:importing, :replicating].include? @state
-        enable_binary_logging
-        restart_mysql
         @state = :replicating
         sync_configuration
         if Jetpants.standby_slaves_per_pool > 0

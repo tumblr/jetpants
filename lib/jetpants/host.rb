@@ -157,38 +157,6 @@ module Jetpants
       @available
     end
     
-    ###### ini file manipulation ###############################################
-    
-    # Comments-out lines of an ini file beginning with any of the supplied prefixes
-    def comment_out_ini(file, *prefixes)
-      toggle_ini(file, prefixes, false)
-    end
-    
-    # Un-comments-out lines of an ini file beginning with any of the supplied prefixes
-    # The prefixes should NOT include the # comment-out character -- ie, pass them
-    # the same as you would to DB#comment_out_ini
-    def uncomment_out_ini(file, *prefixes)
-      toggle_ini(file, prefixes, true)
-    end
-    
-    # Comments-out (if enable is true) or un-comments-out (if enable is false) lines of an ini file.
-    def toggle_ini(file, prefixes, enable)
-      prefixes.flatten!
-      commands = []
-      prefixes.each do |setting|
-        if enable
-          search = '^#(\s*%s\s*(?:=.*)?)$' % setting
-          replace = '\1'
-        else
-          search = '^(\s*%s\s*(?:=.*)?)$' % setting
-          replace = '#\1'
-        end
-        commands << "ruby -i -pe 'sub(%r[#{search}], %q[#{replace}])' #{file}"
-      end
-      cmd_line = commands.join '; '
-      ssh_cmd cmd_line
-    end
-    
     
     ###### Directory Copying / Listing / Comparison methods ####################
     

@@ -101,8 +101,17 @@ module Jetpants
     # run after export_data (in the same process), import_data will 
     # automatically confirm that the import counts match the previous export
     # counts.
+    #
     # Creates a 'jetpants' db user with FILE permissions for the duration of the
     # import.
+    #
+    # Note: import will be substantially faster if you disable binary logging
+    # before the import, and re-enable it after the import. You also must set
+    # InnoDB's autoinc lock mode to 2 in order to do a chunked import with
+    # auto-increment tables.  You can achieve all this by calling
+    # DB#restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
+    # prior to importing data, and then clear those settings by calling
+    # DB#restart_mysql with no params after done importing data.
     def import_data(tables, min_id=false, max_id=false)
       disable_read_only!
       import_export_user = 'jetpants'
@@ -259,9 +268,7 @@ module Jetpants
       
       disable_monitoring
       stop_query_killer
-      disable_binary_logging
-      restart_mysql
-      pause_replication if is_slave?
+      restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
       
       # Automatically detect missing min/max. Assumes that all tables' primary keys
       # are on the same scale, so this may be non-ideal, but better than just erroring.
@@ -284,11 +291,9 @@ module Jetpants
       import_schemata!
       alter_schemata if respond_to? :alter_schemata
       import_data tables, min_id, max_id
-
-      resume_replication if is_slave?
-      enable_binary_logging
+      
       restart_mysql
-      catch_up_to_master
+      catch_up_to_master if is_slave?
       start_query_killer
       enable_monitoring
     end
