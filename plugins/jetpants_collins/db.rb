@@ -76,13 +76,13 @@ module Jetpants
     end
     
     # Returns true if this database is a spare node and looks ready for use, false otherwise.
-    # The default implementation just ensures a collins status of Provisioned.
+    # The default implementation just ensures a collins status of allocated and a collins state of spare.
     # Downstream plugins may override this to do additional checks to ensure the node is
     # in a sane state. (The caller of this method already checks that the node is SSHable,
     # and that MySQL is running, and the node isn't already in a pool -- so no need to
     # check any of those here.)
     def usable_spare?
-      collins_status.downcase == 'provisioned'
+      collins_status.downcase == 'allocated' && collins_state.downcase == 'spare'
     end
     
   end
