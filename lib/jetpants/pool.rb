@@ -140,8 +140,6 @@ module Jetpants
       raise "Slave is not in this pool" unless slave_db.pool == self
       return false unless (slave_db.running? && slave_db.available?)
       slave_db.disable_monitoring
-      slave_db.stop_replication
-      slave_db.repl_binlog_coordinates # displays how far we replicated, in case you need to roll back this change manually
       slave_db.disable_replication!
       sync_configuration # may or may not be sufficient -- see note above.
     end

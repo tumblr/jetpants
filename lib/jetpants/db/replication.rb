@@ -48,16 +48,22 @@ module Jetpants
     # Pauses replication
     def pause_replication
       raise "This DB object has no master" unless master
-      return if @repl_paused
       output "Pausing replication from #{@master}."
-      output mysql_root_cmd "STOP SLAVE"
-      @repl_paused = true
+      if @repl_paused
+        output "Replication was already paused."
+        repl_binlog_coordinates(true)
+      else
+        output mysql_root_cmd "STOP SLAVE"
+        repl_binlog_coordinates(true)
+        @repl_paused = true
+      end
     end
     alias stop_replication pause_replication
     
     # Starts replication, or restarts replication after a pause
     def resume_replication
       raise "This DB object has no master" unless master
+      repl_binlog_coordinates(true)
       output "Resuming replication from #{@master}."
       output mysql_root_cmd "START SLAVE"
       @repl_paused = false
@@ -85,25 +91,24 @@ module Jetpants
     # Permanently disables replication. Clears out the SHOW SLAVE STATUS output
     # entirely in MySQL versions that permit this.
     def disable_replication!
-      raise "This DB object has no master" unless master
+      stop_replication
       output "Disabling replication; this db is no longer a slave."
-
       ver = version_tuple
-
+      
       # MySQL < 5.5: allows master_host='', which clears out SHOW SLAVE STATUS
       if ver[0] == 5 && ver[1] < 5
-        output mysql_root_cmd "STOP SLAVE; CHANGE MASTER TO master_host=''; RESET SLAVE"
-
+        output mysql_root_cmd "CHANGE MASTER TO master_host=''; RESET SLAVE"
+      
       # MySQL 5.5.16+: allows RESET SLAVE ALL, which clears out SHOW SLAVE STATUS
       elsif ver[0] >= 5 && (ver[0] > 5 || ver[1] >= 5) && (ver[0] > 5 || ver[1] > 5 || ver[2] >= 16)
-        output mysql_root_cmd "STOP SLAVE; CHANGE MASTER TO master_user='test'; RESET SLAVE ALL"
-
+        output mysql_root_cmd "CHANGE MASTER TO master_user='test'; RESET SLAVE ALL"
+      
       # Other versions: no safe way to clear out SHOW SLAVE STATUS.  Still set master_user to 'test'
       # so that we know to ignore the slave status output.
       else
-        output mysql_root_cmd "STOP SLAVE; CHANGE MASTER TO master_user='test'; RESET SLAVE"
+        output mysql_root_cmd "CHANGE MASTER TO master_user='test'; RESET SLAVE"
       end
-
+      
       @master.slaves.delete(self) rescue nil
       @master = nil
       @repl_paused = nil
