@@ -28,7 +28,11 @@ module Jetpants
       end
       running = ssh_cmd "netstat -ln | grep #{@port} | wc -l"
       raise "[#{@ip}] Failed to start MySQL: Something is already listening on port #{@port}" unless running.chomp == '0'
-      output "Attempting to start MySQL"
+      if options.size == 0
+        output "Attempting to start MySQL, no option overrides supplied"
+      else
+        output "Attempting to start MySQL with options #{options.join(' ')}"
+      end
       output service(:start, 'mysql', options.join(' '))
       @options = options
       confirm_listening
@@ -51,7 +55,11 @@ module Jetpants
         disconnect
       end
       
-      output "Attempting to restart MySQL"
+      if options.size == 0
+        output "Attempting to restart MySQL, no option overrides supplied"
+      else
+        output "Attempting to restart MySQL with options #{options.join(' ')}"
+      end
       output service(:restart, 'mysql', options.join(' '))
       @options = options
       confirm_listening
