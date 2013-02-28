@@ -60,8 +60,6 @@ You may also want to override or implement these, though it's not strictly manda
   * If you use a query killer, you'll want to override these methods to start and stop it. stop_query_killer is called prior to a long-running query (SELECT ... INTO OUTFILE, LOAD DATA INFILE, SELECT COUNT(*), etc) and start_query_killer is called after the operation is complete.
 * Jetpants::DB#disable_monitoring and Jetpants::DB#enable_monitoring
   * If you use monitoring software, you can override these methods to prevent alerts from \Jetpants operations. \Jetpants calls disable_monitoring prior to performing maintenance operations on a node, such as stopping MySQL prior to cloning a slave, splitting a shard, etc. It calls enable_monitoring once the operation is complete.
-* Jetpants::DB#before_disable_binary_logging and Jetpants::DB#before_enable_binary_logging
-  * \Jetpants disables binary logging by commenting-out two lines of your my.cnf and then restarting MySQL. If your my.cnf file is controlled by a configuration management tool like Puppet or Chef, you may need to implement these callback methods to temporarily disable configuration management on the node.
 
 == How to write a plugin
 

@@ -92,7 +92,10 @@ module Jetpants
     
     # Returns the MySQL server configuration file for this instance. A plugin can
     # override this if needed, especially if running multiple MySQL instances on
-    # the same host.
+    # the same host. 
+    # DEPRECATED - the only callers of this method are also in turn deprecated,
+    # so you can largely ignore it even if your config file lives at another
+    # location.
     def mysql_config_file
       '/etc/my.cnf'
     end
