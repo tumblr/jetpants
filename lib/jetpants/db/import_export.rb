@@ -118,7 +118,12 @@ module Jetpants
       create_user(import_export_user)
       grant_privileges(import_export_user)               # standard privs
       grant_privileges(import_export_user, '*', 'FILE')  # FILE global privs
-      reconnect(user: import_export_user)
+      
+      # Disable unique checks upon connecting. This has to be done at the :after_connect level in Sequel
+      # to guarantee it's being run on every connection in the conn pool. This is mysql2-specific.
+      disable_unique_checks_proc = Proc.new {|mysql2_client| mysql2_client.query 'SET unique_checks = 0'}
+      
+      reconnect(user: import_export_user, after_connect: disable_unique_checks_proc)
       
       import_counts = {}
       tables.each {|t| import_counts[t.name] = import_table_data t, min_id, max_id}
@@ -157,7 +162,6 @@ module Jetpants
         attempts = 0
         begin
           sql = table.sql_import_range(min, max)
-          query 'SET unique_checks = 0'
           result = query sql
           lock.synchronize do
             rows_imported += result
@@ -167,7 +171,6 @@ module Jetpants
             chunk_file_name = table.export_file_path(min, max)
             ssh_cmd "rm -f #{chunk_file_name}"
           end
-          query 'SET unique_checks = 1'
         rescue => ex
           if attempts >= 10
             output "IMPORT ERROR: #{ex.message}, chunk #{min}-#{max}, giving up", table
