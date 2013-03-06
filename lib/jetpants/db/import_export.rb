@@ -157,6 +157,7 @@ module Jetpants
         attempts = 0
         begin
           sql = table.sql_import_range(min, max)
+          query 'SET unique_checks = 0'
           result = query sql
           lock.synchronize do
             rows_imported += result
@@ -166,6 +167,7 @@ module Jetpants
             chunk_file_name = table.export_file_path(min, max)
             ssh_cmd "rm -f #{chunk_file_name}"
           end
+          query 'SET unique_checks = 1'
         rescue => ex
           if attempts >= 10
             output "IMPORT ERROR: #{ex.message}, chunk #{min}-#{max}, giving up", table
