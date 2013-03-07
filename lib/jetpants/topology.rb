@@ -114,12 +114,13 @@ module Jetpants
       @pools.reject {|p| p.is_a? Shard}
     end
     
-    # Finds and returns a single Jetpants::Pool. Target may be a name (string) or master (DB object).
+    # Finds and returns a single Jetpants::Pool. Target may be a name (string, case insensitive)
+    # or master (DB object).
     def pool(target)
       if target.is_a?(DB)
         @pools.select {|p| p.master == target}.first
       else
-        @pools.select {|p| p.name == target}.first
+        @pools.select {|p| p.name.downcase == target.downcase}.first
       end
     end
     
