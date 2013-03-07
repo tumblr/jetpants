@@ -143,8 +143,21 @@ module Jetpants
     end
     
     # Returns the Jetpants::Shard that handles the given ID.
+    # During a shard split, if the child isn't "in production" yet (ie, it's
+    # still being built), this will always return the parent shard. Once the
+    # child is fully built / in production, this method will always return
+    # the child shard. However, Shard#db(:write) will correctly delegate writes
+    # to the parent shard when appropriate in this case. (see also: Topology#shard_db_for_id)
     def shard_for_id(id)
-      shards.select {|s| s.min_id <= id && (s.max_id == 'INFINITY' || s.max_id >= id)}[0]
+      choices = shards.select {|s| s.min_id <= id && (s.max_id == 'INFINITY' || s.max_id >= id)}
+      choices.reject! {|s| s.parent && ! s.in_config?} # filter out child shards that are still being built
+      
+      # Preferentially return child shards at this point
+      if choices.any? {|s| s.parent}
+        choices.select {|s| s.parent}.first
+      else
+        choices.first
+      end
     end
     
     # Returns the Jetpants::DB that handles the given ID with the specified

@@ -34,8 +34,8 @@ module Jetpants
     #   :replicating    --  Child shard that is being cloned to new replicas. Shard not in production yet.
     #   :child          --  Child shard that is in production for reads, but still slaving from its parent for writes.
     #   :needs_cleanup  --  Child shard that is fully in production, but parent replication not torn down yet, and redundant data (from wrong range) not removed yet
-    #   :deprecated     --  Parent shard that has been split but children are still in :child or :needs_cleanup state. Shard may still be in production for writes.
-    #   :recycle        --  Parent shard that has been split and children are now in the :ready state. Shard no longer in production.
+    #   :deprecated     --  Parent shard that has been split but children are still in :child or :needs_cleanup state. Shard may still be in production for writes / replication not torn down yet.
+    #   :recycle        --  Parent shard that has been split and children are now in the :ready state. Shard no longer in production, replication to children has been torn down.
     attr_accessor :state
     
     # Constructor for Shard --
