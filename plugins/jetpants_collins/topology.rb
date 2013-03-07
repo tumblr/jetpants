@@ -256,6 +256,10 @@ module Jetpants
       nodes = Plugin::JetCollins.find(selector)
       keep_nodes = []
       
+      # Probe concurrently for speed reasons
+      nodes.map(&:to_db).concurrent_each(&:probe)
+      
+      # Now iterate in a single-threaded way for simplicity
       nodes.each do |node|
         db = node.to_db
         db.probe
