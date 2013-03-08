@@ -135,6 +135,7 @@ module Jetpants
                             log_pos:  pos, 
                             user:     repl_user, 
                             password: repl_pass  )
+        t.enable_read_only!
       end
       resume_replication if @master # should already have happened from the clone_to! restart anyway, but just to be explicit
       enable_monitoring
