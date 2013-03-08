@@ -239,8 +239,10 @@ module Jetpants
     # Can optionally create an anonymous pool if no pool was found. This anonymous
     # pool intentionally has a blank sync_configuration implementation.
     def pool(create_if_missing=false)
-      result = Jetpants.topology.pool(self) 
-      result ||= Jetpants.topology.pool(master) if master
+      result = Jetpants.topology.pool(self)
+      if !result && master
+        result ||= Jetpants.topology.pool(master)
+      end
       if !result && create_if_missing
         pool_master = master || self
         result = Pool.new('anon_pool_' + pool_master.ip.tr('.', ''), pool_master)
