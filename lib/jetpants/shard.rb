@@ -231,12 +231,12 @@ module Jetpants
       raise "Cannot rebuild a shard that isn't still slaving from another shard" unless @master.is_slave?
       raise "Cannot rebuild an active shard" if in_config?
       
-      stop_query_killer
       tables = Table.from_config 'sharded_tables'
       
       if [:initializing, :exporting].include? @state
         @state = :exporting
         sync_configuration
+        stop_query_killer
         export_schemata tables
         export_data tables, @min_id, @max_id
       end
