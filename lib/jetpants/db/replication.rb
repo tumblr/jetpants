@@ -126,10 +126,12 @@ module Jetpants
       repl_user ||= replication_credentials[:user]
       repl_pass ||= replication_credentials[:pass]
       disable_monitoring
+      targets.each {|t| t.disable_monitoring}
       pause_replication if master && ! @repl_paused
       file, pos = binlog_coordinates
       clone_to!(targets)
-      targets.each do |t| 
+      targets.each do |t|
+        t.enable_monitoring
         t.change_master_to( self, 
                             log_file: file, 
                             log_pos:  pos, 
@@ -148,10 +150,12 @@ module Jetpants
     def enslave_siblings!(targets)
       raise "Can only call enslave_siblings! on a slave instance" unless master
       disable_monitoring
+      targets.each {|t| t.disable_monitoring}
       pause_replication unless @repl_paused
       file, pos = repl_binlog_coordinates
       clone_to!(targets)
       targets.each do |t| 
+        t.enable_monitoring
         t.change_master_to( master, 
                             log_file: file,
                             log_pos:  pos,
