@@ -183,7 +183,7 @@ module Jetpants
       end
       
       @children.concurrent_each do |c|
-        c.prune_data!
+        c.prune_data! if [:initializing, :exporting, :importing].include? c.state
         c.clone_slaves_from_master
       end
       
@@ -242,31 +242,23 @@ module Jetpants
     # Only call this on a child shard that isn't in production yet, or on
     # a production shard that's been marked as offline.
     def clone_slaves_from_master
+      # If shard is already in state :child, it may already have slaves
       slaves_needed = Jetpants.standby_slaves_per_pool
-      raise 'DB#clone_slaves_from_master requires Jetpants config setting "standby_slaves_per_pool" is at least 1' if slaves_needed < 1
+      slaves_needed -= standby_slaves.size if @state == :child
+      if slaves_needed < 1
+        output "Shard already has enough standby slaves, skipping step of cloning more"
+        return
+      end
       
       slaves_available = Jetpants.topology.count_spares(role: :standby_slave, like: parent.slaves.first)
       raise "Not enough standby_slave role machines in spare pool!" if slaves_needed > slaves_available
       
       # Handle state transitions
-      # :child -- running this on a shard that already went through this step -- we may already
-      # have some slaves, maybe even enough slaves
-      if @state == :child
-        slaves_needed -= standby_slaves.size
-        if slaves_needed < 1
-          output "Shard already has enough standby slaves, skipping step of cloning more"
-          return
-        end
+      if @state == :child || @state == :importing
         @state = :replicating
         sync_configuration
-      # :importing -- promote to :replicated
-      elsif @state == :importing
-        @state = :replicating 
-        sync_configuration
-      # :offline or :replicating -- no need to change state
       elsif @state == :offline || @state == :replicating
-        # intentional no-op
-      # anything else -- error condition
+        # intentional no-op, no need to change state
       else
         raise "Shard #{self} is not in a state compatible with calling clone_slaves_from_master! (current state=#{@state})"
       end
