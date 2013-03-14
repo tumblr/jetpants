@@ -128,22 +128,20 @@ module Jetpants
     # child. For example, if self has @min_id = 1001 and @max_id = 4000, and you're splitting
     # into 3 evenly-sized child shards, you'd supply [[1001,2000], [2001,3000], [3001, 4000]]
     def init_child_shard_masters(id_ranges)
-      count = id_ranges.size
-      
       # Validations: make sure enough machiens in spare pool; enough slaves of shard being split;
       # no existing children of shard being split
-      raise "Not enough master role machines in spare pool!" if count > Jetpants.topology.count_spares(role: :master, like: master)
-      raise "Not enough standby_slave role machines in spare pool!" if count * Jetpants.standby_slaves_per_pool > Jetpants.topology.count_spares(role: :standby_slave, like: slaves.first)
+      raise "Not enough master role machines in spare pool!" if id_ranges.size > Jetpants.topology.count_spares(role: :master, like: master)
+      raise "Not enough standby_slave role machines in spare pool!" if id_ranges.size * Jetpants.standby_slaves_per_pool > Jetpants.topology.count_spares(role: :standby_slave, like: slaves.first)
       raise 'Shard split functionality requires Jetpants config setting "standby_slaves_per_pool" is at least 1' if Jetpants.standby_slaves_per_pool < 1
-      raise "Must have at least #{Jetpants.standby_slaves_per_pool} slaves of shard being split" if master.standby_slaves.count < Jetpants.standby_slaves_per_pool
+      raise "Must have at least #{Jetpants.standby_slaves_per_pool} slaves of shard being split" if master.standby_slaves.size < Jetpants.standby_slaves_per_pool
       raise "Shard #{self} already has #{@children.size} child shards" if @children.size > 0
       
       # Set up the child shards, and give them masters
-      count.times do |i|
+      id_ranges.each do |my_range|
         spare = Jetpants.topology.claim_spare(role: :master, like: master)
         spare.disable_read_only! if (spare.running? && spare.read_only?)
-        spare.output "Will be master for new shard with ID range of #{id_ranges[i][0]} to #{id_ranges[i][1]} (inclusive)"
-        s = Shard.new(id_ranges[i].first, id_ranges[i].last, spare, :initializing)
+        spare.output "Will be master for new shard with ID range of #{my_range.first} to #{my_range.last} (inclusive)"
+        s = Shard.new(my_range.first, my_range.last, spare, :initializing)
         add_child(s)
         Jetpants.topology.pools << s
         # We purposely don't call sync_configuration yet, since we don't want to populate any
@@ -162,8 +160,8 @@ module Jetpants
     # complete the shard split.  See the command suite tasks shard_split_move_reads,
     # shard_split_move_writes, and shard_split_cleanup.
     #
-    # You can optionall supply the ID ranges to use: pass in an array of arrays,
-    # where the outer array is of size <count> and each inner array is [min_id, max_id].
+    # You can optionally supply the ID ranges to use: pass in an array of arrays,
+    # where the outer array is of size <pieces> and each inner array is [min_id, max_id].
     # If you omit id_ranges, the parent's ID range will be divided evenly amongst the
     # children automatically.
     def split!(pieces=2, id_ranges=false)
