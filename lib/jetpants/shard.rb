@@ -168,8 +168,9 @@ module Jetpants
       raise "Cannot split a shard that is still a child!" if @parent
       raise "Cannot split a shard into #{pieces} pieces!" if pieces < 2
       
-      # We can resume partially-failed shard splits automatically, but only if all
-      # children made it past the :initializing stage.
+      # We can resume partially-failed shard splits if all children made it past
+      # the :initializing stage. (note: some manual cleanup may be required first,
+      # depending on where/how the split failed though.)
       num_children_post_init = @children.count {|c| c.state != :initializing}
       if (@children.size > 0 && @children.size != pieces) || (num_children_post_init > 0 && num_children_post_init != pieces)
         raise "Previous shard split died at an unrecoverable stage, cannot automatically restart"
@@ -207,7 +208,6 @@ module Jetpants
     # and then re-imports the data
     def prune_data!
       raise "Cannot prune a shard that isn't still slaving from another shard" unless @master.is_slave?
-      raise "Cannot prune a shard that is already in production" if in_config?
       unless [:initializing, :exporting, :importing].include? @state
         raise "Shard #{self} is not in a state compatible with calling prune_data! (current state=#{@state})"
       end
