@@ -120,41 +120,6 @@ module Jetpants
       shard.parent = nil
     end
     
-    # Early step of shard split process: initialize child shard pools, pull boxes from
-    # spare list to use as masters for these new shards, and then populate them with the
-    # full data set from self (the shard being split).
-    #
-    # Supply an array of [min_id, max_id] arrays, specifying the ID ranges to use for each
-    # child. For example, if self has @min_id = 1001 and @max_id = 4000, and you're splitting
-    # into 3 evenly-sized child shards, you'd supply [[1001,2000], [2001,3000], [3001, 4000]]
-    def init_child_shard_masters(id_ranges)
-      # Validations: make sure enough machiens in spare pool; enough slaves of shard being split;
-      # no existing children of shard being split
-      raise "Not enough master role machines in spare pool!" if id_ranges.size > Jetpants.topology.count_spares(role: :master, like: master)
-      raise "Not enough standby_slave role machines in spare pool!" if id_ranges.size * Jetpants.standby_slaves_per_pool > Jetpants.topology.count_spares(role: :standby_slave, like: slaves.first)
-      raise 'Shard split functionality requires Jetpants config setting "standby_slaves_per_pool" is at least 1' if Jetpants.standby_slaves_per_pool < 1
-      raise "Must have at least #{Jetpants.standby_slaves_per_pool} slaves of shard being split" if master.standby_slaves.size < Jetpants.standby_slaves_per_pool
-      raise "Shard #{self} already has #{@children.size} child shards" if @children.size > 0
-      
-      # Set up the child shards, and give them masters
-      id_ranges.each do |my_range|
-        spare = Jetpants.topology.claim_spare(role: :master, like: master)
-        spare.disable_read_only! if (spare.running? && spare.read_only?)
-        spare.output "Will be master for new shard with ID range of #{my_range.first} to #{my_range.last} (inclusive)"
-        s = Shard.new(my_range.first, my_range.last, spare, :initializing)
-        add_child(s)
-        Jetpants.topology.pools << s
-        # We purposely don't call sync_configuration yet, since we don't want to populate any
-        # data in the asset tracker until after cloning the data set is complete.
-      end
-      
-      # We'll clone the full parent data set from a standby slave of the shard being split
-      source = standby_slaves.first
-      targets = @children.map &:master
-      source.enslave_siblings! targets
-      @children.each &:sync_configuration
-    end
-    
     # Splits a shard into <pieces> child shards.  The children will still be slaving
     # from the parent after this point; you need to do additional things to fully
     # complete the shard split.  See the command suite tasks shard_split_move_reads,
@@ -333,6 +298,41 @@ module Jetpants
         id_ranges << [current_min_id, current_min_id + ids_this_pool - 1]
         current_min_id += ids_this_pool
       end
+    end
+    
+    # Early step of shard split process: initialize child shard pools, pull boxes from
+    # spare list to use as masters for these new shards, and then populate them with the
+    # full data set from self (the shard being split).
+    #
+    # Supply an array of [min_id, max_id] arrays, specifying the ID ranges to use for each
+    # child. For example, if self has @min_id = 1001 and @max_id = 4000, and you're splitting
+    # into 3 evenly-sized child shards, you'd supply [[1001,2000], [2001,3000], [3001, 4000]]
+    def init_child_shard_masters(id_ranges)
+      # Validations: make sure enough machiens in spare pool; enough slaves of shard being split;
+      # no existing children of shard being split
+      raise "Not enough master role machines in spare pool!" if id_ranges.size > Jetpants.topology.count_spares(role: :master, like: master)
+      raise "Not enough standby_slave role machines in spare pool!" if id_ranges.size * Jetpants.standby_slaves_per_pool > Jetpants.topology.count_spares(role: :standby_slave, like: slaves.first)
+      raise 'Shard split functionality requires Jetpants config setting "standby_slaves_per_pool" is at least 1' if Jetpants.standby_slaves_per_pool < 1
+      raise "Must have at least #{Jetpants.standby_slaves_per_pool} slaves of shard being split" if master.standby_slaves.size < Jetpants.standby_slaves_per_pool
+      raise "Shard #{self} already has #{@children.size} child shards" if @children.size > 0
+      
+      # Set up the child shards, and give them masters
+      id_ranges.each do |my_range|
+        spare = Jetpants.topology.claim_spare(role: :master, like: master)
+        spare.disable_read_only! if (spare.running? && spare.read_only?)
+        spare.output "Will be master for new shard with ID range of #{my_range.first} to #{my_range.last} (inclusive)"
+        s = Shard.new(my_range.first, my_range.last, spare, :initializing)
+        add_child(s)
+        Jetpants.topology.pools << s
+        # We purposely don't call sync_configuration yet, since we don't want to populate any
+        # data in the asset tracker until after cloning the data set is complete.
+      end
+      
+      # We'll clone the full parent data set from a standby slave of the shard being split
+      source = standby_slaves.first
+      targets = @children.map &:master
+      source.enslave_siblings! targets
+      @children.each &:sync_configuration
     end
     
   end
