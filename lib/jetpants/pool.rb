@@ -96,7 +96,33 @@ module Jetpants
     def nodes
       [master, slaves].flatten.compact
     end
-    
+
+    # Look at a slave database in the pool and retrieve a list of tables,
+    # detecting their schema
+    def probe_tables
+      if standby_slaves.empty?
+        db = active_slaves.last
+      else
+        db = standby_slaves.last
+      end
+
+      raise "Not able to find a slave" unless db.is_a? DB
+
+      return unless db.running?
+
+      @tables = []
+      sql = "SHOW TABLES"
+      db.query_return_array(sql).each do |tbl|
+        table_name = tbl.values.first
+        @tables << db.detect_table_schema(table_name)
+      end
+    end
+
+    def tables
+      self.probe_tables unless @tables
+      @tables
+    end
+
     # Informs Jetpants that slave_db is an active slave. Potentially used by 
     # plugins, such as in Topology at start-up time.
     def has_active_slave(slave_db, weight=100)
