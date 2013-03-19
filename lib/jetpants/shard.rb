@@ -325,8 +325,9 @@ module Jetpants
         s = Shard.new(my_range.first, my_range.last, spare, :initializing)
         add_child(s)
         Jetpants.topology.pools << s
-        # We purposely don't call sync_configuration yet, since we don't want to populate any
-        # data in the asset tracker until after cloning the data set is complete.
+        
+        # temporarily necessary, will remove in future revision
+        sync_configuration
       end
       
       # We'll clone the full parent data set from a standby slave of the shard being split
