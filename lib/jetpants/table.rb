@@ -43,6 +43,19 @@ module Jetpants
     # things up and keep the transactions smaller.
     attr_reader :chunks
     
+    # The SQL statement read from the DB via SHOW CREATE TABLE
+    attr_reader :create_table_sql
+
+    # The primary key of the table, returns an array on a multi-
+    # column PK
+    attr_reader :primary_key
+
+    # A list of indexes mapped to the columns in them
+    attr_reader :indexes
+
+    # DB object this Table is realted to
+    attr_reader :pool
+
     # Create a Table. Params should have string keys, not symbols. Possible keys include
     # 'sharding_key' (or equivalently 'primary_key'), 'chunks', and 'order_by'.
     def initialize(name, params={})
@@ -52,11 +65,33 @@ module Jetpants
 
     def parse_params(params = {})
       params['sharding_key'] ||= params['primary_keys'] || params['primary_key'] || 'user_id'
+      @primary_key = params['primary_key']
       @sharding_keys = (params['sharding_key'].is_a?(Array) ? params['sharding_key'] : [params['sharding_key']])
       @chunks = params['chunks'] || 1
       @order_by = params['order_by']
+      @create_table_sql = params['create_table']
+      @pool = params['pool']
+      @indexes = params['indexes']
     end
     
+    # Returns the current maximum primary key value, returns
+    # the values of the record when ordered by the key fields
+    # in order, descending on a multi-value PK
+    def max_pk_val_query
+      if @primary_key.is_a?(Array)
+        pk_str = @primary_key.join(",")
+        pk_ordering = @primary_key.map{|key| "#{key} DESC"}.join(',')
+        sql = "SELECT #{pk_str} FROM #{@name} ORDER BY #{pk_ordering} LIMIT 1"
+      else
+        sql = "SELECT MAX(#{@primary_key}) FROM #{@name}"
+      end
+      return sql
+    end
+
+    def belongs_to(pool)
+      return @pool == pool
+    end
+
     # Return an array of Table objects based on the contents of Jetpants' config file entry
     # of the given label.
     def Table.from_config(label)
