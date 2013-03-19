@@ -133,6 +133,15 @@ module Jetpants
     
     ##### NEW METHODS ##########################################################
     
+    # Returns the pool's creation time (as a unix timestamp) according to Collins.
+    # (note: may be off by a few hours until https://github.com/tumblr/collins/issues/80
+    # is resolved)
+    # Not called from anything in jetpants_collins, but available to your own
+    # custom automation if useful
+    def collins_creation_timestamp
+      collins_asset.created.to_time.to_i
+    end
+    
     # Called from DB#after_probe_master and DB#after_probe_slave for machines
     # that are unreachable via SSH, or reachable but MySQL isn't running.
     def slaves_according_to_collins
