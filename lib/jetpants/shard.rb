@@ -298,6 +298,7 @@ module Jetpants
         id_ranges << [current_min_id, current_min_id + ids_this_pool - 1]
         current_min_id += ids_this_pool
       end
+      id_ranges
     end
     
     # Early step of shard split process: initialize child shard pools, pull boxes from
