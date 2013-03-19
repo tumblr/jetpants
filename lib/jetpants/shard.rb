@@ -103,7 +103,27 @@ module Jetpants
     def db(mode=:read)
       (mode.to_sym == :write && @parent ? @parent.master : master)
     end
-    
+
+    # Override the probe_tables method to acommodate shard topology -
+    # delegate everything to the first shard.
+    def probe_tables
+      if Jetpants.topology.shards.first == self
+        super
+      else
+        Jetpants.topology.shards.first.probe_tables
+      end
+    end
+
+    # Override the tables accessor to acommodate shard topology - delegate
+    # everything to the first shard
+    def tables
+      if Jetpants.topology.shards.first == self
+        super
+      else
+        Jetpants.topology.shards.first.tables
+      end
+    end
+
     # Adds a Jetpants::Shard to this shard's array of children, and sets
     # the child's parent to be self.
     def add_child(shard)
