@@ -327,7 +327,7 @@ module Jetpants
         Jetpants.topology.pools << s
         
         # temporarily necessary, will remove in future revision
-        sync_configuration
+        s.sync_configuration
       end
       
       # We'll clone the full parent data set from a standby slave of the shard being split
