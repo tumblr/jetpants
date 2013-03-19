@@ -314,7 +314,7 @@ module Jetpants
       raise "Not enough master role machines in spare pool!" if id_ranges.size > Jetpants.topology.count_spares(role: :master, like: master)
       raise "Not enough standby_slave role machines in spare pool!" if id_ranges.size * Jetpants.standby_slaves_per_pool > Jetpants.topology.count_spares(role: :standby_slave, like: slaves.first)
       raise 'Shard split functionality requires Jetpants config setting "standby_slaves_per_pool" is at least 1' if Jetpants.standby_slaves_per_pool < 1
-      raise "Must have at least #{Jetpants.standby_slaves_per_pool} slaves of shard being split" if master.standby_slaves.size < Jetpants.standby_slaves_per_pool
+      raise "Must have at least #{Jetpants.standby_slaves_per_pool} slaves of shard being split" if master.slaves.size < Jetpants.standby_slaves_per_pool
       raise "Shard #{self} already has #{@children.size} child shards" if @children.size > 0
       
       # Set up the child shards, and give them masters
