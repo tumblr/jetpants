@@ -15,10 +15,10 @@ module Jetpants
       pk_fields.sort_by!{|pk| pk[:Seq_in_index]}
 
       params = {
-        :primary_key => pk_fields.map{|pk| pk[:Column_name] },
-        :create_table => create_statement,
-        :indexes => connection.indexes(table_name),
-        :pool => pool
+        'primary_key' => pk_fields.map{|pk| pk[:Column_name] },
+        'create_table' => create_statement,
+        'indexes' => connection.indexes(table_name),
+        'pool' => pool
       }
 
       Table.new(table_name, params)

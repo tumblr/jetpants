@@ -65,18 +65,15 @@ module Jetpants
 
     def parse_params(params = {})
       params['sharding_key'] ||= params['primary_keys'] || params['primary_key'] || 'user_id'
+      @primary_key = params['primary_key']
       @sharding_keys = (params['sharding_key'].is_a?(Array) ? params['sharding_key'] : [params['sharding_key']])
       @chunks = params['chunks'] || 1
       @order_by = params['order_by']
+      @create_table_sql = params['create_table']
+      @pool = params['pool']
+      @indexes = params['indexes']
     end
     
-    def after_parse_params(params)
-      @create_table_sql = params[:create_table]
-      @pool = params[:pool]
-      @indexes = params[:indexes]
-      @primary_key = params[:primary_key]
-    end
-
     # Returns the current maximum primary key value, returns
     # the values of the record when ordered by the key fields
     # in order, descending on a multi-value PK
