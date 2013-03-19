@@ -53,23 +53,32 @@ module Jetpants
     # A list of indexes mapped to the columns in them
     attr_reader :indexes
 
-    # DB object this Table is realted to
+    # Pool object this Table is related to
     attr_reader :pool
 
-    # Create a Table. Params should have string keys, not symbols. Possible keys include
-    # 'sharding_key' (or equivalently 'primary_key'), 'chunks', and 'order_by'.
+    # Create a Table. Possible keys include 'sharding_key', 'chunks', 'order_by',
+    # 'create_table', 'pool', 'indexes', and anything else handled by plugins
     def initialize(name, params={})
       @name = name
       parse_params(params)
     end
 
     def parse_params(params = {})
-      params['sharding_key'] ||= params['primary_keys'] || params['primary_key'] || 'user_id'
-      @primary_key = params['primary_key']
+      # Convert symbols to strings
+      params.keys.select {|k| k.is_a? Symbol}.each do |symbol_key|
+        params[symbol_key.to_s] = params[symbol_key]
+        params.delete symbol_key
+      end
+      
+      # accept singular or plural for some params
+      params['sharding_key'] ||= params['sharding_keys']
+      params['primary_key']  ||= params['primary_keys']
+      
       @sharding_keys = (params['sharding_key'].is_a?(Array) ? params['sharding_key'] : [params['sharding_key']])
+      @primary_key = params['primary_key']
       @chunks = params['chunks'] || 1
       @order_by = params['order_by']
-      @create_table_sql = params['create_table']
+      @create_table_sql = params['create_table'] || params['create_table_sql']
       @pool = params['pool']
       @indexes = params['indexes']
     end
@@ -88,12 +97,14 @@ module Jetpants
       return sql
     end
 
-    def belongs_to(pool)
+    def belongs_to?(pool)
       return @pool == pool
     end
 
     # Return an array of Table objects based on the contents of Jetpants' config file entry
     # of the given label.
+    # TODO: integrate better with table schema detection code. Consider auto-detecting chunk
+    # count based on file size and row count estimate.
     def Table.from_config(label)
       result = []
       Jetpants.send(label).map {|name, attributes| Table.new name, attributes}

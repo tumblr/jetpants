@@ -29,7 +29,7 @@ module Jetpants
     end
 
     def tables
-      pool.tables
+      pool(true).tables
     end
   end
 end

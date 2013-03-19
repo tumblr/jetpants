@@ -56,6 +56,7 @@ module Jetpants
       @master = master.to_db
       @master_read_weight = 0
       @active_slave_weights = {}
+      @tables = nil
     end
     
     # Returns all slaves, or pass in :active, :standby, or :backup to receive slaves
@@ -97,19 +98,19 @@ module Jetpants
       [master, slaves].flatten.compact
     end
 
-    # Look at a slave database in the pool and retrieve a list of tables,
-    # detecting their schema
+    # Look at a database in the pool (preferably a standby slave, but will check
+    # active slave or master if nothing else is available) and retrieve a list of
+    # tables, detecting their schema
     def probe_tables
-      if standby_slaves.empty?
-        db = active_slaves.last
+      master.probe
+      db = standby_slaves.last || active_slaves.last || master
+      if db && db.running?
+        output "Probing tables via #{db}"
       else
-        db = standby_slaves.last
+        output "Warning: unable to probe tables"
+        return
       end
-
-      raise "Not able to find a slave" unless db.is_a? DB
-
-      return unless db.running?
-
+      
       @tables = []
       sql = "SHOW TABLES"
       db.query_return_array(sql).each do |tbl|
@@ -117,7 +118,8 @@ module Jetpants
         @tables << db.detect_table_schema(table_name)
       end
     end
-
+    
+    # Returns a list of table objects for this pool
     def tables
       self.probe_tables unless @tables
       @tables

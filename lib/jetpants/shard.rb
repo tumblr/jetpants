@@ -104,7 +104,8 @@ module Jetpants
       (mode.to_sym == :write && @parent ? @parent.master : master)
     end
 
-    # Override the probe_tables method to acommodate shard topology
+    # Override the probe_tables method to acommodate shard topology -
+    # delegate everything to the first shard.
     def probe_tables
       if Jetpants.topology.shards.first == self
         super
@@ -113,7 +114,8 @@ module Jetpants
       end
     end
 
-    # Override the tables accessor to acommodate shard topology
+    # Override the tables accessor to acommodate shard topology - delegate
+    # everything to the first shard
     def tables
       if Jetpants.topology.shards.first == self
         super
