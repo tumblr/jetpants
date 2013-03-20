@@ -76,14 +76,34 @@ module Jetpants
     end
     
     # Returns true if this database is a spare node and looks ready for use, false otherwise.
-    # The default implementation just ensures a collins status of Provisioned.
-    # Downstream plugins may override this to do additional checks to ensure the node is
-    # in a sane state. (The caller of this method already checks that the node is SSHable,
-    # and that MySQL is running, and the node isn't already in a pool -- so no need to
-    # check any of those here.)
+    # Normally no need for plugins to override this (as of Jetpants 0.8.1), they should 
+    # override DB#validate_spare instead.
     def usable_spare?
-      collins_status.downcase == 'provisioned'
+      if @spare_validation_errors.nil?
+        @spare_validation_errors = []
+        @spare_validation_errors << 'Node already has a pool' if pool
+        @spare_validation_errors << 'Node is not reachable via SSH' unless available?
+        @spare_validation_errors << 'MySQL is not running' unless running?
+        validate_spare
+        if @spare_validation_errors.size > 0
+          error_text = @spare_validation_errors.join '; '
+          output "Removed from spare pool for failing checks: #{error_text}"
+        end
+      end
+      @spare_validation_errors.size == 0
     end
     
+    # Performs validation checks on this node to see whether it is a usable spare.
+    # The default implementation just ensures a collins status of Provisioned.
+    # Downstream plugins may override this to do additional checks to ensure the node is
+    # in a sane state.
+    # No need to check whether the node is SSHable, MySQL is running, or not already in
+    # a pool -- DB#usable_spare? already does that automatically.
+    def validate_spare
+      # Confirm still in provisioned state. (Because Collins find API hits a search index
+      # which isn't synchronously updated with all writes, there's potential for a find
+      # call to return assets that just transitioned out of provisioned.)
+      @spare_validation_errors << "Unexpected status value: #{collins_status}" unless collins_status.downcase == 'provisioned'
+    end
   end
 end

@@ -262,10 +262,7 @@ module Jetpants
       # Now iterate in a single-threaded way for simplicity
       nodes.each do |node|
         db = node.to_db
-        db.probe
-        if node.pool || !db.available? || !db.running? || !db.usable_spare?
-          db.output "Removed from potential spare pool for failing checks"
-        else
+        if db.usable_spare?
           keep_nodes << node
           break if keep_nodes.size >= count
         end
