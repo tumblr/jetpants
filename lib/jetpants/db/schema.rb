@@ -18,13 +18,14 @@ module Jetpants
         'primary_key' => pk_fields.map{|pk| pk[:Column_name] },
         'create_table' => create_statement,
         'indexes' => connection.indexes(table_name),
-        'pool' => pool
+        'pool' => pool,
+        'columns' => connection.schema(table_name).map{|schema| schema[0]} 
       }
 
       Table.new(table_name, params)
     end
 
-    def has_table(table)
+    def has_table?(table)
       tables.include?(table)
     end
 

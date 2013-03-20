@@ -125,6 +125,16 @@ module Jetpants
       @tables
     end
 
+    def has_table?(table)
+      tables.map{|tb| tb.to_s}.include?(table)
+    end
+
+    def get_table(table)
+      raise "Pool #{self} does not have table #{table}" unless has_table? table
+
+      @tables.select{|tb| tb.to_s == table}.first
+    end
+
     # Informs Jetpants that slave_db is an active slave. Potentially used by 
     # plugins, such as in Topology at start-up time.
     def has_active_slave(slave_db, weight=100)
