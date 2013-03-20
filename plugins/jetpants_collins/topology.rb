@@ -248,7 +248,7 @@ module Jetpants
         details:          true,
         type:             'SERVER_NODE',
         status:           'Allocated',
-        state:            'Spare'
+        state:            'SPARE'
         primary_role:     'DATABASE',
         size:             100,
       }
