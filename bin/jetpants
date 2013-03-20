@@ -286,7 +286,7 @@ module Jetpants
       end
       raise "Aborting" unless ask('Please type YES in all capital letters to confirm removing node from its pool: ') == 'YES'
       node.pool.remove_slave!(node)
-      node.revoke_all_access!
+      node.revoke_all_access! if node.running? && node.available?
     end
     
     
@@ -367,10 +367,9 @@ module Jetpants
         end
         children = supply_ranges.count
         raise "Supplied range does not cover parent completely!" if supply_ranges.first[0] != shard_min.to_i || supply_ranges.last[1] != shard_max.to_i
-        s.init_children(children, supply_ranges)
-        s.split!
+        s.split!(children, supply_ranges)
       else
-        children = options[:count]  || ask('Optionally enter how many children to split into [default=2]: ')
+        children = options[:count] || ask('Optionally enter how many children to split into [default=2]: ')
         children = 2 if children == ''
         s.split!(children.to_i)
       end

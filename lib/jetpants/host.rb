@@ -384,6 +384,17 @@ module Jetpants
       @cores = (count ? count.to_i : 1)
     end
     
+    # Returns the amount of memory on machine, either in bytes (default) or in GB.
+    # Linux-specific.
+    def memory(in_gb=false)
+      line = ssh_cmd 'cat /proc/meminfo | grep MemTotal'
+      matches = line.match /(?<size>\d+)\s+(?<unit>kB|mB|gB|B)/
+      size = matches[:size].to_i
+      multipliers = {kB: 1024, mB: 1024**2, gB: 1024**3, B: 1}
+      size *= multipliers[matches[:unit].to_sym]
+      in_gb ? size / 1024**3 : size
+    end
+    
     # Returns the machine's hostname
     def hostname
       return 'unknown' unless available?
