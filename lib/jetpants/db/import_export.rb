@@ -246,6 +246,10 @@ module Jetpants
           id = query_return_first_value(finder_sql)
           break unless id
           rows_deleted += query(deleter_sql, id)
+          
+          # Slow down on multi-col sharding key tables, due to queries being far more expensive
+          sleep(0.0001) if table.sharding_keys.size > 1
+          
           iter += 1
           output("#{dir_english} deletion progress: through #{col} #{id}, deleted #{rows_deleted} rows so far", table) if iter % 50000 == 0
         end
