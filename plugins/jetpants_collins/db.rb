@@ -81,16 +81,26 @@ module Jetpants
     def usable_spare?
       if @spare_validation_errors.nil?
         @spare_validation_errors = []
-        @spare_validation_errors << 'Node already has a pool' if pool
-        @spare_validation_errors << 'Node is not reachable via SSH' unless available?
-        @spare_validation_errors << 'MySQL is not running' unless running?
-        validate_spare
-        if @spare_validation_errors.size > 0
+        
+        # The order of checks is important -- if the node isn't even reachable by SSH,
+        # don't run any of the other checks, for example.
+        if available?
+          if running?
+            @spare_validation_errors << 'Node already has a pool' if pool
+            validate_spare
+          else
+            @spare_validation_errors << 'MySQL is not running'
+          end
+        else
+          @spare_validation_errors << 'Node is not reachable via SSH'
+        end
+        
+        unless @spare_validation_errors.empty?
           error_text = @spare_validation_errors.join '; '
           output "Removed from spare pool for failing checks: #{error_text}"
         end
       end
-      @spare_validation_errors.size == 0
+      @spare_validation_errors.empty?
     end
     
     # Performs validation checks on this node to see whether it is a usable spare.
