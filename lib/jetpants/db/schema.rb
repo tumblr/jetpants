@@ -7,6 +7,8 @@ module Jetpants
   #++
 
   class DB
+    # Query the database for information about the table schema, including
+    # primary key, create statement, and columns
     def detect_table_schema(table_name)
       table_sql = "SHOW CREATE TABLE `#{table_name}`"
       create_statement = query_return_first(table_sql).values.last
@@ -25,10 +27,12 @@ module Jetpants
       Table.new(table_name, params)
     end
 
+    # Deletages the has_table check up to the pool
     def has_table?(table)
       tables.include?(table)
     end
 
+    # List of tables (as defined by the pool)
     def tables
       pool(true).tables
     end
