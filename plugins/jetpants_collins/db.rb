@@ -114,8 +114,8 @@ module Jetpants
       # Confirm node is in Allocated:SPARE status:state. (Because Collins find API hits a
       # search index which isn't synchronously updated with all writes, there's potential
       # for a find call to return assets that just transitioned to a different status or state.)
-      status_state = "#{collins_status.downcase}:#{collins_state.upcase}"
-      @spare_validation_errors << "Unexpected status:state value: #{status_state}" unless status_state == 'allocated:SPARE'
+      status_state = collins_status_state
+      @spare_validation_errors << "Unexpected status:state value: #{status_state}" unless status_state == 'allocated:spare'
     end
   end
 end
