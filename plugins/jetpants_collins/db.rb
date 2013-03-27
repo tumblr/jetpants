@@ -104,16 +104,18 @@ module Jetpants
     end
     
     # Performs validation checks on this node to see whether it is a usable spare.
-    # The default implementation just ensures a collins status of Provisioned.
+    # The default implementation just ensures a collins status of Allocated and state
+    # of SPARE.
     # Downstream plugins may override this to do additional checks to ensure the node is
-    # in a sane state.
+    # in a sane condition.
     # No need to check whether the node is SSHable, MySQL is running, or not already in
     # a pool -- DB#usable_spare? already does that automatically.
     def validate_spare
-      # Confirm still in provisioned state. (Because Collins find API hits a search index
-      # which isn't synchronously updated with all writes, there's potential for a find
-      # call to return assets that just transitioned out of provisioned.)
-      @spare_validation_errors << "Unexpected status value: #{collins_status}" unless collins_status.downcase == 'provisioned'
+      # Confirm node is in Allocated:SPARE status:state. (Because Collins find API hits a
+      # search index which isn't synchronously updated with all writes, there's potential
+      # for a find call to return assets that just transitioned to a different status or state.)
+      status_state = "#{collins_status.downcase}:#{collins_state.upcase}"
+      @spare_validation_errors << "Unexpected status:state value: #{status_state}" unless status_state == 'allocated:SPARE'
     end
   end
 end

@@ -345,8 +345,6 @@ module Jetpants
         s = Shard.new(my_range.first, my_range.last, spare, :initializing)
         add_child(s)
         Jetpants.topology.pools << s
-        
-        # temporarily necessary, will remove in future revision
         s.sync_configuration
       end
       
@@ -354,7 +352,6 @@ module Jetpants
       source = standby_slaves.first
       targets = @children.map &:master
       source.enslave_siblings! targets
-      @children.each &:sync_configuration
     end
     
   end
