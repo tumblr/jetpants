@@ -156,7 +156,7 @@ module Jetpants
 
       # Pass in a hash mapping field name symbols to values to set
       #   Symbol   => String         -- optionally set any Collins attribute
-      #   :status  => String         -- optionally set the status value for the asset
+      #   :status  => String         -- optionally set the status value for the asset. Can optionally be a "status:state" string too.
       #   :asset   => Collins::Asset -- optionally pass this in to avoid an extra Collins API lookup, if asset already obtained
       #
       # Alternatively, pass in 2 strings (field_name, value) to set just a single Collins attribute (or status)
@@ -180,26 +180,30 @@ module Jetpants
               output "WARNING: unable to set Collins status to #{val}"
               next
             end
-            if attrs[:state]
-              previous_state = asset.state.name
-              previous_status = asset.status
-              if previous_state != attrs[:state].to_s || previous_status != attrs[:status].to_s
-                success = Jetpants::Plugin::JetCollins.set_status!(asset, attrs[:status], 'changed through jetpants', attrs[:state])
-                unless success
-                  Jetpants::Plugin::JetCollins.state_create!(attrs[:state], attrs[:state], attrs[:state], attrs[:status])
-                  success = Jetpants::Plugin::JetCollins.set_status!(asset, attrs[:status], 'changed through jetpants', attrs[:state])
-                end
-                raise "#{self}: Unable to set Collins state to #{attrs[:state]} and Unable to set Collins status to #{attrs[:status]}" unless success
-                output "Collins state changed from #{previous_state} to #{attrs[:state]}"
-                output "Collins status changed from #{previous_status} to #{attrs[:status]}"
-              end              
-            else
-              previous_value = asset.status
-              if previous_value != val.to_s
-                success = Jetpants::Plugin::JetCollins.set_status!(asset, val)
-                raise "#{self}: Unable to set Collins status to #{val}" unless success
-                output "Collins status changed from #{previous_value} to #{val}"
+            state_val = attrs[:state]
+            previous_status = asset.status.capitalize
+            # Allow setting status:state at once via foo.collins_status = 'allocated:running'
+            if val.include? ':'
+              raise "Attempting to set state in two places" if state_val
+              vals = val.split(':', 2)
+              val       = vals.first.capitalize
+              state_val = vals.last.upcase
+            end
+            if state_val
+              previous_state = asset.state.name.upcase
+              next unless previous_state != state_val.to_s.upcase || previous_status != val.to_s.capitalize
+              success = Jetpants::Plugin::JetCollins.set_status!(asset, val, 'changed through jetpants', state_val)
+              unless success
+                # If we failed to set to this state, try creating the state as new
+                Jetpants::Plugin::JetCollins.state_create!(state_val, state_val, state_val, val)
+                success = Jetpants::Plugin::JetCollins.set_status!(asset, val, 'changed through jetpants', state_val)
               end
+              raise "#{self}: Unable to set Collins state to #{state_val} and Unable to set Collins status to #{val}" unless success
+              output "Collins status:state changed from #{previous_status}:#{previous_state} to #{val.capitalize}:#{state_val.upcase}"
+            elsif previous_status != val.to_s.capitalize
+              success = Jetpants::Plugin::JetCollins.set_status!(asset, val)
+              raise "#{self}: Unable to set Collins status to #{val}" unless success
+              output "Collins status changed from #{previous_status} to #{val}"
             end
           when :state
             unless asset && asset.status && attrs[:status]
@@ -231,9 +235,16 @@ module Jetpants
         
       end
       
+      # Returns a single downcased "status:state" string, useful when trying to compare both fields
+      # at once.
+      def collins_status_state
+        values = collins_get :status, :state
+        "#{values[:status]}:#{values[:state]}".downcase
+      end
+      
     end # module JetCollins
   end # module Plugin
-end
+end # module Jetpants
 
 
 # load all the monkeypatches for other Jetpants classes
