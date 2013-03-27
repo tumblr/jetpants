@@ -84,7 +84,7 @@ module Jetpants
         db.collins_pool = ''
         db.collins_secondary_role = ''
         db.collins_slave_weight = ''
-        db.collins_set status: 'Allocated', state: 'CLAIMED'
+        db.collins_status = 'Allocated:CLAIMED'
         db
       end
     end
