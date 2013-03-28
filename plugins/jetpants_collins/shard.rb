@@ -83,7 +83,7 @@ module Jetpants
         # their pool setting...
         [@master, active_slaves, standby_slaves, backup_slaves].flatten.each do |db|
           current_status = (db.collins_status || '').downcase
-          db.collins_status = 'Allocated' unless current_status == 'maintenance'
+          db.collins_status = 'Allocated:RUNNING' unless current_status == 'maintenance'
           db.collins_pool = @name
         end
         @master.collins_secondary_role = 'MASTER'
