@@ -62,7 +62,7 @@ module Jetpants
         # read-only shards, and offline shards appropriately.
         return me.merge case state
                  when :ready, :needs_cleanup then {'host' => master.ip}
-                 when :child then {'host_read' => master.ip, 'host_write' => parent.master.ip}
+                 when :child then {'host_read' => master.ip, 'host_write' => master.master.ip}
                  when :read_only then {'host_read' => master.ip, 'host_write' => false}
                  when :offline then {'host' => false}
                  end
