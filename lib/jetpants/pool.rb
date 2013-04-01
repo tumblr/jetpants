@@ -128,7 +128,7 @@ module Jetpants
     # Queries whether a pool has a table with a given name
     # note that this is the string name of the table and not an object
     def has_table?(table)
-      tables.map{|tb| tb.to_s}.include?(table)
+      tables.map(&:to_s).include?(table)
     end
 
     # Retrieve the table object for a given table name
