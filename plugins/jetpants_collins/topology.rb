@@ -258,7 +258,7 @@ module Jetpants
       keep_nodes = []
       
       # Probe concurrently for speed reasons
-      nodes.map(&:to_db).concurrent_each(&:probe)
+      nodes.map(&:to_db).concurrent_each(&:probe) rescue nil
       
       # Now iterate in a single-threaded way for simplicity
       nodes.each do |node|

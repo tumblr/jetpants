@@ -84,15 +84,17 @@ module Jetpants
         
         # The order of checks is important -- if the node isn't even reachable by SSH,
         # don't run any of the other checks, for example.
-        if available?
-          if running?
-            @spare_validation_errors << 'Node already has a pool' if pool
-            validate_spare
-          else
-            @spare_validation_errors << 'MySQL is not running'
-          end
-        else
+        # Note that we probe concurrently in Topology#query_spare_assets, ahead of time
+        if !probed?
+          @spare_validation_errors << 'Attempt to probe node failed'
+        elsif !available?
           @spare_validation_errors << 'Node is not reachable via SSH'
+        elsif !running?
+          @spare_validation_errors << 'MySQL is not running'
+        elsif pool
+          @spare_validation_errors << 'Node already has a pool'
+        else
+          validate_spare
         end
         
         unless @spare_validation_errors.empty?
