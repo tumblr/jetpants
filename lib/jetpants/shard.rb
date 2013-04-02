@@ -32,8 +32,8 @@ module Jetpants
     #   :exporting      --  Child shard that is exporting its portion of the data set. Shard not in production yet.
     #   :importing      --  Child shard that is importing its portion of the data set. Shard not in production yet.
     #   :replicating    --  Child shard that is being cloned to new replicas. Shard not in production yet.
-    #   :child          --  Child shard that is in production for reads, but still slaving from its parent for writes.
-    #   :needs_cleanup  --  Child shard that is fully in production, but parent replication not torn down yet, and redundant data (from wrong range) not removed yet
+    #   :child          --  In-production shard whose master is slaving from another shard. Reads go to to this shard's master, but writes go to the master of this shard's master and replicate down.
+    #   :needs_cleanup  --  Child shard that is fully in production, but parent replication not torn down yet, and potentially has redundant data (from wrong range) not removed yet
     #   :deprecated     --  Parent shard that has been split but children are still in :child or :needs_cleanup state. Shard may still be in production for writes / replication not torn down yet.
     #   :recycle        --  Parent shard that has been split and children are now in the :ready state. Shard no longer in production, replication to children has been torn down.
     attr_accessor :state
@@ -261,33 +261,61 @@ module Jetpants
       @children
     end
     
-    # Run this on a parent shard after the rest of a shard split is complete.
-    # Sets this shard's master to read-only; removes the application user from
-    # self (without replicating this change to children); disables replication
-    # between the parent and the children; and then removes rows from the 
-    # children that replicated to the wrong shard.
+    # Cleans up the state of a shard. This has two use-cases:
+    # A. Run this on a parent shard after the rest of a shard split is complete.
+    #    Sets this shard's master to read-only; removes the application user from
+    #    self (without replicating this change to children); disables replication
+    #    between the parent and the children; and then removes rows from the 
+    #    children that replicated to the wrong shard.
+    # B. Run this on a shard that just underwent a two-step promotion process which
+    #    moved all reads, and then all writes, to a slave that has slaves of its own.
+    #    For example, if upgrading MySQL on a shard by creating a newer-version slave
+    #    and then adding slaves of its own to it (temp hierarchical replication setup).
+    #    You can use this method to then "eject" the older-version master and its
+    #    older-version slaves from the pool.
     def cleanup!
-      raise "Can only run cleanup! on a parent shard in the deprecated state" unless @state == :deprecated
       raise "Cannot call cleanup! on a child shard" if @parent
+
+      # situation A - clean up after a shard split
+      if @state == :deprecated && @children.size > 0
+        tables = Table.from_config 'sharded_tables'
+        @master.revoke_all_access!
+        @children.concurrent_each do |child_shard|
+          raise "Child state does not indicate cleanup is needed" unless child_shard.state == :needs_cleanup
+          raise "Child shard master should be a slave in order to clean up" unless child_shard.is_slave?
+          child_shard.master.disable_replication! # stop slaving from parent
+          child_shard.prune_data_to_range tables, child_shard.min_id, child_shard.max_id
+        end
       
-      tables = Table.from_config 'sharded_tables'
-      @master.revoke_all_access!
-      @children.concurrent_each do |child_shard|
-        raise "Child state does not indicate cleanup is needed" unless child_shard.state == :needs_cleanup
-        raise "Child shard master should be a slave in order to clean up" unless child_shard.is_slave?
-        child_shard.master.disable_replication! # stop slaving from parent
-        child_shard.prune_data_to_range tables, child_shard.min_id, child_shard.max_id
+        # We have to iterate over a copy of the @children array, rather than the array
+        # directly, since Array#each skips elements when you remove elements in-place,
+        # which Shard#remove_child does...
+        @children.dup.each do |child_shard|
+          child_shard.state = :ready
+          remove_child child_shard
+          child_shard.sync_configuration
+        end
+        @state = :recycle
+      
+      # situation B - clean up after a two-step shard master promotion
+      elsif @state == :needs_cleanup && @master.master && !@parent
+        eject_master = @master.master
+        eject_slaves = @master.slaves.reject {|s| s == @master}
+        eject_master.revoke_all_access!
+        @master.disable_replication!
+        
+        # We need to update the asset tracker to no longer consider the ejected
+        # nodes as part of this pool. This includes ejecting the old master, which
+        # might be handled by Pool#after_master_promotion! instead 
+        # of Shard#sync_configuration.
+        after_master_promotion!(@master, false) if respond_to? :after_master_promotion!
+        
+        @state = :ready
+        
+      else
+        raise "Shard #{self} is not in a state compatible with calling cleanup! (state=#{state}, child count=#{@children.size}"
       end
       
-      # We have to iterate over a copy of the @children array, rather than the array
-      # directly, since Array#each skips elements when you remove elements in-place,
-      # which Shard#remove_child does...
-      @children.dup.each do |child_shard|
-        child_shard.state = :ready
-        remove_child child_shard
-        child_shard.sync_configuration
-      end
-      @state = :recycle
       sync_configuration
     end
     
@@ -345,8 +373,6 @@ module Jetpants
         s = Shard.new(my_range.first, my_range.last, spare, :initializing)
         add_child(s)
         Jetpants.topology.pools << s
-        
-        # temporarily necessary, will remove in future revision
         s.sync_configuration
       end
       
@@ -354,7 +380,6 @@ module Jetpants
       source = standby_slaves.first
       targets = @children.map &:master
       source.enslave_siblings! targets
-      @children.each &:sync_configuration
     end
     
   end

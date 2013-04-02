@@ -76,14 +76,46 @@ module Jetpants
     end
     
     # Returns true if this database is a spare node and looks ready for use, false otherwise.
-    # The default implementation just ensures a collins status of Provisioned.
-    # Downstream plugins may override this to do additional checks to ensure the node is
-    # in a sane state. (The caller of this method already checks that the node is SSHable,
-    # and that MySQL is running, and the node isn't already in a pool -- so no need to
-    # check any of those here.)
+    # Normally no need for plugins to override this (as of Jetpants 0.8.1), they should 
+    # override DB#validate_spare instead.
     def usable_spare?
-      collins_status.downcase == 'provisioned'
+      if @spare_validation_errors.nil?
+        @spare_validation_errors = []
+        
+        # The order of checks is important -- if the node isn't even reachable by SSH,
+        # don't run any of the other checks, for example.
+        if available?
+          if running?
+            @spare_validation_errors << 'Node already has a pool' if pool
+            validate_spare
+          else
+            @spare_validation_errors << 'MySQL is not running'
+          end
+        else
+          @spare_validation_errors << 'Node is not reachable via SSH'
+        end
+        
+        unless @spare_validation_errors.empty?
+          error_text = @spare_validation_errors.join '; '
+          output "Removed from spare pool for failing checks: #{error_text}"
+        end
+      end
+      @spare_validation_errors.empty?
     end
     
+    # Performs validation checks on this node to see whether it is a usable spare.
+    # The default implementation just ensures a collins status of Allocated and state
+    # of SPARE.
+    # Downstream plugins may override this to do additional checks to ensure the node is
+    # in a sane condition.
+    # No need to check whether the node is SSHable, MySQL is running, or not already in
+    # a pool -- DB#usable_spare? already does that automatically.
+    def validate_spare
+      # Confirm node is in Allocated:SPARE status:state. (Because Collins find API hits a
+      # search index which isn't synchronously updated with all writes, there's potential
+      # for a find call to return assets that just transitioned to a different status or state.)
+      status_state = collins_status_state
+      @spare_validation_errors << "Unexpected status:state value: #{status_state}" unless status_state == 'allocated:spare'
+    end
   end
 end

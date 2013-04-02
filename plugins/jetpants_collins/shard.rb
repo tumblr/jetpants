@@ -77,13 +77,13 @@ module Jetpants
           db.collins_secondary_role = ''
           db.collins_status = 'Unallocated'
         end
-      else
+      elsif @state != :initializing
         # Note that we don't call Pool#slaves here to get all 3 types in one shot,
         # because that potentially includes child shards, and we don't want to overwrite
         # their pool setting...
         [@master, active_slaves, standby_slaves, backup_slaves].flatten.each do |db|
           current_status = (db.collins_status || '').downcase
-          db.collins_status = 'Allocated' unless current_status == 'maintenance'
+          db.collins_status = 'Allocated:RUNNING' unless current_status == 'maintenance'
           db.collins_pool = @name
         end
         @master.collins_secondary_role = 'MASTER'

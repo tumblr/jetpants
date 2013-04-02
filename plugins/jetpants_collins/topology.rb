@@ -73,7 +73,7 @@ module Jetpants
     end
     
     
-    # Returns (count) DB objects.  Pulls from machines in the Provisioned status
+    # Returns (count) DB objects.  Pulls from machines in the spare state
     # and converts them to the Allocated status.
     # You can pass in :role to request spares with a particular secondary_role
     def claim_spares(count, options={})
@@ -84,7 +84,7 @@ module Jetpants
         db.collins_pool = ''
         db.collins_secondary_role = ''
         db.collins_slave_weight = ''
-        db.collins_status = 'Allocated'
+        db.collins_status = 'Allocated:CLAIMED'
         db
       end
     end
@@ -239,7 +239,7 @@ module Jetpants
     
     private
     
-    # Helper method to query Collins for spare provisioned DBs.
+    # Helper method to query Collins for spare DBs.
     def query_spare_assets(count, options={})
       # Intentionally no remoteLookup=true here.  We only want to grab spare nodes
       # from the datacenter that Jetpants is running in.
@@ -247,7 +247,8 @@ module Jetpants
         operation:        'and',
         details:          true,
         type:             'SERVER_NODE',
-        status:           'Provisioned',
+        status:           'Allocated',
+        state:            'SPARE',
         primary_role:     'DATABASE',
         size:             100,
       }
@@ -262,10 +263,7 @@ module Jetpants
       # Now iterate in a single-threaded way for simplicity
       nodes.each do |node|
         db = node.to_db
-        db.probe
-        if node.pool || !db.available? || !db.running? || !db.usable_spare?
-          db.output "Removed from potential spare pool for failing checks"
-        else
+        if db.usable_spare?
           keep_nodes << node
           break if keep_nodes.size >= count
         end
