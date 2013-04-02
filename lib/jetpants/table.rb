@@ -53,6 +53,9 @@ module Jetpants
     # A list of indexes mapped to the columns in them
     attr_reader :indexes
 
+    # A list of the table column names
+    attr_reader :columns 
+
     # Pool object this Table is related to
     attr_reader :pool
 
@@ -81,6 +84,7 @@ module Jetpants
       @create_table_sql = params['create_table'] || params['create_table_sql']
       @pool = params['pool']
       @indexes = params['indexes']
+      @columns = params['columns'] 
     end
     
     # Returns the current maximum primary key value, returns
