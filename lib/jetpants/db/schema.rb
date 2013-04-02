@@ -27,9 +27,9 @@ module Jetpants
       Table.new(table_name, params)
     end
 
-    # Deletages the has_table check up to the pool
+    # Deletages check for a table existing by name up to the pool
     def has_table?(table)
-      tables.include?(table)
+      pool.has_table? table
     end
 
     # List of tables (as defined by the pool)
