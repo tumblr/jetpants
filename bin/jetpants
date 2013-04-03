@@ -449,7 +449,7 @@ module Jetpants
       raise "Specified cutover ID is too low!" unless cutover_id > last_shard.min_id
       
       # Ensure enough spare nodes are available before beginning.
-      # We supply the *previous* last shard as context for counting/claiming spares
+      # We supply the *previous* last shard as context for counting spares
       # because the new last shard can't be created yet (chicken-and-egg problem -- master
       # must exist before we create the pool). The assumption is the hardware spec
       # of the new last shard and previous last shard will be the same.
@@ -471,7 +471,9 @@ module Jetpants
       new_last_shard_master = Jetpants.topology.claim_spare(role: :master, like: last_shard_master)
       new_last_shard_master.disable_read_only! if new_last_shard_master.running?
       if Jetpants.standby_slaves_per_pool > 0
-        new_last_shard_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: last_shard_master)
+        # Verify spare count again, now that we can actually supply the new master as the :like context
+        raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: new_last_shard_master) >= Jetpants.standby_slaves_per_pool
+        new_last_shard_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: new_last_shard_master)
         new_last_shard_slaves.each do |x| 
           x.change_master_to new_last_shard_master
           x.resume_replication

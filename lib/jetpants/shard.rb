@@ -235,7 +235,7 @@ module Jetpants
         return
       end
       
-      slaves_available = Jetpants.topology.count_spares(role: :standby_slave, like: parent.slaves.first)
+      slaves_available = Jetpants.topology.count_spares(role: :standby_slave, like: master)
       raise "Not enough standby_slave role machines in spare pool!" if slaves_needed > slaves_available
       
       # Handle state transitions
@@ -248,7 +248,7 @@ module Jetpants
         raise "Shard #{self} is not in a state compatible with calling clone_slaves_from_master! (current state=#{@state})"
       end
       
-      my_slaves = Jetpants.topology.claim_spares(slaves_needed, role: :standby_slave, like: parent.slaves.first)
+      my_slaves = Jetpants.topology.claim_spares(slaves_needed, role: :standby_slave, like: master)
       enslave!(my_slaves)
       my_slaves.each &:resume_replication
       [self, my_slaves].flatten.each {|db| db.catch_up_to_master}
