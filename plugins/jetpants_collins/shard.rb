@@ -91,6 +91,13 @@ module Jetpants
         standby_slaves.each {|db| db.collins_secondary_role = 'STANDBY_SLAVE'}
         backup_slaves.each  {|db| db.collins_secondary_role = 'BACKUP_SLAVE'}
       end
+      
+      # handle lockless master migration situations
+      if @state == :child && master.master && !@parent
+        to_be_ejected_master = master.master
+        to_be_ejected_master.collins_secondary_role = :standby_slave # not accurate, but no better option for now
+      end
+      
       true
     end
     
