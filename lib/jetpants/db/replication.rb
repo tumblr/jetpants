@@ -22,7 +22,7 @@ module Jetpants
       logfile = option_hash[:log_file]
       pos     = option_hash[:log_pos]
       if !(logfile && pos)
-        raise "Cannot use coordinates of a new master that is receiving updates" if new_master.master && ! new_master.repl_paused
+        raise "Cannot use coordinates of a new master that is receiving updates" if new_master.master && ! new_master.repl_paused?
         logfile, pos = new_master.binlog_coordinates
       end
       
