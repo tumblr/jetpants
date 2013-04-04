@@ -14,7 +14,6 @@ Gem::Specification.new do |s|
   s.require_paths = ["lib"]
   s.executables = ["jetpants"]
   s.default_executable = "jetpants"
-  s.rubygems_version = "1.8.10"
   s.summary = 'Jetpants: a MySQL automation toolkit by Tumblr'
   s.description = "Jetpants is an automation toolkit for handling monstrously large MySQL database topologies. It is geared towards common operational tasks like cloning slaves, rebalancing shards, and performing master promotions. It features a command suite for easy use by operations staff, though it's also a full Ruby library for use in developing custom migration scripts and database automation."
   s.extra_rdoc_files = FileList['README.rdoc', 'doc/*.rdoc']
