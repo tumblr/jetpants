@@ -181,6 +181,7 @@ module Jetpants
 
       if primary_roles.count == 1
         selector[:type] = '^CONFIGURATION$'
+        selector[:primary_role] = primary_roles.first
       else
         values = primary_roles.map {|r| "primary_role = ^#{r}$"}
         selector[:query] = 'type = ^CONFIGURATION$ AND (' + values.join(' OR ') + ')'
