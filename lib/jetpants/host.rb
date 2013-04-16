@@ -142,7 +142,7 @@ module Jetpants
     # Confirm that something is listening on the given port. The timeout param
     # indicates how long to wait (in seconds) for a process to be listening.
     def confirm_listening_on_port(port, timeout=10)
-      checker_th = Thread.new { ssh_cmd "while [[ `netstat -ln | grep #{port} | wc -l` -lt 1 ]] ; do sleep 1; done" }
+      checker_th = Thread.new { ssh_cmd "while [[ `netstat -ln | grep :#{port} | wc -l` -lt 1 ]] ; do sleep 1; done" }
       raise "Nothing is listening on #{@ip}:#{port} after #{timeout} seconds" unless checker_th.join(timeout)
       true
     end

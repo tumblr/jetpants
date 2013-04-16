@@ -11,7 +11,7 @@ module Jetpants
       output "Attempting to shutdown MySQL"
       disconnect if @db
       output service(:stop, 'mysql')
-      running = ssh_cmd "netstat -ln | grep #{@port} | wc -l"
+      running = ssh_cmd "netstat -ln | grep ':#{@port}' | wc -l"
       raise "[#{@ip}] Failed to shut down MySQL: Something is still listening on port #{@port}" unless running.chomp == '0'
       @options = []
       @running = false
@@ -26,7 +26,7 @@ module Jetpants
       if @master
         @repl_paused = options.include?('--skip-slave-start')
       end
-      running = ssh_cmd "netstat -ln | grep #{@port} | wc -l"
+      running = ssh_cmd "netstat -ln | grep ':#{@port}' | wc -l"
       raise "[#{@ip}] Failed to start MySQL: Something is already listening on port #{@port}" unless running.chomp == '0'
       if options.size == 0
         output "Attempting to start MySQL, no option overrides supplied"
