@@ -66,6 +66,11 @@ module Jetpants
       end
     end
     
+    # After changing the status of a node, clear its list of spare-node-related
+    # validation errors, so that we will re-probe when necessary
+    def after_collins_status=(value)
+      @spare_validation_errors = nil
+    end
     
     ##### NEW METHODS ##########################################################
     
