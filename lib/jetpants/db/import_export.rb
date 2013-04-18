@@ -192,13 +192,18 @@ module Jetpants
     # MUCH faster than doing a single count, but far more I/O intensive, so
     # don't use this on a master or active slave.
     def row_counts(tables, min_id, max_id)
+      tables = [tables] unless tables.is_a? Array
       lock = Mutex.new
       row_count = {}
       tables.each do |t|
         row_count[t.name] = 0
-        (min_id..max_id).in_chunks(t.chunks, 10) do |min, max|
-          result = query_return_first_value(t.sql_count_rows(min, max))
-          lock.synchronize {row_count[t.name] += result}
+        if min_id && max_id && t.chunks > 1
+          (min_id..max_id).in_chunks(t.chunks, Jetpants.max_concurrency) do |min, max|
+            result = query_return_first_value(t.sql_count_rows(min, max))
+            lock.synchronize {row_count[t.name] += result}
+          end
+        else
+          row_count[t.name] = query_return_first_value(t.sql_count_rows(false, false))
         end
         output "#{row_count[t.name]} rows counted", t
       end

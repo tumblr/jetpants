@@ -41,7 +41,7 @@ module Jetpants
     # the default of 1 (meaning no chunking). For tables with hundreds of millions
     # of rows, you may want to do exports/imports in a few hundred chunks to speed
     # things up and keep the transactions smaller.
-    attr_reader :chunks
+    attr_accessor :chunks
     
     # The SQL statement read from the DB via SHOW CREATE TABLE
     attr_reader :create_table_sql
@@ -77,7 +77,9 @@ module Jetpants
       params['sharding_key'] ||= params['sharding_keys']
       params['primary_key']  ||= params['primary_keys']
       
-      @sharding_keys = (params['sharding_key'].is_a?(Array) ? params['sharding_key'] : [params['sharding_key']])
+      @sharding_keys = (params['sharding_key'].is_a?(Array) ? params['sharding_key'] : [params['sharding_key']]) if params['sharding_key']
+      @sharding_keys ||= []
+      
       @primary_key = params['primary_key']
       @chunks = params['chunks'] || 1
       @order_by = params['order_by']
@@ -100,7 +102,17 @@ module Jetpants
       end
       return sql
     end
-
+    
+    # Returns the first column of the primary key, or nil if there isn't one
+    def first_pk_col
+      if @primary_key.is_a? Array
+        @primary_key.first
+      else
+        @primary_key
+      end
+    end
+    
+    # Returns true if the table is associated with the supplied pool
     def belongs_to?(pool)
       return @pool == pool
     end
@@ -177,13 +189,21 @@ module Jetpants
       return sql
     end
     
-    # Counts number of rows between the given ID ranges.  Warning: will give
-    # potentially misleading counts on multi-sharding-key tables.
+    # Returns SQL to counts number of rows between the given ID ranges.
+    # Warning: will give potentially misleading counts on multi-sharding-key tables.
     def sql_count_rows(min_id, max_id)
-      sql = "SELECT COUNT(*) FROM #{@name} WHERE "
+      sql = "SELECT COUNT(*) FROM #{@name}"
+      return sql unless min_id && max_id
+      
       wheres = []
-      @sharding_keys.each {|col| wheres << "(#{col} >= #{min_id} AND #{col} <= #{max_id})"}
-      sql << wheres.join(" OR ")
+      
+      if @sharding_keys.size > 0
+        @sharding_keys.each {|col| wheres << "(#{col} >= #{min_id} AND #{col} <= #{max_id})"}
+        sql << ' WHERE ' + wheres.join(" OR ")
+      elsif first_pk_col
+        sql << " WHERE #{first_pk_col} >= #{min_id} AND #{first_pk_col} <= #{max_id}"
+      end
+      sql
     end
     
     # Returns a file path (as a String) for the export dumpfile of the given ID range.
