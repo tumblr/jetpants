@@ -105,3 +105,9 @@ Callbacks may interrupt the control flow by raising a Jetpants::CallbackAbortErr
 * If this is raised in a before_foo method, all lower-priority before_foo stacked callbacks will be skipped, as will the call to foo and any after_foo callbacks. The exception is automatically caught and is not fatal. The return value of foo will be nil.
 
 * If this is raised in an after_foo method, all subsequent lower-priority after_foo stacked callbacks will be skipped. The return value of foo will be unaffected.
+
+== Other bundled plugins
+
+=== upgrade_helper
+
+This is plugin adds additional Jetpants commands to aid in performing a major MySQL upgrade. For full documentation, please see upgrade_helper.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/upgrade_helper.rdoc]).
