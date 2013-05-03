@@ -1,0 +1,68 @@
+= upgrade_helper
+
+== OVERVIEW:
+
+This is a plugin to aid in performing a major MySQL upgrade, such as from 5.1 to 5.6. It includes the following functionality:
+
+* New Jetpants command to clone a lower-version standby slave to a higher-version spare, and perform the upgrade process on the spare
+* New Jetpants commands to do a master promotion that evicts the final lower-version node from a pool. You can choose to do either a standard locking master promotion (with read_only period), or on shards you may do a promotion that "ejects" the old master in a multi-step process without any locking.
+* New Jetpants commands that wrap two Percona Toolkit tools (pt-upgrade and pt-query-digest) to verify the upgrade process did not cause any data drift or major performance degradations.
+
+== CONFIGURATION:
+
+This plugin has only one configuration option, which is mandatory:
+
+new_version::         major.minor string of MySQL version being upgraded to, for example "5.5". Be sure to wrap in quotes so that it is not misinterpreted as a float. (required)
+
+Example usage:
+
+    # ... rest of Jetpants config here
+    
+    plugins:
+        jetpants_collins:
+            # config for jetpants_collins here
+            
+        upgrade_helper:
+            new_version: "5.5"
+        
+        # ... other plugins configured here
+
+
+== ASSUMPTIONS AND REQUIREMENTS:
+
+This plugin currently requires that you are using jetpants_collins plugin and \Collins as your asset tracker. This may be made more generic in a future release.
+
+This plugin never upgrades nodes in-place; instead, it operates on spare nodes. The plugin must have the ability to grab spare nodes which already have the newer version of MySQL installed, as opposed to regular spares which have your old/existing version. In order for this to be possible, a custom plugin loaded AFTER jetpants_collins must override its method Topology#process_spare_selector_options to support these options:
+
+:version::  if supplied, will be a major.minor string ('5.1', '5.5', etc). Spares should use the exact specified version.
+:like:: if supplied, will be a Jetpants::DB. Spares should use the same version as this node, unless :version was also supplied, in which case :like is ignored and :version takes precedence.
+
+In order to use new commands "jetpants checksum_pool" and "jetpants upgrade_check_pool", Percona Toolkit must be installed on the same machine as Jetpants, and be in your PATH. This plugin has been tested most extensively with Percona Toolkit 2.1.7. It may require some modifications to full work with Percona Toolkit 2.2.x, since pt-upgrade has been completely rewritten.
+
+In order to use "jetpants upgrade_check_pool", tcpdump must be installed on all database nodes, and be in root's PATH.
+
+== USAGE:
+
+=== Upgrading functional partitions
+
+1. Use "jetpants upgrade_clone_slave" to clone an existing (older-MySQL-version) standby to a machine that already has your newer version of MySQL. This task will then run mysql_upgrade properly on the node to complete the upgrade process.
+2. Use "jetpants check_pool_queries" to verify query performance. This will collect a read query log from the master (and from an active slave, if any exist) and replay them against an older-version and newer-version standby slave using pt-upgrade. We automatically run pt-upgrade twice, ignoring the results the first time. The first run is to help populate the buffer pool.
+3. After the upgraded slave has been replicating for some time (we recommend 24 hours), use "jetpants checksum_pool" to detect data drift on the upgraded slave. This command uses pt-table-checksum.
+4. Use "jetpants clone_slave" repeatedly to clone the upgraded slave as needed. If the pool has active slaves, you will eventually want to use "jetpants activate_slave" and "jetpants pull_slave" to convert upgraded standbys to actives, and vice versa to pull out the older-version actives. Then use "jetpants destroy_slave" as needed to eliminate older-version standby slaves. Your end result of this step should be that all nodes except the master are upgraded, and you have one extra upgraded standby slave in the pool. (So if you normally have N standbys per pool, you should now have N+1 instead; and all slaves -- standby or active -- are running the newer version of MySQL.)
+5. Use "jetpants upgrade_promotion" to perform a master promotion. This is identical a normal "jetpants promotion" except that eliminates the old master, instead of enslaving it. This is necessary because older-version nodes cannot have a higher-version master.
+
+Repeat this entire process for each functional partition.
+
+
+=== Upgrading shards
+
+The above process for functional partitions also works perfectly fine for shards. The first time you upgrade a shard, you should use the above process, including the steps to verify query performance and confirm lack of data drift.
+
+For subsequent shard upgrades, you may optionally use this simplified process.
+
+1. Use "jetpants shard_upgrade" to build new upgraded standby slaves of the shard, in a hierarchical replication setup. One new standby slave will directly replicate from the master, and the others will be slaves of that one. In total, if a shard in your environment normally has N standby slaves, this command will create N+1 upgraded standby slaves. (It's essentially creating an upgraded mirror of the shard, except the mirror's master is actually a slave of the true top-level master.)
+2. Use "jetpants shard_upgrade --reads" to regenerate your application configuration in a way that moves read queries to the upgraded mirror shard's master, but keeps write queries going to the true master. (Your custom app config generator plugin must already do this for shards in the :child state, in order for "jetpants shard_split_child_reads" to work.)
+3. Use "jetpants shard_upgrade --writes" to regenerate your application configuration in a way that moves read AND write queries to the upgraded mirror shard's master.
+4. Use "jetpants shard_upgrade --cleanup" to eject all non-upgraded nodes from the pool entirely. This will tear down replication between the version of the shard and the old version.
+
+Using a custom Ruby script, this process can be automated to perform each step on several shards at once.
