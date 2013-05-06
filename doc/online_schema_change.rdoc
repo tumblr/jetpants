@@ -1,0 +1,45 @@
+= online_schema_change
+
+== OVERVIEW:
+
+This \Jetpants plugin allows the use of pt-online-schema-change in the \Jetpants suite of tools.  With this plugin there will be checks to see if there is already an online schema change going on.  Also you can run a online schema change against all your shards.
+
+== CONFIGURATION:
+
+This plugin has no extra options, just add the name to your plugins section and that is it.
+
+To enable this plugin, add it to your \Jetpants configuration file (either <tt>/etc/jetpants.yaml</tt> or <tt>~/.jetpants.yaml</tt>). For example you configuration might look like this:
+
+    # ... rest of Jetpants config here
+    
+    plugins:
+        online_schema_change:
+        # ... other plugins configured here
+
+== ASSUMPTIONS AND REQUIREMENTS:
+
+Use of this plugin assumes that you already have pt-online-schema-change installed
+
+Also you should be using \Collins and the jetpants_collins plugin
+
+== EXAMPLES:
+
+dry run of an alter on a single pool
+    jetpants alter_table  --database=allmydata  --table=somedata --pool=users --dry-run --alter='ADD COLUMN c1 INT' 
+
+alter a single pool
+    jetpants alter_table  --database=allmydata  --table=somedata --pool=users --alter='ADD COLUMN c1 INT'
+
+dry run of an alter of all the shards of your topology
+    jetpants alter_table  --database=allmydata  --table=somedata --all_shards --dry-run --alter='ADD COLUMN c1 INT'
+
+alter all the shards of your topology
+    jetpants alter_table  --database=allmydata  --table=somedata --all_shards --alter='ADD COLUMN c1 INT'
+
+
+the alter table does not drop the old table automatically, so to remove the table on a sigle pool
+    jetpants alter_table_drop --database=allmydata  --table=somedata --pool=users
+
+to drop the tables on all your shards
+    jetpants alter_table_drop --database=allmydata  --table=somedata --all_shards
+
