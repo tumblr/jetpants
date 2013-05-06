@@ -8,7 +8,7 @@ module Jetpants
     # a few global privs as well) since these are necessary to run the tools.
     # The block will be passed the randomly-generated password.
     def with_online_schema_change_user(username, database)
-      password = random_password
+      password = DB.random_password
       create_user username, password
       grant_privileges username, '*', 'PROCESS', 'REPLICATION CLIENT', 'REPLICATION SLAVE', 'SUPER'
       grant_privileges username, database, 'ALL PRIVILEGES'
