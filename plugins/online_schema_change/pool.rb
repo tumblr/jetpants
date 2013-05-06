@@ -14,16 +14,16 @@ module Jetpants
         raise "alter table already running on #{@name}"
       end
 
-      max_threads_running = max_threads_running(30,1)
-      max_threads_running = 50 unless max_threads_running > 50
+      max_threads = max_threads_running(30,1)
+      max_threads = 50 unless max_threads > 50
 
-      critical_threads_running = 2 * max_threads_running > 500 ? 2 * max_threads_running : 500
+      critical_threads_running = 2 * max_threads > 500 ? 2 * max_threads : 500
 
       update_collins_for_alter(database, table, alter)
 
       master.with_online_schema_change_user('pt-osc', database) do |password|
 
-        command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads_running}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --retries=10 --set-vars='wait_timeout=100000' --dry-run --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
+        command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --retries=10 --set-vars='wait_timeout=100000' --dry-run --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
 
         print "[#{@name.to_s.red}][#{Time.now.to_s.blue}]---------------------------------------------------------------------------------------\n"
         print "[#{@name.to_s.red}][#{Time.now.to_s.blue}] #{command}\n"
@@ -43,7 +43,7 @@ module Jetpants
           end
 
           if force || continue == 'YES'
-            command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads_running}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --retries=10 --set-vars='wait_timeout=100000' --execute --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
+            command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --retries=10 --set-vars='wait_timeout=100000' --execute --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
             
             print "[#{@name.to_s.red}][#{Time.now.to_s.blue}]---------------------------------------------------------------------------------------\n\n\n"
             print "[#{@name.to_s.red}][#{Time.now.to_s.blue}] #{command}\n"
