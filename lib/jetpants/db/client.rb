@@ -67,6 +67,7 @@ module Jetpants
         :after_connect    =>  options[:after_connect] )
       @user = options[:user]
       @schema = options[:schema]
+      @db.convert_tinyint_to_bool = false
       @db
     end
     
