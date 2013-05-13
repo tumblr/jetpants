@@ -8,16 +8,11 @@
 
 == MOTIVATION:
 
-\Jetpants was created by {Tumblr}[http://www.tumblr.com/] to help manage our database infrastructure. It handles automation tasks for our entire database topology, which as of October 2012 consists of approximately:
-* 200 dedicated database servers
-* 5 global (unsharded) functional pools 
-* 58 shard pools
-* 28 terabytes total of unique relational data on masters
-* 100 billion total unique relational rows on masters
+\Jetpants was created by {Tumblr}[http://www.tumblr.com/] to help manage our database infrastructure. It handles automation tasks for our entire database topology, which as of May 2013 consists of over 215 dedicated database servers and nearly 200 billion total distinct relational rows.
 
-One of the primary requirements for \Jetpants was speed. On our hardware, <b>\Jetpants can divide a 750GB, billion-row shard in half in about six hours</b> -- or even faster if you're diving into thirds or fourths. It can also <b>clone slaves at line speed on gigabit ethernet</b>, including to multiple destinations at once, using a novel "chained copy" approach.
+One of the primary requirements for \Jetpants was speed. On our hardware, <b>\Jetpants can divide a 750GB, billion-row shard in half in about six hours</b> -- or even faster if you're diving into thirds or fourths.
 
-For more background on the initial motivations behind \Jetpants, please see {Evan Elias's presentation at Percona Live NYC 2012}[https://github.com/tumblr/jetpants/blob/master/doc/PerconaLiveNYC2012Presentation.pdf?raw=true].
+For more background on the motivations behind \Jetpants, please see {Evan Elias's presentation at Percona Live 2013}[https://github.com/tumblr/jetpants/blob/master/doc/PerconaLive2013Presentation.pdf?raw=true].
 
 == COMMAND SUITE FEATURES:
 
@@ -76,7 +71,7 @@ If you have a question that isn't covered here, please feel free to email the au
 
 == CREDITS:
 
-* <b>Evan Elias</b>: Lead developer
+* <b>Evan Elias</b>: Creator and developer
 * <b>Dallas Marlow</b>: Developer
 * <b>Bob Patterson Jr</b>: Developer
 * <b>Tom Christ</b>: Developer
