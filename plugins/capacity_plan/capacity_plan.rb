@@ -1,4 +1,4 @@
-require 'commandsuite'
+require 'capacity_plan/commandsuite'
 require 'json'
 require 'pony'
 
