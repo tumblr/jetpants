@@ -1,6 +1,7 @@
 require 'capacity_plan/commandsuite'
 require 'json'
 require 'pony'
+require 'capacity_plan/monkeypatch'
 
 module Jetpants
   module Plugin
@@ -34,6 +35,12 @@ module Jetpants
         mount_stats_storage = all_mounts
         now = Time.now.to_i
         output = ''
+
+        if Jetpants.topology.respond_to? :capacity_plan_notices
+          output += "\n\n________________________________________________________________________________________________________\n"
+          output += "Notices\n\n"
+          output += Jetpants.topology.capacity_plan_notices
+        end
 
         criticals = []
         warnings = []
@@ -344,7 +351,3 @@ module Jetpants
     end
   end
 end
-
-
-# load all the monkeypatches for other Jetpants classes
-%w(monkeypatch).each {|mod| require "capacity_plan/#{mod}"}
