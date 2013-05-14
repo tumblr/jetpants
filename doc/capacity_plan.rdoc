@@ -63,6 +63,8 @@ If you want the hardware stats part of the email you have to create a function i
 
 Use of this plugin assumes that you are using \Collins and the jetpants_collins plugin
 
+Also you should have the pony gem installed
+
 == USAGE:
 
 If you want to run the capacity plan you can do 
