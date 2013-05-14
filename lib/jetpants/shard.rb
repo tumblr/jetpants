@@ -357,10 +357,12 @@ module Jetpants
     # child. For example, if self has @min_id = 1001 and @max_id = 4000, and you're splitting
     # into 3 evenly-sized child shards, you'd supply [[1001,2000], [2001,3000], [3001, 4000]]
     def init_child_shard_masters(id_ranges)
-      # Validations: make sure enough machiens in spare pool; enough slaves of shard being split;
+      # Validations: make sure enough machines in spare pool; enough slaves of shard being split;
       # no existing children of shard being split
-      raise "Not enough master role machines in spare pool!" if id_ranges.size > Jetpants.topology.count_spares(role: :master, like: master)
-      raise "Not enough standby_slave role machines in spare pool!" if id_ranges.size * Jetpants.standby_slaves_per_pool > Jetpants.topology.count_spares(role: :standby_slave, like: slaves.first)
+      # TODO: fix the first check to separately account for :role, ie check master and standby_slave counts separately
+      # (this is actually quite difficult since we can't provide a :like node in a sane way)
+      spares_needed = id_ranges.size * (1 + Jetpants.standby_slaves_per_pool)
+      raise "Not enough machines in spare pool!" if spares_needed > Jetpants.topology.count_spares(role: :master, like: master)
       raise 'Shard split functionality requires Jetpants config setting "standby_slaves_per_pool" is at least 1' if Jetpants.standby_slaves_per_pool < 1
       raise "Must have at least #{Jetpants.standby_slaves_per_pool} slaves of shard being split" if master.slaves.size < Jetpants.standby_slaves_per_pool
       raise "Shard #{self} already has #{@children.size} child shards" if @children.size > 0

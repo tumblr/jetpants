@@ -8,7 +8,7 @@ Gem::Specification.new do |s|
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.required_ruby_version = '>= 1.9.2'
   s.authors = ["Evan Elias", "Dallas Marlow", "Bob Patterson Jr.", "Tom Christ"]
-  s.date  = "2013-05-03"
+  s.date  = "2013-05-14"
   s.email = ["me@evanelias.com", "dallasmarlow@gmail.com", "bob@bobpattersonjr.com", "tbchrist@gmail.com"]
   s.files = FileList['Gemfile', 'README.rdoc', 'doc/*.rdoc', 'lib/**/*.rb', 'bin/**', 'plugins/**/*.rb', 'etc/jetpants.yaml.sample'].to_a
   s.require_paths = ["lib"]
