@@ -1,0 +1,77 @@
+= capacity_plan
+
+== OVERVIEW:
+
+This \Jetpants plugin gathers and processes space usage data from your machines and then creates a report with the categories 'Usage and time left', 'Day over day usage', 'Data outliers', 'Hardware status'.
+
+== CONFIGURATION:
+
+For this plugin the configuration is multi step.
+
+First you want to run the following create table statment on a database you would like to store your capacity data
+
+    CREATE TABLE `storage` (
+      `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+      `timestamp` int(11) NOT NULL,
+      `pool` varchar(255) NOT NULL,
+      `total` BIGINT UNSIGNED NOT NULL,
+      `used` BIGINT UNSIGNED NOT NULL,
+      `available` BIGINT UNSIGNED NOT NULL,
+      `db_sizes` BIGINT UNSIGNED NOT NULL,
+      PRIMARY KEY (`id`),
+      INDEX (`timestamp`)
+    ) ENGINE=InnoDB;
+
+Next you want to fill out the \Jetpants configuration file (either <tt>/etc/jetpants.yaml</tt> or <tt>~/.jetpants.yaml</tt>). For example you configuration might look like this:
+
+    # ... rest of Jetpants config here
+    
+    plugins:
+        capacity_plan:
+            critical_mount: 0.85
+            warning_mount: 0.80
+            pool_name: platform
+            user: jetpants_cap
+            schema: capacity_plan
+            pass: xxxxxxxxxxxxxxx
+        # ... other plugins configured here
+
+critical_mount::    the disk used percent of when the machine will be marked as critical
+
+warning_mount::     the disk used percent of when the machine will be marked as warning
+
+pool_name::         pool you will be writing too for the historical data
+
+user::              user to connect to mysql with for historical data
+
+schema::            table name for historical data
+
+pass::              password for user for historical data
+
+
+Next you want to is create a cron to capture the historical data
+
+    0 * * * * /your_bin_path/jetpants capacity_snapshot 2>&1 > /dev/null
+
+Then you want create a cron that will email you the report everyday (if you want that)
+    
+    0 10 * * * /your_bin_path/jetpants capacity_plan --email=your_email@example.com 2>&1 > /dev/null
+
+If you want the hardware stats part of the email you have to create a function in Jetpants.topology.machine_status_counts that returns a hash that will be used to output the email
+
+== ASSUMPTIONS AND REQUIREMENTS:
+
+Use of this plugin assumes that you are using \Collins and the jetpants_collins plugin
+
+Also you should have the pony gem installed
+
+== USAGE:
+
+If you want to run the capacity plan you can do 
+    
+    jetpants capacity_plan
+
+To capture a one off snapshot of your data usage
+    
+    jetpants capacity_snapshot
+
