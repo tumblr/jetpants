@@ -216,9 +216,11 @@ module Jetpants
         stop_query_killer
         import_schemata!
         alter_schemata if respond_to? :alter_schemata
+        disable_monitoring
         restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
         import_data tables, @min_id, @max_id
         restart_mysql # to clear out previous options '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
+        enable_monitoring
         start_query_killer
       end
     end
