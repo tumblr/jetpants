@@ -23,7 +23,7 @@ module Jetpants
 
       master.with_online_schema_change_user('pt-osc', database) do |password|
 
-        command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --retries=10 --set-vars='wait_timeout=100000' --dry-run --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
+        command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --nodrop-new-table --retries=10 --set-vars='wait_timeout=100000' --dry-run --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
 
         print "[#{@name.to_s.red}][#{Time.now.to_s.blue}]---------------------------------------------------------------------------------------\n"
         print "[#{@name.to_s.red}][#{Time.now.to_s.blue}] #{command}\n"
@@ -43,7 +43,7 @@ module Jetpants
           end
 
           if force || continue == 'YES'
-            command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --retries=10 --set-vars='wait_timeout=100000' --execute --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
+            command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --nodrop-new-table --retries=10 --set-vars='wait_timeout=100000' --execute --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
             
             print "[#{@name.to_s.red}][#{Time.now.to_s.blue}]---------------------------------------------------------------------------------------\n\n\n"
             print "[#{@name.to_s.red}][#{Time.now.to_s.blue}] #{command}\n"
