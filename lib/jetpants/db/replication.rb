@@ -164,7 +164,7 @@ module Jetpants
         t.enable_read_only!
       end
       resume_replication # should already have happened from the clone_to! restart anyway, but just to be explicit
-      catch_up_to_master
+      catch_up_to_master 10800
       enable_monitoring
     end
     
