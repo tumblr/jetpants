@@ -1,31 +1,59 @@
 module Jetpants
   
   class DB
-    attr_accessor :aggregating_nodes
-
     def aggregator?
       return @aggregator unless @aggregator.nil?
       version_info = query_return_array('SHOW VARIABLES LIKE "%version%"')
       @aggregator = !version_info[:version_comment].nil? && version_info[:version_comment].downcase.include? "mariadb"
     end
 
-    def aggregating_for?(node)
-      return aggregator? && @aggregating_nodes && @aggregating_nodes.include? node
+    def aggregating_nodes
+      probe if @aggregating_node_list.nil?
+      @aggregating_node_list
     end
 
+    def after_probe
+      return unless @running
+
+      statuses = all_slave_statuses
+      return if statuses.empty?
+
+      @aggregating_node_list = []
+      statuses.each do |status|
+        aggregate_node = self.class.new(status[:master_host], status[:master_port])
+        if status[:slave_io_running] != status[:slave_sql_running]
+          output "One replication thread is stopped and the other is not for #{status[:name]}."
+          if Jetpants.verify_replication
+            output "You must repair this node manually, OR remove it from its pool permanently if it is unrecoverable."
+            raise "Fatal replication problem on #{self}"
+          end
+          aggregate_pause_replication(aggregate_node)
+          @replicating_states[aggregate_node] = :paused
+        else
+          @replicating_states[aggregate_node] = :running
+        end
+        @aggregating_node_list << self.class.new(status[:master_host], status[:master_port])
+      end      
+    end
+
+    def aggregating_for?(node)
+      return aggregator? && aggregating_nodes && aggregating_nodes.include? node
+    end
+
+    # Similar to operations that change master
     def add_node_to_aggregate(node, options_hash = {})
       raise "Attempting to add a node to aggregate to a non-aggregation node" unless aggregator?
       raise "Attempting to add an invalide aggregation source" unless node
       raise "Attempting to add a node that is already being aggregated" if aggreting_for? node
 
-      @aggregating_nodes ||= []
+      aggregating_nodes ||= []
       @replication_states ||= {}
 
       logfile = option_hash[:log_file]
       pos     = option_hash[:log_pos]
       if !(logfile && pos)
-        raise "Cannot use coordinates of a new master that is receiving updates" if new_master.master && ! new_master.repl_paused?
-        logfile, pos = new_master.binlog_coordinates
+        raise "Cannot use coordinates of a new master that is receiving updates" if node.master && ! node.repl_paused?
+        logfile, pos = node.binlog_coordinates
       end
 
       repl_user = option_hash[:user]     || replication_credentials[:user]
@@ -41,7 +69,7 @@ module Jetpants
 
       output "Adding node #{node} to list of aggregation data sources with coordinates (#{logfile}, #{pos}). #{result}"
       @replication_states[node] = :paused
-      @aggregating_nodes << node
+      aggregating_nodes << node
       node.slaves << self
     end
 
@@ -55,7 +83,7 @@ module Jetpants
       output mysql_root_cmd "CHANGE \"#{node}\" MASTER TO master_user='test'; RESET SLAVE \"#{node}\""
       node.slaves.delete(self) rescue nil
       @replication_states[node] = nil
-      @aggregating_nodes.delete(node)
+      aggregating_nodes.delete(node)
     end
 
     def before_change_master_to(*args)
@@ -86,8 +114,8 @@ module Jetpants
     end
 
     def pause_all_replication
-      raise "Pausing replication with no aggregating nodes" if @aggregating_nodes.empty?
-      output "Pausing replication for #{@aggregating_nodes.join(" ")}"
+      raise "Pausing replication with no aggregating nodes" if aggregating_nodes.empty?
+      output "Pausing replication for #{aggregating_nodes.join(" ")}"
       output mysql_root_cmd "STOP ALL SLAVES"
       @replicating_states.keys.each do |key|
         @replicating_states[key] = :paused
@@ -117,8 +145,8 @@ module Jetpants
     # This is potentially dangerous, as it will start all replicating even if there are
     # some replication streams in a paused state
     def resume_all_replication
-      raise "Resuming replication with no aggregating nodes" if @aggregating_nodes.empty?
-      output "Resuming replication for #{@aggregating_nodes.join(", ")}"
+      raise "Resuming replication with no aggregating nodes" if aggregating_nodes.empty?
+      output "Resuming replication for #{aggregating_nodes.join(", ")}"
       output mysql_root_cmd "START ALL SLAVES"
       @replicating_states.keys.each do |key|
         @replicating_states[key] = :running
@@ -205,7 +233,11 @@ module Jetpants
 
     def before_slave_status(*args)
       if aggregator?
-        aggregate_slave_status(*args)
+        if args
+          aggregate_slave_status(*args)
+        else
+          all_slave_statuses
+        end
         raise CallbackAbortError.new
       end
     end
@@ -221,6 +253,11 @@ module Jetpants
         output message
       end
       hash
+    end
+
+    def all_slave_statuses
+      return unless @running
+      statuses = mysql_root_cmd("SHOW ALL SLAVES STATUS")
     end
 
     # housekeeping on internal state
