@@ -44,6 +44,12 @@ module Jetpants
       return aggregator? && aggregating_nodes && aggregating_nodes.include? node
     end
 
+    def add_nodes_to_aggregate(nodes)
+      nodes.each do |node|
+        add_node_to_aggregate node
+      end
+    end
+
     # Similar to operations that change master
     def add_node_to_aggregate(node, options_hash = {})
       raise "Attempting to add a node to aggregate to a non-aggregation node" unless aggregator?
