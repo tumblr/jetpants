@@ -1,6 +1,8 @@
 module Jetpants
   
-  class DB
+  class Aggregator < DB
+    include CallbackHandler
+
     def aggregator?
       return @aggregator unless @aggregator.nil?
       version_info = query_return_array('SHOW VARIABLES LIKE "%version%"')
@@ -12,7 +14,9 @@ module Jetpants
       @aggregating_node_list
     end
 
-    def after_probe
+    def probe
+      super
+
       return unless @running
 
       statuses = all_slave_statuses
@@ -59,7 +63,7 @@ module Jetpants
       repl_user = option_hash[:user]     || replication_credentials[:user]
       repl_pass = option_hash[:password] || replication_credentials[:pass]
 
-      result = mysql_root_cmd "CHANGE \"#{node}\" MASTER TO " +
+      result = mysql_root_cmd "CHANGE MASTER  \"#{node.pool}\" TO " +
         "MASTER_HOST='#{node.ip}', " +
         "MASTER_PORT=#{node.port}, " +
         "MASTER_LOG_FILE='#{logfile}', " +
@@ -80,25 +84,23 @@ module Jetpants
 
       # Display the binlog coordinates in case we want to resume this stream at some point
       aggregate_repl_binlog_coordinates(node, true)
-      output mysql_root_cmd "CHANGE \"#{node}\" MASTER TO master_user='test'; RESET SLAVE \"#{node}\""
+      output mysql_root_cmd "CHANGE MASTER \"#{node.pool}\" TO master_user='test'; RESET SLAVE \"#{node}\""
       node.slaves.delete(self) rescue nil
       @replication_states[node] = nil
       aggregating_nodes.delete(node)
     end
 
-    def before_change_master_to(*args)
+    def change_master_to
       # we don't use change_master_to on aggregate nodes, use add_node_to_aggregate
-      raise CallbackAbortError.new if aggregator?
+      raise "Please use add_node_to_aggregate on aggregator nodes" if aggregator?
+      super
     end
 
-    def before_pause_replication(*args)
+    def pause_replication
       if aggregator?
-        if !args.nil? && args.count > 0
-          aggregate_pause_replication(*args)
-        else
-          pause_all_replication
-        end
-        raise CallbackAbortError.new
+        pause_all_replication
+      else
+        super
       end
     end
     def aggregate_pause_replication(node)
@@ -107,7 +109,7 @@ module Jetpants
       if @replication_states[node] == :paused
         output "Aggregate replication was already paused."
       else
-        output mysql_root_cmd "STOP SLAVE \"#{node}\""
+        output mysql_root_cmd "STOP SLAVE \"#{node.pool}\""
         @replication_states[node] = :paused
       end
       @repl_paused = !any_running_replication?
@@ -123,21 +125,18 @@ module Jetpants
       @repl_paused = true
     end
 
-    def before_resume_replication(*args)
+    def resume_replication
       if aggregator?
-        if !args.nil? && args.count > 0
-          aggregate_resume_replication(*args)
-        else
-          resume_all_replication
-        end
-        raise CallbackAbortError.new
+        resume_all_replication
+      else
+        super
       end
     end
     def aggregate_resume_replication(node)
       raise "Attempting to resume aggregate replication for a node not in aggregation list" unless aggregating_for? node
       aggregate_repl_binlog_coordinates(node, true)
-      output "Resuming aggregate replication from #{node}."
-      output mysql_root_cmd "START SLAVE \"#{node}\""
+      output "Resuming aggregate replication from #{node.pool}."
+      output mysql_root_cmd "START SLAVE \"#{node.pool}\""
       @replication_states[node] = :running
       @repl_paused = !any_running_replication?
     end
@@ -154,50 +153,55 @@ module Jetpants
       @repl_paused = false
     end
 
-    def before_pause_replication_with(*args)
+    def pause_replication_with(*args)
       if aggregator?
         # We don't need this yet, add later if needed
-        raise CallbackAbortError.new
+        raise "Aggregate node does not support this operation yet"
+      else
+        super(*args)
       end
     end
 
     def before_disable_replication!(*args)
       if aggregator?
         # Don't use disable_replication! use remove_aggregate_node
-        raise CallbackAbortError.new
+        raise "Please use remove_aggregate_node on an aggregator instance"
       end
     end
 
-    def before_repl_binlog_coordinates(*args)
+    def repl_binlog_coordinates(*args)
       if aggregator?
         aggregate_repl_binlog_coordinates(*args)
-        raise CallbackAbortError.new
+      else
+        super
       end
     end
     def aggregate_repl_binlog_coordinates(node, display_info=true)
-      raise "Not performing aggregate replication for @{node}" unless aggregating_for? node
+      raise "Not performing aggregate replication for #{node} (#{node.pool})" unless aggregating_for? node
       status = aggregate_slave_status(node)
       file, pos = status[:relay_master_log_file], status[:exec_master_log_pos].to_i
       output "Has executed through master's binlog coordinates of (#{file}, #{pos})." if display_info
       [file, pos]
     end
 
-    def before_seconds_behind_master(*args)
+    def seconds_behind_master(*args)
       if aggregator?
         aggregate_seconds_behind_master(*args)
-        raise CallbackAbortError.new
+      else
+        super
       end
     end
     def aggregate_seconds_behind_master(node)
-      raise "Not aggregate replicating #{node}" unless aggregating_for? node
+      raise "Not aggregate replicating #{node} (#{node.pool})" unless aggregating_for? node
       lag = aggregate_slave_status(node)[:seconds_behind_master]
       lag == 'NULL' ? nil : lag.to_i
     end
 
-    def before_catch_up_to_master(*args)
+    def catch_up_to_master(*args)
       if aggregator?
         aggregate_catch_up_to_master(*args)
-        raise CallbackAbortError.new
+      else
+        super
       end
     end
     # This is a lot of copypasta, punting on it for now until if/when we integrate more with core
@@ -228,27 +232,28 @@ module Jetpants
           sleep poll_frequency + extra_sleep_time
         end
       end
-      raise "This instance did not catch up to its aggregate data source \"#{node}\" within #{timeout} seconds"
+      raise "This instance did not catch up to its aggregate data source \"#{node.pool}\" within #{timeout} seconds"
     end
 
-    def before_slave_status(*args)
+    def slave_status(*args)
       if aggregator?
         if args
           aggregate_slave_status(*args)
         else
           all_slave_statuses
         end
-        raise CallbackAbortError.new
+      else
+        super
       end
     end
     def aggregate_slave_status(node)
       raise "Attempting to retrieve aggregate slave status for an invalid node" unless node
       raise "Attempting to retrieve aggregate slave status for a node which is not being aggregated" unless aggregating_for? node
 
-      hash = mysql_root_cmd("SHOW SLAVE \"#{node}\"  STATUS", :parse=>true)
+      hash = mysql_root_cmd("SHOW SLAVE \"#{node.pool}\"  STATUS", :parse=>true)
       hash = {} if hash[:master_user] == 'test'
       if hash.count < 1
-        message = "Should be aggregating for #{node}, but SHOW SLAVE \"#{node}\" STATUS indicates otherwise"
+        message = "Should be aggregating for #{node.pool}, but SHOW SLAVE \"#{node.pool}\" STATUS indicates otherwise"
         raise "#{self}: #{message}" if Jetpants.verify_replication
         output message
       end
