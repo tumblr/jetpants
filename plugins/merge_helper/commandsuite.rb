@@ -9,7 +9,6 @@ module Jetpants
     def merge_shards
       shards_to_merge = []
       aggregate_node
-      spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool + 1, role: :standby_slave, like: shards_to_merge.first.master)
       # We need to pass in a master here, the aggregator instance?
       aggregate_shard = new Shard(shards_to_merge.first.min_id, shards_to_merge.last.max_id, nil, :initializing)
 
@@ -76,6 +75,19 @@ module Jetpants
       end
 
       aggregate_node.start_all_slaves
+
+      raise "There was an error initializing aggregate replication to some nodes, please verify all master" unless aggregate_node.all_replication_runing?
+
+      slaves_to_replicate.each do |shard_slave|
+        aggregate_node.aggregate_catch_up_to_master shard_slave
+      end
+
+      spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool + 1, role: :standby_slave, like: shards_to_merge.first.master)
+      aggregate_node.enslave! spares_for_aggregate_shard
+      aggregate_shard_master = spares_for_aggregate_shard.pop
+      spares_for_aggregate_shard.each do |spare|
+        spare.change_master_to aggregate_shard_master
+      end
 
       sync_configuration
     end

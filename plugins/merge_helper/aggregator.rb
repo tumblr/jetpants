@@ -3,12 +3,6 @@ module Jetpants
   class Aggregator < DB
     include CallbackHandler
 
-    def aggregator?
-      return @aggregator unless @aggregator.nil?
-      version_info = query_return_array('SHOW VARIABLES LIKE "%version%"')
-      @aggregator = !version_info[:version_comment].nil? && version_info[:version_comment].downcase.include? "mariadb"
-    end
-
     def aggregating_nodes
       probe if @aggregating_node_list.nil?
       @aggregating_node_list
@@ -118,7 +112,7 @@ module Jetpants
         output mysql_root_cmd "STOP SLAVE \"#{node.pool}\""
         @replication_states[node] = :paused
       end
-      @repl_paused = !any_running_replication?
+      @repl_paused = !any_replication_running?
     end
 
     def pause_all_replication
@@ -144,7 +138,7 @@ module Jetpants
       output "Resuming aggregate replication from #{node.pool}."
       output mysql_root_cmd "START SLAVE \"#{node.pool}\""
       @replication_states[node] = :running
-      @repl_paused = !any_running_replication?
+      @repl_paused = !any_replication_running?
     end
 
     # This is potentially dangerous, as it will start all replicating even if there are
@@ -288,13 +282,18 @@ module Jetpants
       end
     end
 
-    def any_running_replication?
+    def any_replication_running?
       running = @replicating_states.select{ |state| state == :running }
       (running.count > 0)
     end
 
+    def all_replication_runing?
+      running = @replicating_states.select{ |state| state == :running }
+      (running.count == @replicating_states.count)
+    end
+
     def before_repl_paused?
-      @repl_paused = !any_running_replication?
+      @repl_paused = !any_replication_running?
     end
   end
 end
