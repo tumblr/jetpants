@@ -23,9 +23,13 @@ module Jetpants
       total_import_counts = {}
       slaves_to_replicate = []
 
+      # settings to improve import speed
+      aggregate_node.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
       tables = Table.from_config 'sharded_tables'
       shards_to_merge.each do |shard|
         slave = shard.standby_slaves.last
+        slave.disable_monitoring
+        slave.stop_query_killer
         slave.pause_replication
         slaves_to_replicate << slave
         export_counts = slave.export_data tables
@@ -38,11 +42,11 @@ module Jetpants
           end
         end
 
-        files = tables.map { |table| table.export_file_path.basename }
-        fast_copy_chain(
+        files = tables.map { |table| File.basename table.export_file_path }
+        slave.fast_copy_chain(
           Jetpants.export_location,
           aggregate_node,
-          port: 3306,
+          port: 3307,
           files: files,
           overwrite: true
         )
@@ -55,7 +59,13 @@ module Jetpants
             total_import_counts[key] = total_import_counts[key] + import_counts[key]
           end
         end
+
+        tables.map { |table| slave.ssh_cmd("rm #{table.export_file_path}") }
+        tables.map { |table| aggregate_node.ssh_cmd("rm #{table.export_file_path}") }
       end
+
+      # clear out earlier options
+      aggregate_node.restart_mysql
 
       raise "Imported and exported table count doesn't match!" unless total_import_counts.keys.count == total_export_counts.keys.count
       valid = true;
@@ -72,6 +82,8 @@ module Jetpants
       slaves_to_replicate.concurrent_each do |slave|
         slave.resume_replication
         slave.catch_up_to_master
+        slave.enable_monitoring
+        slave.start_query_killer
       end
 
       aggregate_node.start_all_slaves
