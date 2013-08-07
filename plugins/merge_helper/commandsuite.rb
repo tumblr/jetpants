@@ -9,8 +9,8 @@ module Jetpants
     def merge_shards
       shards_to_merge = []
       aggregate_node
-      # We need to pass in a master here, the aggregator instance?
-      aggregate_shard = new Shard(shards_to_merge.first.min_id, shards_to_merge.last.max_id, nil, :initializing)
+      aggregate_shard = new Shard(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_node, :initializing)
+      Jetpants.topology.pools << aggregate_shard 
 
       # is this necessary?
       shards_to_merge.each do |shard|
@@ -26,6 +26,8 @@ module Jetpants
       # settings to improve import speed
       aggregate_node.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
       tables = Table.from_config 'sharded_tables'
+      files = tables.map { |table| File.basename table.export_file_path }
+
       shards_to_merge.each do |shard|
         slave = shard.standby_slaves.last
         slave.disable_monitoring
@@ -42,7 +44,6 @@ module Jetpants
           end
         end
 
-        files = tables.map { |table| File.basename table.export_file_path }
         slave.fast_copy_chain(
           Jetpants.export_location,
           aggregate_node,
@@ -95,11 +96,28 @@ module Jetpants
       end
 
       spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool + 1, role: :standby_slave, like: shards_to_merge.first.master)
-      aggregate_node.enslave! spares_for_aggregate_shard
       aggregate_shard_master = spares_for_aggregate_shard.pop
-      spares_for_aggregate_shard.each do |spare|
-        spare.change_master_to aggregate_shard_master
+
+      aggregate_export_counts = aggregate_node.export_data tables
+      aggregate_node.fast_copy_chain(
+        Jetpants.export_location,
+        aggregate_shard_master,
+        port: 3307,
+        files: files,
+        overwrite: true
+      )
+      aggregate_import_counts = aggregate_shard_master.import_data tables
+
+      valid_import = true
+      aggregate_export_counts.each do |key, count|
+        if count != aggregate_import_counts[key]
+          output "Count for aggregate export/import of #{key} is wrong! (#{aggregate_import_counts[key]} imported #{count} exported)"
+          valid_import = false
+        end
       end
+      raise "Import/export counts do not match, aborting" unless valid_import
+
+      aggregate_shard_master.enslave! spares_for_aggregate_shard
 
       sync_configuration
     end
