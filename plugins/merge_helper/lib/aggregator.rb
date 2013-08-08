@@ -8,6 +8,12 @@ module Jetpants
       @aggregating_node_list
     end
 
+    def initialize(ip, port=3306)
+      raise "Attempting to initialize a database without aggregation capabilities as an aggregate node" unless aggregator?
+
+      super
+    end
+
     def probe
       super
 
@@ -35,7 +41,7 @@ module Jetpants
     end
 
     def aggregating_for?(node)
-      return aggregator? && aggregating_nodes && aggregating_nodes.include? node
+      return aggregator? && aggregating_nodes && aggregating_nodes.include?(node)
     end
 
     def add_nodes_to_aggregate(nodes)
