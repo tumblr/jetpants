@@ -4,27 +4,33 @@ module Jetpants
     include CallbackHandler
 
     def aggregating_nodes
-      probe if @aggregating_node_list.nil?
+      probe_aggregate_nodes if @aggregate_node_list.nil?
       @aggregating_node_list
     end
 
     def initialize(ip, port=3306)
-      raise "Attempting to initialize a database without aggregation capabilities as an aggregate node" unless aggregator?
-
       super
+      @master = false
+      
+      # this check causes deadlock, investigate
+      #raise "Attempting to initialize a database without aggregation capabilities as an aggregate node" unless aggregator?
     end
 
-    def probe
-      super
-
+    def after_probe
       return unless @running
+      probe_aggregate_nodes unless all_slave_statuses.empty?
+    end
 
-      statuses = all_slave_statuses
-      return if statuses.empty?
+    def probe_master
+      # override this here to avoid a recursion loop when probing
+      # shouldn't be used, instead use aggregate methods
+    end
 
+    def probe_aggregate_nodes
       @aggregating_node_list = []
-      statuses.each do |status|
-        aggregate_node = self.class.new(status[:master_host], status[:master_port])
+      @replicating_states = {}
+      all_slave_statuses.each do |status|
+        aggregate_node = DB.new(status[:master_host], status[:master_port])
         if status[:slave_io_running] != status[:slave_sql_running]
           output "One replication thread is stopped and the other is not for #{status[:name]}."
           if Jetpants.verify_replication
@@ -268,7 +274,12 @@ module Jetpants
 
     def all_slave_statuses
       return unless @running
-      statuses = mysql_root_cmd("SHOW ALL SLAVES STATUS")
+      status_strings = mysql_root_cmd("SHOW ALL SLAVES STATUS")
+      # split on delimeter eg *************************** 3. row ***************************
+      return if status_strings.nil?
+      status_strings = status_strings.split(/\*{27} \d\. row \*{27}/)
+      # for now we reset & set the slaving user to 'test' when destroying a replication stream, look to clear out later
+      status_strings.map { |str| parse_vertical_result str }.select { |slave| !slave[:master_user].nil? && slave[:master_user] != 'test' }
     end
 
     # housekeeping on internal state
