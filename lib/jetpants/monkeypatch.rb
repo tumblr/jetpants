@@ -13,7 +13,6 @@ end
 module Enumerable
   # Works like each but runs the block in a separate thread per item.
   def concurrent_each
-puts Thread.current.backtrace.join("\n")
     collect {|*item| Thread.new {yield *item}}.each {|th| th.join}
     self
   end
