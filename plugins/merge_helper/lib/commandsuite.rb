@@ -12,8 +12,6 @@ module Jetpants
       aggregate_shard = new Shard(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_node, :initializing)
       Jetpants.topology.pools << aggregate_shard 
 
-      # need to export schema somewhere
-
       total_export_counts = {}
       total_import_counts = {}
       slaves_to_replicate = []
@@ -22,6 +20,17 @@ module Jetpants
       aggregate_node.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
       tables = Table.from_config 'sharded_tables'
       files = tables.map { |table| File.basename table.export_file_path }
+
+      # create and ship schema
+      slave = shards_to_merge.last.standby_slaves.last
+      slave.export_schemata tables
+      slave.fast_copy_chain(
+        Jetpants.export_location,
+        aggregate_node,
+        port: 3307,
+        files: [ "create_tables_#{@port}.sql" ]
+      )
+      aggregate_node.import_schemata!
 
       shards_to_merge.each do |shard|
         slave = shard.standby_slaves.last
@@ -92,6 +101,16 @@ module Jetpants
 
       spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool + 1, role: :standby_slave, like: shards_to_merge.first.master)
       aggregate_shard_master = spares_for_aggregate_shard.pop
+
+      # export and ship schema to aggregated shard master
+      aggregate_node.export_schemata tables
+      aggregate_node.fast_copy_chain(
+        Jetpants.export_location,
+        aggregate_shard_master,
+        port: 3307,
+        files: [ "create_tables_#{@port}.sql" ]
+      )
+      aggregate_shard_master.import_schemata!
 
       aggregate_export_counts = aggregate_node.export_data tables
       aggregate_node.fast_copy_chain(
