@@ -12,11 +12,6 @@ module Jetpants
       aggregate_shard = new Shard(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_node, :initializing)
       Jetpants.topology.pools << aggregate_shard 
 
-      # is this necessary?
-      shards_to_merge.each do |shard|
-        shard.children ||= [ aggregate_shard ]
-      end
-
       # need to export schema somewhere
 
       total_export_counts = {}
