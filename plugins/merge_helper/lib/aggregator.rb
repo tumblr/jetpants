@@ -42,7 +42,7 @@ module Jetpants
         else
           @replicating_states[aggregate_node] = :running
         end
-        @aggregating_node_list << self.class.new(status[:master_host], status[:master_port])
+        @aggregating_node_list << DB.new(status[:master_host], status[:master_port])
       end      
     end
 
@@ -91,7 +91,7 @@ module Jetpants
 
     def remove_aggregate_node!(node)
       raise "Attempting to remove aggregate replication from an invalide node" unless node
-      raise "Attempting to remove a node from a non-aggregate node" unless aggregate?
+      raise "Attempting to remove a node from a non-aggregate node" unless aggregator?
       raise "Attempting to remove a node that is not currently being aggregated" unless aggregating_for? node
 
       # Display the binlog coordinates in case we want to resume this stream at some point
@@ -105,7 +105,6 @@ module Jetpants
     def change_master_to
       # we don't use change_master_to on aggregate nodes, use add_node_to_aggregate
       raise "Please use add_node_to_aggregate on aggregator nodes" if aggregator?
-      super
     end
 
     def pause_replication
@@ -117,6 +116,7 @@ module Jetpants
     end
     def aggregate_pause_replication(node)
       raise "Attempting to pause aggregate replication from an invalid node" unless node
+      raise "Attempting to pause aggregate replication for a node that is not currently being aggregated" unless aggregating_for? node
       aggregate_repl_binlog_coordinates(node, true)
       if @replication_states[node] == :paused
         output "Aggregate replication was already paused."
@@ -129,7 +129,8 @@ module Jetpants
 
     def pause_all_replication
       raise "Pausing replication with no aggregating nodes" if aggregating_nodes.empty?
-      output "Pausing replication for #{aggregating_nodes.join(" ")}"
+      replication_names = aggregating_nodes.map{|node| node.pool}join(" ")
+      output "Pausing replication for #{replication_names}"
       output mysql_root_cmd "STOP ALL SLAVES"
       @replicating_states.keys.each do |key|
         @replicating_states[key] = :paused
