@@ -23,21 +23,19 @@ module Jetpants
 
       # create and ship schema
       slave = shards_to_merge.last.standby_slaves.last
-      slave.export_schemata tables
-      slave.fast_copy_chain(
-        Jetpants.export_location,
-        aggregate_node,
-        port: 3307,
-        files: [ "create_tables_#{@port}.sql" ]
-      )
+      slave.ship_schema_to aggregate_node
       aggregate_node.import_schemata!
 
-      shards_to_merge.each do |shard|
-        slave = shard.standby_slaves.last
+      # grab slave list to export data
+      slaves_to_replicate = shards_to_merge.map { |shard| shard.standby_slaves.last }
+
+      # asynchronously export data on all slaves
+      slaves_to_replicate.concurrent_each do |slave|
+        # these get cleaned up further down after replication is set up
         slave.disable_monitoring
         slave.stop_query_killer
         slave.pause_replication
-        slaves_to_replicate << slave
+
         export_counts = slave.export_data tables
 
         if total_export_counts.empty?
@@ -47,7 +45,10 @@ module Jetpants
             total_export_counts[key] = total_export_counts[key] + export_counts[key]
           end
         end
+      end
 
+      # iterate through and load data from each slave
+      slaves_to_repliate.each do |slave|
         slave.fast_copy_chain(
           Jetpants.export_location,
           aggregate_node,
@@ -65,11 +66,12 @@ module Jetpants
           end
         end
 
+        # clean up exported data for each node
         tables.map { |table| slave.ssh_cmd("rm #{table.export_file_path}") }
         tables.map { |table| aggregate_node.ssh_cmd("rm #{table.export_file_path}") }
       end
 
-      # clear out earlier options
+      # clear out earlier import options
       aggregate_node.restart_mysql
 
       raise "Imported and exported table count doesn't match!" unless total_import_counts.keys.count == total_export_counts.keys.count
@@ -104,14 +106,10 @@ module Jetpants
 
       # export and ship schema to aggregated shard master
       aggregate_node.export_schemata tables
-      aggregate_node.fast_copy_chain(
-        Jetpants.export_location,
-        aggregate_shard_master,
-        port: 3307,
-        files: [ "create_tables_#{@port}.sql" ]
-      )
+      aggregate_node.ship_schema_to aggregate_shard_master
       aggregate_shard_master.import_schemata!
 
+      # export and ship data to new shard master
       aggregate_export_counts = aggregate_node.export_data tables
       aggregate_node.fast_copy_chain(
         Jetpants.export_location,
@@ -122,6 +120,7 @@ module Jetpants
       )
       aggregate_import_counts = aggregate_shard_master.import_data tables
 
+      # validate counts from load_data_infile / select_into_outfile
       valid_import = true
       aggregate_export_counts.each do |key, count|
         if count != aggregate_import_counts[key]
@@ -131,6 +130,7 @@ module Jetpants
       end
       raise "Import/export counts do not match, aborting" unless valid_import
 
+      # build up the rest of the new shard
       aggregate_shard_master.enslave! spares_for_aggregate_shard
 
       sync_configuration
