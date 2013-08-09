@@ -12,7 +12,8 @@ module Jetpants
         Jetpants.export_location,
         node,
         port: 3307,
-        files: [ "create_tables_#{@node.port}.sql" ]
+        files: [ "create_tables_#{node.port}.sql" ],
+        overwrite: true
       )
     end
 

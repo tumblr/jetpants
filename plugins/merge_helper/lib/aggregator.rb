@@ -276,26 +276,31 @@ module Jetpants
     def all_slave_statuses
       return unless @running
       status_strings = mysql_root_cmd("SHOW ALL SLAVES STATUS")
+      return {} if status_strings.nil?
+
       # split on delimeter eg *************************** 3. row ***************************
-      return if status_strings.nil?
       status_strings = status_strings.split(/\*{27} \d\. row \*{27}/)
       # for now we reset & set the slaving user to 'test' when destroying a replication stream, look to clear out later
       status_strings.map { |str| parse_vertical_result str }.select { |slave| !slave[:master_user].nil? && slave[:master_user] != 'test' }
     end
 
     # housekeeping on internal state
-    def before_start_mysql(*args)
+    def before_start_mysql(*options)
       if options.include?('--skip-slave-start')
-        @replicating_states.keys.each do |key|
-          @replicating_states[key] = :paused
+        unless @replicating_states.nil?
+          @replicating_states.keys.each do |key|
+            @replicating_states[key] = :paused
+          end
         end
       end
     end
 
-    def before_restart_mysql(*args)
+    def before_restart_mysql(*options)
       if options.include?('--skip-slave-start')
-        @replicating_states.keys.each do |key|
-          @replicating_states[key] = :paused
+        unless @replicating_states.nil?
+          @replicating_states.keys.each do |key|
+            @replicating_states[key] = :paused
+          end
         end
       end
     end
