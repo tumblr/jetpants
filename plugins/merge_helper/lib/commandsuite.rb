@@ -137,14 +137,17 @@ module Jetpants
     end
 
     # regenerate config and switch reads to new shard's master
+    desc 'merge_shards_reads', 'Switch reads to the new parent master'
     def merge_shards_reads
     end
 
     # regenerate config and switch writes to new shard's master
+    desc 'merge_shards_writes', 'Switch writes to the new parent master'
     def merge_shards_writes
     end
 
     # clean up aggregator node and old shards
+    desc 'merge_shards_cleanup', 'Clean up the old shards and aggregator node'
     def merge_shards_cleanup
     end
   end

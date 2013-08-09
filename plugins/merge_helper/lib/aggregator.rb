@@ -129,7 +129,7 @@ module Jetpants
 
     def pause_all_replication
       raise "Pausing replication with no aggregating nodes" if aggregating_nodes.empty?
-      replication_names = aggregating_nodes.map{|node| node.pool}join(" ")
+      replication_names = aggregating_nodes.map{|node| node.pool}.join(" ")
       output "Pausing replication for #{replication_names}"
       output mysql_root_cmd "STOP ALL SLAVES"
       @replicating_states.keys.each do |key|
