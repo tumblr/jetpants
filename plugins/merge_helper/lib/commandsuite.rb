@@ -57,7 +57,7 @@ module Jetpants
           overwrite: true
         )
 
-        import_counts = aggregate_node.import_data tables, slave.pool.mid_id, slave.pool.max_id
+        import_counts = aggregate_node.import_data tables, slave.pool.min_id, slave.pool.max_id
         if total_import_counts.empty?
           total_import_counts = import_counts
         else
