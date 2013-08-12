@@ -57,10 +57,10 @@ module Jetpants
     end
 
     # Similar to operations that change master
-    def add_node_to_aggregate(node, options_hash = {})
+    def add_node_to_aggregate(node, option_hash = {})
       raise "Attempting to add a node to aggregate to a non-aggregation node" unless aggregator?
       raise "Attempting to add an invalide aggregation source" unless node
-      raise "Attempting to add a node that is already being aggregated" if aggreting_for? node
+      raise "Attempting to add a node that is already being aggregated" if aggregating_for? node
 
       aggregating_nodes ||= []
       @replication_states ||= {}
@@ -75,7 +75,7 @@ module Jetpants
       repl_user = option_hash[:user]     || replication_credentials[:user]
       repl_pass = option_hash[:password] || replication_credentials[:pass]
 
-      result = mysql_root_cmd "CHANGE MASTER  \"#{node.pool}\" TO " +
+      result = mysql_root_cmd "CHANGE MASTER '#{node.pool}' TO " +
         "MASTER_HOST='#{node.ip}', " +
         "MASTER_PORT=#{node.port}, " +
         "MASTER_LOG_FILE='#{logfile}', " +
