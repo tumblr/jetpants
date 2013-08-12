@@ -36,7 +36,7 @@ module Jetpants
         slave.stop_query_killer
         slave.pause_replication
 
-        export_counts = slave.export_data tables
+        export_counts = slave.export_data tables, slave.pool.min_id, slave.pool.max_id
 
         if total_export_counts.empty?
           total_export_counts = export_counts
