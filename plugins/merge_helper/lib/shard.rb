@@ -21,5 +21,15 @@ module Jetpants
 
       table_statuses
     end
+
+    def table_export_filenames(full_path = true)
+      export_filenames = []
+      tables = Table.from_config 'sharded_tables'
+      export_filenames = tables.map { |table| table.export_filenames(@min_id, @max_id) }.flatten
+
+      export_filenames.map!{ |filename| File.basename filename } unless full_path
+
+      export_filenames
+    end
   end
 end

@@ -19,7 +19,6 @@ module Jetpants
       # settings to improve import speed
       aggregate_node.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
       tables = Table.from_config 'sharded_tables'
-      files = tables.map { |table| File.basename table.export_file_path }
 
       # create and ship schema
       slave = shards_to_merge.last.standby_slaves.last
@@ -49,15 +48,16 @@ module Jetpants
 
       # iterate through and load data from each slave
       slaves_to_repliate.each do |slave|
+        
         slave.fast_copy_chain(
           Jetpants.export_location,
           aggregate_node,
           port: 3307,
-          files: files,
+          files: slave.pool.table_export_filenames(full_path = false),
           overwrite: true
         )
 
-        import_counts = aggregate_node.import_data tables
+        import_counts = aggregate_node.import_data tables, slave.pool.mid_id, slave.pool.max_id
         if total_import_counts.empty?
           total_import_counts = import_counts
         else

@@ -11,7 +11,12 @@ module Jetpants
     end
 
     def export_filenames(min_id, max_id)
+      export_filenames = []
+      (min_id..max_id).in_chunks(@chunks) do |min, max|
+        export_filenames << export_file_path(min, max)
+      end
 
+      export_filenames
     end
   end
 end
