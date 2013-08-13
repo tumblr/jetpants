@@ -321,5 +321,53 @@ module Jetpants
     def before_repl_paused?
       @repl_paused = !any_replication_running?
     end
+
+    # WARNING! This will pause replication on the nodes this machine aggregates from
+    # And perform expensive rowcount operations on them
+    def validate_aggregate_row_counts(restart_monitoring = false)
+      tables = Table.from_config 'sharded_tables'
+      aggregating_nodes.each do |node|
+        node.pause_replication
+        node.disable_monitoring
+        node.stop_query_killer
+      end
+      begin
+        node_counts = {}
+        aggregating_nodes.concurrent_each do |node|
+          counts = tables.limited_concurrent_map(8) { |table|
+            rows = node.query_return_first_value("SELECT count(*) FROM #{table}")
+            output "#{node} - #{table} : #{rows}"
+            rows
+          }
+          node_counts[node] = counts.map(&:to_i).reduce(:+)
+        end
+
+        aggregate_counts = tables.limited_concurrent_map(8) { |table|
+          rows = self.query_return_first_value("SELECT count(*) FROM #{table}")
+          output "#{table} : #{rows}"
+          rows
+        }
+
+        aggregate_total = aggregate_counts.reduce(:+)
+        node_total = node_counts.map.reduce(:+)
+
+        valid = (aggregate_total == node_total)
+      ensure
+        if restart_monitoring
+          aggregating_nodes.each do |node|
+            node.start_query_killer
+            node.start_replication
+            node.enable_monitoring
+          end
+        end
+      end
+      if valid
+        output "Row counts match"
+      else
+        output "Row count mismatch! check output above"
+      end
+
+      valid
+    end
   end
 end

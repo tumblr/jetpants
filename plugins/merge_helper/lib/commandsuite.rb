@@ -65,10 +65,6 @@ module Jetpants
             total_import_counts[key] = total_import_counts[key] + import_counts[key]
           end
         end
-
-        # clean up exported data for each node
-        tables.map { |table| slave.ssh_cmd("rm #{table.export_file_path}") }
-        tables.map { |table| aggregate_node.ssh_cmd("rm #{table.export_file_path}") }
       end
 
       # clear out earlier import options
