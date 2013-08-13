@@ -120,7 +120,9 @@ module Jetpants
         files: aggregate_shard.table_export_filenames(full_path = false),
         overwrite: true
       )
+      aggregate_shard_master.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
       aggregate_import_counts = aggregate_shard_master.import_data tables, shards_to_merge.first.min_id, shards_to_merge.last.max_id
+      aggregate_shard_master.restart_mysql
 
       # validate counts from load_data_infile / select_into_outfile
       valid_import = true
