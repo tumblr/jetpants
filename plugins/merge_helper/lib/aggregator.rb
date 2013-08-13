@@ -11,13 +11,11 @@ module Jetpants
     def initialize(ip, port=3306)
       super
       @master = false
-      
-      # this check causes deadlock, investigate
-      #raise "Attempting to initialize a database without aggregation capabilities as an aggregate node" unless aggregator?
     end
 
     def after_probe
       return unless running?
+      raise "Attempting to probe a database without aggregation capabilities as an aggregate node" unless aggregator?
       probe_aggregate_nodes unless all_slave_statuses.empty?
     end
 
