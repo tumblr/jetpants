@@ -4,7 +4,7 @@ module Jetpants
     include CallbackHandler
 
     def aggregating_nodes
-      probe_aggregate_nodes if @aggregate_node_list.nil?
+      probe if @aggregating_node_list.nil?
       @aggregating_node_list
     end
 
@@ -17,7 +17,7 @@ module Jetpants
     end
 
     def after_probe
-      return unless @running
+      return unless running?
       probe_aggregate_nodes unless all_slave_statuses.empty?
     end
 
@@ -26,11 +26,17 @@ module Jetpants
       # shouldn't be used, instead use aggregate methods
     end
 
+    def replication_states
+      probe if @replication_states.nil?
+      @replication_states
+    end
+
     def probe_aggregate_nodes
       @aggregating_node_list = []
-      @replicating_states = {}
+      @replication_states = {}
       all_slave_statuses.each do |status|
         aggregate_node = DB.new(status[:master_host], status[:master_port])
+        @aggregating_node_list << aggregate_node
         if status[:slave_io_running] != status[:slave_sql_running]
           output "One replication thread is stopped and the other is not for #{status[:name]}."
           if Jetpants.verify_replication
@@ -38,12 +44,11 @@ module Jetpants
             raise "Fatal replication problem on #{self}"
           end
           aggregate_pause_replication(aggregate_node)
-          @replicating_states[aggregate_node] = :paused
+          @replication_states[aggregate_node] = :paused
         else
-          @replicating_states[aggregate_node] = :running
+          @replication_states[aggregate_node] = :running
         end
-        @aggregating_node_list << DB.new(status[:master_host], status[:master_port])
-      end      
+      end 
     end
 
     def aggregating_for?(node)
@@ -132,8 +137,8 @@ module Jetpants
       replication_names = aggregating_nodes.map{|node| node.pool}.join(" ")
       output "Pausing replication for #{replication_names}"
       output mysql_root_cmd "STOP ALL SLAVES"
-      @replicating_states.keys.each do |key|
-        @replicating_states[key] = :paused
+      @replication_states.keys.each do |key|
+        @replication_states[key] = :paused
       end
       @repl_paused = true
     end
@@ -160,8 +165,8 @@ module Jetpants
       raise "Resuming replication with no aggregating nodes" if aggregating_nodes.empty?
       output "Resuming replication for #{aggregating_nodes.join(", ")}"
       output mysql_root_cmd "START ALL SLAVES"
-      @replicating_states.keys.each do |key|
-        @replicating_states[key] = :running
+      replication_states.keys.each do |key|
+        replication_states[key] = :running
       end
       @repl_paused = false
     end
@@ -220,7 +225,7 @@ module Jetpants
     # This is a lot of copypasta, punting on it for now until if/when we integrate more with core
     def aggregate_catch_up_to_master(node, timeout=3600, threshold=3, poll_frequency=5)
       raise "Attempting to catch up aggregate replication for a node which is not in the aggregation list" unless aggregating_for? node
-      aggregate_resume_replication(node) if @replication_states[node] == :paused
+      aggregate_resume_replication(node) if replication_states[node] == :paused
 
       times_at_zero = 0
       start = Time.now.to_i
@@ -274,7 +279,7 @@ module Jetpants
     end
 
     def all_slave_statuses
-      return unless @running
+      return unless running?
       status_strings = mysql_root_cmd("SHOW ALL SLAVES STATUS")
       return {} if status_strings.nil?
 
@@ -287,9 +292,9 @@ module Jetpants
     # housekeeping on internal state
     def before_start_mysql(*options)
       if options.include?('--skip-slave-start')
-        unless @replicating_states.nil?
-          @replicating_states.keys.each do |key|
-            @replicating_states[key] = :paused
+        unless replication_states.nil?
+          @replication_states.keys.each do |key|
+            @replication_states[key] = :paused
           end
         end
       end
@@ -297,22 +302,22 @@ module Jetpants
 
     def before_restart_mysql(*options)
       if options.include?('--skip-slave-start')
-        unless @replicating_states.nil?
-          @replicating_states.keys.each do |key|
-            @replicating_states[key] = :paused
+        unless replication_states.nil?
+          @replication_states.keys.each do |key|
+            @replication_states[key] = :paused
           end
         end
       end
     end
 
     def any_replication_running?
-      running = @replicating_states.select{ |state| state == :running }
+      running = replication_states.select{ |name, state| state == :running }
       (running.count > 0)
     end
 
-    def all_replication_runing?
-      running = @replicating_states.select{ |state| state == :running }
-      (running.count == @replicating_states.count)
+    def all_replication_running?
+      running = replication_states.select{ |name, state| state == :running }
+      (running.count == replication_states.count)
     end
 
     def before_repl_paused?
