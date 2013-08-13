@@ -9,7 +9,8 @@ module Jetpants
     def merge_shards
       shards_to_merge = []
       aggregate_node
-      aggregate_shard = new Shard(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_node, :initializing)
+      # We need to make sure to sort shards in id range order
+      aggregate_shard = Shard.new(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_node, :initializing)
       Jetpants.topology.pools << aggregate_shard 
 
       total_export_counts = {}
@@ -70,6 +71,7 @@ module Jetpants
       # clear out earlier import options
       aggregate_node.restart_mysql
 
+      # validate import counts
       raise "Imported and exported table count doesn't match!" unless total_import_counts.keys.count == total_export_counts.keys.count
       valid = true;
       total_import_count.each do |key, val|
@@ -81,6 +83,7 @@ module Jetpants
 
       raise "Import/export counts do not match, aborting" unless valid
 
+      # resume replication on source nodes and catch up to master
       aggregate_node.add_nodes_to_aggregate slaves_to_replicate
       slaves_to_replicate.concurrent_each do |slave|
         slave.resume_replication
@@ -93,28 +96,30 @@ module Jetpants
 
       raise "There was an error initializing aggregate replication to some nodes, please verify all master" unless aggregate_node.all_replication_runing?
 
+      # catch aggregate node up to data sources
       slaves_to_replicate.each do |shard_slave|
         aggregate_node.aggregate_catch_up_to_master shard_slave
       end
 
+      # claim nodes for the new shard
       spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool + 1, role: :standby_slave, like: shards_to_merge.first.master)
       aggregate_shard_master = spares_for_aggregate_shard.pop
 
-      # export and ship schema to aggregated shard master
+      # export and ship schema to new aggregated shard master
       aggregate_node.export_schemata tables
       aggregate_node.ship_schema_to aggregate_shard_master
       aggregate_shard_master.import_schemata!
 
       # export and ship data to new shard master
-      aggregate_export_counts = aggregate_node.export_data tables
+      aggregate_export_counts = aggregate_node.export_data tables, shards_to_merge.first.min_id, shards_to_merge.last.max_id
       aggregate_node.fast_copy_chain(
         Jetpants.export_location,
         aggregate_shard_master,
         port: 3307,
-        files: files,
+        files: aggregate_shard.table_export_filenames(full_path = false),
         overwrite: true
       )
-      aggregate_import_counts = aggregate_shard_master.import_data tables
+      aggregate_import_counts = aggregate_shard_master.import_data tables, shards_to_merge.first.min_id, shards_to_merge.last.max_id
 
       # validate counts from load_data_infile / select_into_outfile
       valid_import = true
