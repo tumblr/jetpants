@@ -111,6 +111,7 @@ module Jetpants
       aggregate_shard_master.import_schemata!
 
       # export and ship data to new shard master
+      aggregate_node.stop_all_replication
       aggregate_export_counts = aggregate_node.export_data tables, shards_to_merge.first.min_id, shards_to_merge.last.max_id
       aggregate_node.fast_copy_chain(
         Jetpants.export_location,
@@ -130,6 +131,14 @@ module Jetpants
         end
       end
       raise "Import/export counts do not match, aborting" unless valid_import
+
+      aggregate_shard_master.change_master_to aggregate_node
+      aggregate_node.start_all_slaves
+      # catch aggregate node up to data sources
+      slaves_to_replicate.each do |shard_slave|
+        aggregate_node.aggregate_catch_up_to_master shard_slave
+      end
+      aggregate_shard_master.catch_up_to_master
 
       # build up the rest of the new shard
       aggregate_shard_master.enslave! spares_for_aggregate_shard
