@@ -42,7 +42,7 @@ module Jetpants
         raise "Attempting to create an aggregate node with a non-shard!" unless shard.is_a? Shard
       end
 
-      aggregate_node = Aggregator.new(aggregate_node_id)
+      aggregate_node = Aggregator.new(aggregate_node_ip)
 
       raise "Attempting to set up aggregation on a non-aggregate node!" unless aggregate_node.aggregator?
 
@@ -130,7 +130,7 @@ module Jetpants
     # Exports data from an aggregate node via SELECT INTO OUTFILE, ships the data to a node
     # which is to be the merged shard master, and sets up replication on the new shard master to
     # the aggregate node
-    def self.ship_aggregate_data_to_new_master(aggregate_node, new_shard_master)
+    def self.ship_aggregate_data_to_new_master(aggregate_node, new_shard_master, aggregate_shard)
       # binlog coords to resume replication
       aggregate_node.stop_all_replication
       coords = aggregate_node.binlog_coords
@@ -174,8 +174,6 @@ module Jetpants
       slaves_to_replicate.each do |shard_slave|
         aggregate_node.aggregate_catch_up_to_master shard_slave
       end
-      aggregate_shard_master.start_replication
-      aggregate_shard_master.catch_up_to_master
     end
   end
 end
