@@ -99,7 +99,7 @@ module Jetpants
 
       # Display the binlog coordinates in case we want to resume this stream at some point
       aggregate_repl_binlog_coordinates(node, true)
-      output mysql_root_cmd "CHANGE MASTER \"#{node.pool}\" TO master_user='test'; RESET SLAVE \"#{node}\""
+      output mysql_root_cmd "CHANGE MASTER '#{node.pool}' TO master_user='test'; RESET SLAVE \"#{node}\""
       node.slaves.delete(self) rescue nil
       @replication_states[node] = nil
       aggregating_nodes.delete(node)
@@ -124,7 +124,7 @@ module Jetpants
       if @replication_states[node] == :paused
         output "Aggregate replication was already paused."
       else
-        output mysql_root_cmd "STOP SLAVE \"#{node.pool}\""
+        output mysql_root_cmd "STOP SLAVE '#{node.pool}'"
         @replication_states[node] = :paused
       end
       @repl_paused = !any_replication_running?
@@ -132,7 +132,7 @@ module Jetpants
 
     def pause_all_replication
       raise "Pausing replication with no aggregating nodes" if aggregating_nodes.empty?
-      replication_names = aggregating_nodes.map{|node| node.pool}.join(" ")
+      replication_names = aggregating_nodes.map{|node| node.pool}.join(", ")
       output "Pausing replication for #{replication_names}"
       output mysql_root_cmd "STOP ALL SLAVES"
       @replication_states.keys.each do |key|
@@ -152,7 +152,7 @@ module Jetpants
       raise "Attempting to resume aggregate replication for a node not in aggregation list" unless aggregating_for? node
       aggregate_repl_binlog_coordinates(node, true)
       output "Resuming aggregate replication from #{node.pool}."
-      output mysql_root_cmd "START SLAVE \"#{node.pool}\""
+      output mysql_root_cmd "START SLAVE '#{node.pool}'"
       @replication_states[node] = :running
       @repl_paused = !any_replication_running?
     end
@@ -170,27 +170,15 @@ module Jetpants
     end
 
     def pause_replication_with(*args)
-      if aggregator?
-        # We don't need this yet, add later if needed
-        raise "Aggregate node does not support this operation yet"
-      else
-        super(*args)
-      end
+      raise "Aggregate node does not support this operation yet"
     end
 
     def before_disable_replication!(*args)
-      if aggregator?
-        # Don't use disable_replication! use remove_aggregate_node
-        raise "Please use remove_aggregate_node on an aggregator instance"
-      end
+      raise "Please use remove_aggregate_node on an aggregator instance"
     end
 
     def repl_binlog_coordinates(*args)
-      if aggregator?
-        aggregate_repl_binlog_coordinates(*args)
-      else
-        super
-      end
+      aggregate_repl_binlog_coordinates(*args)
     end
     def aggregate_repl_binlog_coordinates(node, display_info=true)
       raise "Not performing aggregate replication for #{node} (#{node.pool})" unless aggregating_for? node
@@ -201,11 +189,7 @@ module Jetpants
     end
 
     def seconds_behind_master(*args)
-      if aggregator?
-        aggregate_seconds_behind_master(*args)
-      else
-        super
-      end
+      aggregate_seconds_behind_master(*args)
     end
     def aggregate_seconds_behind_master(node)
       raise "Not aggregate replicating #{node} (#{node.pool})" unless aggregating_for? node
