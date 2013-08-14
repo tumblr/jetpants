@@ -1,5 +1,6 @@
 module Jetpants
   class Shard
+    # Runs queries against a slave in the pool to verify sharding key values
     def validate_shard_data
       tables = Table.from_config 'sharded_tables'
       table_statuses = {}
@@ -22,6 +23,7 @@ module Jetpants
       table_statuses
     end
 
+    # Generate a list of filenames for exported data
     def table_export_filenames(full_path = true)
       export_filenames = []
       tables = Table.from_config 'sharded_tables'
@@ -32,6 +34,9 @@ module Jetpants
       export_filenames
     end
 
+    # Sets up an aggregate node with data from two shards, returned with replication stopped
+    # This will take two standby slaves, pause replication, export their data, ship it to the aggregate
+    # node, import the data, and set up multi-source replication to the shards being merged
     def self.set_up_aggregate_node(shards_to_merge, aggregate_node_ip)
       shards_to_merge.each do |shard|
         raise "Attempting to create an aggregate node with a non-shard!" unless shard.is_a? Shard
@@ -166,6 +171,7 @@ module Jetpants
       slaves_to_replicate.each do |shard_slave|
         aggregate_node.aggregate_catch_up_to_master shard_slave
       end
+      aggregate_shard_master.start_replication
       aggregate_shard_master.catch_up_to_master
     end
   end

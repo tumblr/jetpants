@@ -10,6 +10,7 @@ module Jetpants
       return sql
     end
 
+    # Generate a list of chunked filenames for import/export
     def export_filenames(min_id, max_id)
       export_filenames = []
       (min_id..max_id).in_chunks(@chunks) do |min, max|
