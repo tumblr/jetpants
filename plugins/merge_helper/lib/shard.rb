@@ -127,6 +127,9 @@ module Jetpants
       aggregate_node
     end
 
+    # Exports data from an aggregate node via SELECT INTO OUTFILE, ships the data to a node
+    # which is to be the merged shard master, and sets up replication on the new shard master to
+    # the aggregate node
     def self.ship_aggregate_data_to_new_master(aggregate_node, new_shard_master)
       # binlog coords to resume replication
       aggregate_node.stop_all_replication
