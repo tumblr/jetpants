@@ -16,7 +16,7 @@ module Jetpants
     def after_probe
       return unless running?
       raise "Attempting to probe a database without aggregation capabilities as an aggregate node" unless aggregator?
-      probe_aggregate_nodes unless all_slave_statuses.empty?
+      probe_aggregate_nodes
     end
 
     def probe_master
