@@ -306,41 +306,60 @@ module Jetpants
       @repl_paused = !any_replication_running?
     end
 
+    # Performs a validation step of pausing replication and determining row counts
+    # on an aggregating server and its data sources
     # WARNING! This will pause replication on the nodes this machine aggregates from
     # And perform expensive rowcount operations on them
     def validate_aggregate_row_counts(restart_monitoring = false)
       tables = Table.from_config 'sharded_tables'
-      aggregating_nodes.each do |node|
-        node.pause_replication
+      aggregating_nodes.concurrent_each do |node|
         node.disable_monitoring
         node.stop_query_killer
+        node.pause_replication
       end
       begin
         node_counts = {}
+        # gather counts for source nodes
         aggregating_nodes.concurrent_each do |node|
           counts = tables.limited_concurrent_map(8) { |table|
             rows = node.query_return_first_value("SELECT count(*) FROM #{table}")
             output "#{node} - #{table} : #{rows}"
-            rows
+            [ table, rows ]
           }
-          node_counts[node] = counts.map(&:to_i).reduce(:+)
+          node_counts[node] = Hash[counts]
         end
 
+        # gather counts for aggregate node
         aggregate_counts = tables.limited_concurrent_map(8) { |table|
           rows = self.query_return_first_value("SELECT count(*) FROM #{table}")
           output "#{table} : #{rows}"
-          rows
+          [ table, rows ]
         }
+        aggregate_counts = Hash[aggregate_counts]
 
-        aggregate_total = aggregate_counts.reduce(:+)
-        node_total = node_counts.map.reduce(:+)
+        # sum up source node counts
+        total_node_counts = {}
+        aggregate_counts.keys.each do |key|
+          total_node_counts[key] = 0
+          aggregating_nodes.each do |node|
+            total_node_counts[key] = total_node_counts[key] + node_counts[node][key]
+          end
+        end
 
-        valid = (aggregate_total == node_total)
+        # validate rowcounts
+        valid = true
+        total_node_counts.each do |table,count|
+          if total_node_counts[table] != aggregate_counts[table]
+            valid = false
+            output "Counts for #{table} did not match.  #{aggregate_counts[table]} on aggregator and #{total_node_counts[table]} on nodes"
+          end
+        end
       ensure
         if restart_monitoring
-          aggregating_nodes.each do |node|
-            node.start_query_killer
+          aggregating_nodes.concurrent_each do |node|
             node.start_replication
+            node.catch_up_to_master
+            node.start_query_killer
             node.enable_monitoring
           end
         end
