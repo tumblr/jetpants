@@ -44,7 +44,7 @@ module Jetpants
       end
       raise "Attempting to set up aggregation on a non-aggregate node!" unless aggregate_node.aggregator?
       raise "Attempting to set up aggregation on a node that is already aggregating!" unless aggregate_node.aggregating_nodes.empty?
-      raise "Invalid new master node!" unless new_shard_master.is_a DB
+      raise "Invalid new master node!" unless new_shard_master.is_a? DB
 
       data_nodes = [ new_shard_master, aggregate_node ]
 
