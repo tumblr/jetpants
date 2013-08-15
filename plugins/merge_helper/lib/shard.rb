@@ -38,11 +38,13 @@ module Jetpants
     # This will take two standby slaves, pause replication, export their data, ship it to the aggregate
     # node and new master, import the data, and set up multi-source replication to the shards being merged
     def self.set_up_aggregate_node(shards_to_merge, aggregate_node, new_shard_master)
+      # validation
       shards_to_merge.each do |shard|
         raise "Attempting to create an aggregate node with a non-shard!" unless shard.is_a? Shard
       end
       raise "Attempting to set up aggregation on a non-aggregate node!" unless aggregate_node.aggregator?
       raise "Attempting to set up aggregation on a node that is already aggregating!" unless aggregate_node.aggregating_nodes.empty?
+      raise "Invalid new master node!" unless new_shard_master.is_a DB
 
       data_nodes = [ new_shard_master, aggregate_node ]
 
@@ -93,12 +95,11 @@ module Jetpants
           overwrite: true
         )
 
-        datanode_counts = Hash [
-          data_nodes.concurrent_map { |db|
+        datanode_counts = data_nodes.concurrent_map { |db|
             import_counts = db.import_data tables, slave.pool.min_id, slave.pool.max_id
             [ db, import_counts ]
-          }
-        ]
+        }
+        datanode_counts = Hash[datanode_counts]
       }.each do |node, import_counts|
         total_export_counts.keys.each do |key|
           total_import_counts[key] ||= 0
@@ -134,55 +135,6 @@ module Jetpants
       end
 
       aggregate_node
-    end
-
-    # Exports data from an aggregate node via SELECT INTO OUTFILE, ships the data to a node
-    # which is to be the merged shard master, and sets up replication on the new shard master to
-    # the aggregate node
-    def self.ship_aggregate_data_to_new_master(aggregate_node, new_shard_master, aggregate_shard)
-      # binlog coords to resume replication
-      aggregate_node.stop_all_replication
-      coords = aggregate_node.binlog_coords
-
-      # export and ship schema to new aggregated shard master
-      aggregate_node.export_schemata tables
-      aggregate_node.ship_schema_to aggregate_shard_master
-      aggregate_shard_master.import_schemata!
-
-      # export and ship data to new shard master
-      aggregate_node.stop_all_replication
-      aggregate_export_counts = aggregate_node.export_data tables, shards_to_merge.first.min_id, shards_to_merge.last.max_id
-      aggregate_node.fast_copy_chain(
-        Jetpants.export_location,
-        aggregate_shard_master,
-        port: 3307,
-        files: aggregate_shard.table_export_filenames(full_path = false),
-        overwrite: true
-      )
-      aggregate_shard_master.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
-      aggregate_shard_master.stop_query_killer
-      aggregate_shard_master.disable_monitoring
-      aggregate_import_counts = aggregate_shard_master.import_data tables, shards_to_merge.first.min_id, shards_to_merge.last.max_id
-      aggregate_shard_master.restart_mysql
-      aggregate_shard_master.start_query_killer
-      aggregate_shard_master.enable_monitoring
-
-      # validate counts from load_data_infile / select_into_outfile
-      valid_import = true
-      aggregate_export_counts.each do |key, count|
-        if count != aggregate_import_counts[key]
-          output "Count for aggregate export/import of #{key} is wrong! (#{aggregate_import_counts[key]} imported #{count} exported)"
-          valid_import = false
-        end
-      end
-      raise "Import/export counts do not match, aborting" unless valid_import
-
-      aggregate_shard_master.change_master_to aggregate_node, coords
-      aggregate_node.start_all_slaves
-      # catch aggregate node up to data sources
-      slaves_to_replicate.each do |shard_slave|
-        aggregate_node.aggregate_catch_up_to_master shard_slave
-      end
     end
   end
 end
