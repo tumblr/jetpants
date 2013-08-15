@@ -99,7 +99,7 @@ module Jetpants
 
       # Display the binlog coordinates in case we want to resume this stream at some point
       aggregate_repl_binlog_coordinates(node, true)
-      output mysql_root_cmd "CHANGE MASTER '#{node.pool}' TO master_user='test'; RESET SLAVE \"#{node}\""
+      output mysql_root_cmd "CHANGE MASTER '#{node.pool}' TO MASTER_USER='test'; RESET SLAVE '#{node.pool}' ALL"
       node.slaves.delete(self) rescue nil
       @replication_states[node] = nil
       aggregating_nodes.delete(node)
@@ -250,10 +250,10 @@ module Jetpants
       raise "Attempting to retrieve aggregate slave status for an invalid node" unless node
       raise "Attempting to retrieve aggregate slave status for a node which is not being aggregated" unless aggregating_for? node
 
-      hash = mysql_root_cmd("SHOW SLAVE \"#{node.pool}\"  STATUS", :parse=>true)
+      hash = mysql_root_cmd("SHOW SLAVE '#{node.pool}'  STATUS", :parse=>true)
       hash = {} if hash[:master_user] == 'test'
       if hash.count < 1
-        message = "Should be aggregating for #{node.pool}, but SHOW SLAVE \"#{node.pool}\" STATUS indicates otherwise"
+        message = "Should be aggregating for #{node.pool}, but SHOW SLAVE '#{node.pool}' STATUS indicates otherwise"
         raise "#{self}: #{message}" if Jetpants.verify_replication
         output message
       end
