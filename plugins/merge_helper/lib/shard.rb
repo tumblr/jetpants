@@ -34,74 +34,82 @@ module Jetpants
       export_filenames
     end
 
-    # Sets up an aggregate node with data from two shards, returned with replication stopped
+    # Sets up an aggregate node and new shard master with data from two shards, returned with replication stopped
     # This will take two standby slaves, pause replication, export their data, ship it to the aggregate
-    # node, import the data, and set up multi-source replication to the shards being merged
-    def self.set_up_aggregate_node(shards_to_merge, aggregate_node_ip)
+    # node and new master, import the data, and set up multi-source replication to the shards being merged
+    def self.set_up_aggregate_node(shards_to_merge, aggregate_node, new_shard_master)
       shards_to_merge.each do |shard|
         raise "Attempting to create an aggregate node with a non-shard!" unless shard.is_a? Shard
       end
-
-      aggregate_node = Aggregator.new(aggregate_node_ip)
-
       raise "Attempting to set up aggregation on a non-aggregate node!" unless aggregate_node.aggregator?
+      raise "Attempting to set up aggregation on a node that is already aggregating!" unless aggregate_node.aggregating_nodes.empty?
 
-      total_export_counts = {}
-      total_import_counts = {}
-      slaves_to_replicate = []
+      data_nodes = [ new_shard_master, aggregate_node ]
 
       # settings to improve import speed
-      aggregate_node.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
-      tables = Table.from_config 'sharded_tables'
+      data_nodes.concurrent_each do |db|
+        db.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--innodb_flush_log_at_trx_commit=2'
+      end
 
       # create and ship schema
       slave = shards_to_merge.last.standby_slaves.last
-      slave.ship_schema_to aggregate_node
-      aggregate_node.import_schemata!
+      data_nodes.each do |db|
+        slave.ship_schema_to db
+        db.import_schemata!
+      end
 
       # grab slave list to export data
       slaves_to_replicate = shards_to_merge.map { |shard| shard.standby_slaves.last }
 
+      # sharded table list to ship
+      tables = Table.from_config 'sharded_tables'
+
+      total_export_counts = {}
+
       # asynchronously export data on all slaves
-      slaves_to_replicate.concurrent_each do |slave|
+      slaves_to_replicate.concurrent_map { |slave|
         # these get cleaned up further down after replication is set up
         slave.disable_monitoring
         slave.stop_query_killer
         slave.pause_replication
 
         export_counts = slave.export_data tables, slave.pool.min_id, slave.pool.max_id
-
-        if total_export_counts.empty?
-          total_export_counts = export_counts
-        else
-          total_export_counts.keys.each do |key|
-            total_export_counts[key] = total_export_counts[key] + export_counts[key]
-          end
+      }.each do |export_counts|
+        export_counts.keys.each do |key|
+          total_export_counts[key] ||= 0
+          total_export_counts[key] = total_export_counts[key] + export_counts[key]
         end
       end
 
-      # iterate through and load data from each slave
-      slaves_to_repliate.each do |slave|
+      total_import_counts = {}
+
+      # ship and load data from each slave
+      slaves_to_repliate.map { |slave|
         slave.fast_copy_chain(
           Jetpants.export_location,
-          aggregate_node,
+          data_nodes,
           port: 3307,
           files: slave.pool.table_export_filenames(full_path = false),
           overwrite: true
         )
 
-        import_counts = aggregate_node.import_data tables, slave.pool.min_id, slave.pool.max_id
-        if total_import_counts.empty?
-          total_import_counts = import_counts
-        else
-          total_import_counts.keys.each do |key|
-            total_import_counts[key] = total_import_counts[key] + import_counts[key]
-          end
+        datanode_counts = Hash [
+          data_nodes.concurrent_map { |db|
+            import_counts = db.import_data tables, slave.pool.min_id, slave.pool.max_id
+            [ db, import_counts ]
+          }
+        ]
+      }.each do |node, import_counts|
+        total_export_counts.keys.each do |key|
+          total_import_counts[key] ||= 0
+          total_import_counts[key] = total_import_counts[key] + import_counts[key]
         end
       end
 
       # clear out earlier import options
-      aggregate_node.restart_mysql "--skip-start-slave"
+      data_nodes.concurrent_each do |db|
+        aggregate_node.restart_mysql "--skip-start-slave"
+      end
 
       # validate import counts
       raise "Imported and exported table count doesn't match!" unless total_import_counts.keys.count == total_export_counts.keys.count
@@ -117,6 +125,7 @@ module Jetpants
 
       # resume replication on source nodes and catch up to master
       aggregate_node.add_nodes_to_aggregate slaves_to_replicate
+      new_shard_master.change_master_to aggregate_node
       slaves_to_replicate.concurrent_each do |slave|
         slave.resume_replication
         slave.catch_up_to_master
