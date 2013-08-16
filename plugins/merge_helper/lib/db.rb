@@ -20,5 +20,9 @@ module Jetpants
       )
     end
 
+    # Provide external access to import/export counts
+    def import_export_counts
+      @counts
+    end
   end
 end

@@ -75,7 +75,8 @@ module Jetpants
         slave.stop_query_killer
         slave.pause_replication
 
-        export_counts = slave.export_data tables, slave.pool.min_id, slave.pool.max_id
+        slave.export_data tables, slave.pool.min_id, slave.pool.max_id
+        export_counts = slave.import_export_counts
       }.each do |export_counts|
         export_counts.keys.each do |key|
           total_export_counts[key] ||= 0
@@ -96,8 +97,9 @@ module Jetpants
         )
 
         datanode_counts = data_nodes.concurrent_map { |db|
-            import_counts = db.import_data tables, slave.pool.min_id, slave.pool.max_id
-            [ db, import_counts ]
+          db.import_data tables, slave.pool.min_id, slave.pool.max_id
+          import_counts = db.import_export_counts 
+          [ db, import_counts ]
         }
         datanode_counts = Hash[datanode_counts]
       }.each do |node, import_counts|
