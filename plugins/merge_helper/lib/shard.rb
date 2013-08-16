@@ -87,7 +87,7 @@ module Jetpants
       total_import_counts = {}
 
       # ship and load data from each slave
-      slaves_to_repliate.map { |slave|
+      datanode_counts = slaves_to_replicate.map { |slave|
         slave.fast_copy_chain(
           Jetpants.export_location,
           data_nodes,
@@ -101,8 +101,9 @@ module Jetpants
           import_counts = db.import_export_counts 
           [ db, import_counts ]
         }
-        datanode_counts = Hash[datanode_counts]
-      }.each do |node, import_counts|
+      }
+      datanode_counts = Hash[datanode_counts]
+      datanode_counts = datanode_counts.each do |node, import_counts|
         total_export_counts.keys.each do |key|
           total_import_counts[key] ||= 0
           total_import_counts[key] = total_import_counts[key] + import_counts[key]
