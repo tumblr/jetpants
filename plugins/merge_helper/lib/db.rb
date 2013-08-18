@@ -24,5 +24,10 @@ module Jetpants
     def import_export_counts
       @counts
     end
+
+    # all the insertion of combined export counts for validation
+    def inject_counts(counts)
+      @counts = counts
+    end
   end
 end

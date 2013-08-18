@@ -50,7 +50,7 @@ module Jetpants
 
       # settings to improve import speed
       data_nodes.concurrent_each do |db|
-        db.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--innodb_flush_log_at_trx_commit=2'
+        db.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--innodb_flush_log_at_trx_commit=2', '--innodb-doublewrite=0'
       end
 
       # create and ship schema
@@ -66,7 +66,9 @@ module Jetpants
       # sharded table list to ship
       tables = Table.from_config 'sharded_tables'
 
-      total_export_counts = {}
+      # data export counts for validation later
+      export_counts = {}
+      slave_coords = {}
 
       # asynchronously export data on all slaves
       slaves_to_replicate.concurrent_map { |slave|
@@ -76,18 +78,20 @@ module Jetpants
         slave.pause_replication
 
         slave.export_data tables, slave.pool.min_id, slave.pool.max_id
-        export_counts = slave.import_export_counts
-      }.each do |export_counts|
-        export_counts.keys.each do |key|
-          total_export_counts[key] ||= 0
-          total_export_counts[key] = total_export_counts[key] + export_counts[key]
-        end
+        # record export counts for validation
+        export_counts[slave] = slave.import_export_counts
+        # retain coords to set up replication hierarchy
+        slave_coords[slave] = slave.binlog_coordinates
+        # restart origin slave replication
+        slave.resume_replication
+        slave.catch_up_to_master
+        slave.enable_monitoring
+        slave.start_query_killer
       end
 
-      total_import_counts = {}
-
       # ship and load data from each slave
-      datanode_counts = slaves_to_replicate.map { |slave|
+      slaves_to_replicate.map { |slave|
+        # transfer data files, this will output a large list of file names
         slave.fast_copy_chain(
           Jetpants.export_location,
           data_nodes,
@@ -96,48 +100,35 @@ module Jetpants
           overwrite: true
         )
 
-        datanode_counts = data_nodes.concurrent_map { |db|
-          db.import_data tables, slave.pool.min_id, slave.pool.max_id
-          import_counts = db.import_export_counts 
-          [ db, import_counts ]
-        }
-      }
-      datanode_counts = Hash[datanode_counts]
-      datanode_counts = datanode_counts.each do |node, import_counts|
-        total_export_counts.keys.each do |key|
-          total_import_counts[key] ||= 0
-          total_import_counts[key] = total_import_counts[key] + import_counts[key]
+        # clean up data files on origin slaves
+        slave.pool.table_export_filenames.map do |file|
+          slave.ssh_cmd("rm -f #{file}")
         end
-      end
+
+        # load data and inject export counts from earlier for validation
+        datanode_counts = data_nodes.concurrent_map { |db|
+          db.inject_counts export_counts[slave]
+          db.import_data tables, slave.pool.min_id, slave.pool.max_id
+        }
+
+        # clean up data files on target nodes
+        data_nodes.concurrent_each do |db|
+          slave.pool.table_export_filenames.each do |file| 
+            db.ssh_cmd("rm -f #{file}")
+          end
+        end
+      }
 
       # clear out earlier import options
       data_nodes.concurrent_each do |db|
         aggregate_node.restart_mysql "--skip-start-slave"
       end
 
-      # validate import counts
-      raise "Imported and exported table count doesn't match!" unless total_import_counts.keys.count == total_export_counts.keys.count
-      valid = true;
-      total_import_count.each do |key, val|
-        if val != total_export_count[key]
-          output "Count for export/import of #{key} is wrong! (#{val} imported #{total_export_count[key]} exported)"
-          valid = false
-        end
+      # set up replication hierarchy
+      slaves_to_replicate.each do |slave|
+        aggregate_node.add_node_to_aggregate slave, slave_coords[slave]
       end
-
-      raise "Import/export counts do not match, aborting" unless valid
-
-      # resume replication on source nodes and catch up to master
-      aggregate_node.add_nodes_to_aggregate slaves_to_replicate
       new_shard_master.change_master_to aggregate_node
-      slaves_to_replicate.concurrent_each do |slave|
-        slave.resume_replication
-        slave.catch_up_to_master
-        slave.enable_monitoring
-        slave.start_query_killer
-      end
-
-      aggregate_node
     end
   end
 end
