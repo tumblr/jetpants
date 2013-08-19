@@ -65,7 +65,6 @@ module Jetpants
       raise "Attempting to add an invalide aggregation source" unless node
       raise "Attempting to add a node that is already being aggregated" if aggregating_for? node
 
-      aggregating_nodes ||= []
       @replication_states ||= {}
 
       logfile = option_hash[:log_file]
@@ -88,7 +87,7 @@ module Jetpants
 
       output "Adding node #{node} to list of aggregation data sources with coordinates (#{logfile}, #{pos}). #{result}"
       @replication_states[node] = :paused
-      aggregating_nodes << node
+      @aggregating_node_list << node
       node.slaves << self
     end
 
@@ -102,7 +101,7 @@ module Jetpants
       output mysql_root_cmd "CHANGE MASTER '#{node.pool}' TO MASTER_USER='test'; RESET SLAVE '#{node.pool}' ALL"
       node.slaves.delete(self) rescue nil
       @replication_states[node] = nil
-      aggregating_nodes.delete(node)
+      @aggregating_node_list.delete(node)
     end
 
     def change_master_to
@@ -110,11 +109,11 @@ module Jetpants
       raise "Please use add_node_to_aggregate on aggregator nodes" if aggregator?
     end
 
-    def pause_replication
-      if aggregator?
-        pause_all_replication
+    def pause_replication(*args)
+      if args
+        aggregate_pause_replication(*args)
       else
-        super
+        pause_all_replication
       end
     end
     def aggregate_pause_replication(node)
@@ -141,11 +140,11 @@ module Jetpants
       @repl_paused = true
     end
 
-    def resume_replication
-      if aggregator?
-        resume_all_replication
+    def resume_replication(*args)
+      if args
+        aggregate_resume_replication(*args)
       else
-        super
+        resume_all_replication
       end
     end
     def aggregate_resume_replication(node)
@@ -163,8 +162,8 @@ module Jetpants
       raise "Resuming replication with no aggregating nodes" if aggregating_nodes.empty?
       output "Resuming replication for #{aggregating_nodes.join(", ")}"
       output mysql_root_cmd "START ALL SLAVES"
-      replication_states.keys.each do |key|
-        replication_states[key] = :running
+      @replication_states.keys.each do |key|
+        @replication_states[key] = :running
       end
       @repl_paused = false
     end
@@ -198,11 +197,7 @@ module Jetpants
     end
 
     def catch_up_to_master(*args)
-      if aggregator?
-        aggregate_catch_up_to_master(*args)
-      else
-        super
-      end
+      aggregate_catch_up_to_master(*args)
     end
     # This is a lot of copypasta, punting on it for now until if/when we integrate more with core
     def aggregate_catch_up_to_master(node, timeout=3600, threshold=3, poll_frequency=5)
@@ -236,14 +231,10 @@ module Jetpants
     end
 
     def slave_status(*args)
-      if aggregator?
-        if args
-          aggregate_slave_status(*args)
-        else
-          all_slave_statuses
-        end
+      if args
+        aggregate_slave_status(*args)
       else
-        super
+        all_slave_statuses
       end
     end
     def aggregate_slave_status(node)
@@ -310,8 +301,8 @@ module Jetpants
     # on an aggregating server and its data sources
     # WARNING! This will pause replication on the nodes this machine aggregates from
     # And perform expensive rowcount operations on them
-    def validate_aggregate_row_counts(restart_monitoring = false)
-      tables = Table.from_config 'sharded_tables'
+    def validate_aggregate_row_counts(restart_monitoring = false, tables = false)
+      tables = Table.from_config 'sharded_tables' unless tables
       aggregating_nodes.concurrent_each do |node|
         node.disable_monitoring
         node.stop_query_killer
