@@ -4,9 +4,12 @@ module Jetpants
       class << self
         # Provide a config hook to specify a list of tables to merge, overriding the sharded_tables list
         def tables_to_merge
-          tables = Table.from_config 'sharded_tables' unless tables
-          table_list = Jetpants.plugins['merge_helper']['table_list']
-          tables.select! { |table| table_list.include? table.name } if table_list
+          tables = Table.from_config 'sharded_tables'
+          table_list = []
+          if (!Jetpants.plugins['merge_helper'].nil? && Jetpants.plugins['merge_helper'].has_key?('table_list'))
+            table_list = Jetpants.plugins['merge_helper']['table_list']
+          end
+          tables.select! { |table| table_list.include? table.name } unless table_list.empty?
           tables
         end
       end
