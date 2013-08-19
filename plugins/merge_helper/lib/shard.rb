@@ -64,7 +64,7 @@ module Jetpants
       slaves_to_replicate = shards_to_merge.map { |shard| shard.standby_slaves.last }
 
       # sharded table list to ship
-      tables = Table.from_config 'sharded_tables'
+      tables = Plugin::MergeHelper.tables_to_merge
 
       # data export counts for validation later
       export_counts = {}

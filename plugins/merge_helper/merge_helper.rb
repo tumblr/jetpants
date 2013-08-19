@@ -6,7 +6,7 @@ module Jetpants
         def tables_to_merge
           tables = Table.from_config 'sharded_tables' unless tables
           table_list = Jetpants.plugins['merge_helper']['table_list']
-          tables.select! { |table| table_list.include? table } if table_list
+          tables.select! { |table| table_list.include? table.name } if table_list
           tables
         end
       end
