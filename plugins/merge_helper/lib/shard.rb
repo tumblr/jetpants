@@ -45,6 +45,7 @@ module Jetpants
       raise "Attempting to set up aggregation on a non-aggregate node!" unless aggregate_node.aggregator?
       raise "Attempting to set up aggregation on a node that is already aggregating!" unless aggregate_node.aggregating_nodes.empty?
       raise "Invalid new master node!" unless new_shard_master.is_a? DB
+      raise "New shard master already has a pool!" unless new_shard_master.pool.nil?
 
       data_nodes = [ new_shard_master, aggregate_node ]
 
@@ -113,7 +114,7 @@ module Jetpants
 
       # clear out earlier import options
       data_nodes.concurrent_each do |db|
-        aggregate_node.restart_mysql "--skip-slave-start"
+        db.restart_mysql "--skip-slave-start"
       end
 
       # set up replication hierarchy
