@@ -82,7 +82,8 @@ module Jetpants
         # record export counts for validation
         export_counts[slave] = slave.import_export_counts
         # retain coords to set up replication hierarchy
-        slave_coords[slave] = slave.binlog_coordinates
+        file, pos = slave.binlog_coordinates
+        slave_coords[slave] = { :log_file => file, :log_pos => pos }
       }
 
       # ship and load data from each slave
