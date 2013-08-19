@@ -96,6 +96,10 @@ module Jetpants
           files: slave.pool.table_export_filenames(full_path = false, tables),
           overwrite: true
         )
+        # clean up files on origin slave
+        slave.pool.table_export_filenames(full_path = true, tables).map { |file|
+          slave.ssh_cmd("rm -f #{file}")
+        }
         # restart origin slave replication
         slave.resume_replication
         slave.catch_up_to_master
