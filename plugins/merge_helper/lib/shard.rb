@@ -87,7 +87,7 @@ module Jetpants
         slave.catch_up_to_master
         slave.enable_monitoring
         slave.start_query_killer
-      end
+      }
 
       # ship and load data from each slave
       slaves_to_replicate.map { |slave|
