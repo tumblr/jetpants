@@ -82,11 +82,6 @@ module Jetpants
         export_counts[slave] = slave.import_export_counts
         # retain coords to set up replication hierarchy
         slave_coords[slave] = slave.binlog_coordinates
-        # restart origin slave replication
-        slave.resume_replication
-        slave.catch_up_to_master
-        slave.enable_monitoring
-        slave.start_query_killer
       }
 
       # ship and load data from each slave
@@ -99,8 +94,18 @@ module Jetpants
           files: slave.pool.table_export_filenames(full_path = false, tables),
           overwrite: true
         )
+        # restart origin slave replication
+        slave.resume_replication
+        slave.catch_up_to_master
+        slave.enable_monitoring
+        slave.start_query_killer
+      }
+
+      # import data in a separate loop, as we want to leave the origin slaves
+      # in a non-replicating state for as little time as possible
+      slaves_to_replicate.map { |slave| 
         # load data and inject export counts from earlier for validation
-        datanode_counts = data_nodes.concurrent_map { |db|
+        data_nodes.concurrent_map { |db|
           db.inject_counts export_counts[slave]
           db.import_data tables, slave.pool.min_id, slave.pool.max_id
         }
@@ -108,7 +113,7 @@ module Jetpants
 
       # clear out earlier import options
       data_nodes.concurrent_each do |db|
-        aggregate_node.restart_mysql "--skip-start-slave"
+        aggregate_node.restart_mysql "--skip-slave-start"
       end
 
       # set up replication hierarchy
