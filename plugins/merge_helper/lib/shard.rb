@@ -24,9 +24,9 @@ module Jetpants
     end
 
     # Generate a list of filenames for exported data
-    def table_export_filenames(full_path = true)
+    def table_export_filenames(full_path = true, tables = false)
       export_filenames = []
-      tables = Table.from_config 'sharded_tables'
+      tables = Table.from_config 'sharded_tables' unless tables
       export_filenames = tables.map { |table| table.export_filenames(@min_id, @max_id) }.flatten
 
       export_filenames.map!{ |filename| File.basename filename } unless full_path
@@ -96,27 +96,14 @@ module Jetpants
           Jetpants.export_location,
           data_nodes,
           port: 3307,
-          files: slave.pool.table_export_filenames(full_path = false),
+          files: slave.pool.table_export_filenames(full_path = false, tables),
           overwrite: true
         )
-
-        # clean up data files on origin slaves
-        slave.pool.table_export_filenames.map do |file|
-          slave.ssh_cmd("rm -f #{file}")
-        end
-
         # load data and inject export counts from earlier for validation
         datanode_counts = data_nodes.concurrent_map { |db|
           db.inject_counts export_counts[slave]
           db.import_data tables, slave.pool.min_id, slave.pool.max_id
         }
-
-        # clean up data files on target nodes
-        data_nodes.concurrent_each do |db|
-          slave.pool.table_export_filenames.each do |file| 
-            db.ssh_cmd("rm -f #{file}")
-          end
-        end
       }
 
       # clear out earlier import options
