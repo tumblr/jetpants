@@ -9,6 +9,7 @@ module Jetpants
     def merge_shards
       min_id = ask("Please provide the min ID of the shard range to merge")
       max_id = ask("Please provide the max ID of the shard_range to merge")
+      # for now we assume we'll never merge the shard at the head of the list
       shards_to_merge = shards.select{ |shard| (shard.min_id.to_i >= min_id.to_i && shard.max_id.to_i <= max_id.to_i && shard.max_id != 'INFINITY') }
       aggregate_node = ask_node("Please supply the IP of an aggregator node")
 
@@ -42,18 +43,38 @@ module Jetpants
     end
 
     # regenerate config and switch reads to new shard's master
-    desc 'merge_shards_reads', 'Switch reads to the new parent master'
+    desc 'merge_shards_reads', 'Switch reads to the new merged master'
     def merge_shards_reads
+      shards_to_merge = shards.select{ |shard| shard.combined_shard }
+      shards_str = shards_to_merge.join(', ')
+      answer = ask "Detected shards to merge as #{shard_str}, procede (enter YES in all caps if so)?"
+      exit unless answer == "YES"
+      shards_to_merge.map(&:prepare_for_merged_reads)
+      Jetpants.topology.write_config
     end
 
     # regenerate config and switch writes to new shard's master
-    desc 'merge_shards_writes', 'Switch writes to the new parent master'
+    desc 'merge_shards_writes', 'Switch writes to the new merged master'
     def merge_shards_writes
+      shards_to_merge = shards.select{ |shard| shard.combined_shard }
+      shards_str = shards_to_merge.join(', ')
+      answer = ask "Detected shards to merge as #{shard_str}, procede (enter YES in all caps if so)?"
+      exit unless answer == "YES"
+      combined_shard = shards_to_merge.first.combined_shard
+      shards_to_merge.map(&:prepare_for_merged_writes)
+      Jetpants.topology.write_config
     end
 
     # clean up aggregator node and old shards
     desc 'merge_shards_cleanup', 'Clean up the old shards and aggregator node'
     def merge_shards_cleanup
+      shards_to_merge = shards.select{ |shard| shard.combined_shard }
+      shards_str = shards_to_merge.join(', ')
+      answer = ask "Detected shards to merge as #{shard_str}, procede (enter YES in all caps if so)?"
+      exit unless answer == "YES"
+      combined_shard = shards_to_merge.first.combined_shard
+      shards_to_merge.map(&:decomission!)
+      combined_shard.state = :ready
     end
   end
 end

@@ -128,5 +128,27 @@ module Jetpants
       end
       new_shard_master.change_master_to aggregate_node
     end
+
+    def combined_shard
+      shards.select { |shard| ( 
+        shard.min_id.to_i <= @min_id.to_i
+        && shard.max_id.to_i >= @max_id.to_i
+        && shard.max_id != 'INFINITY')
+      }.first
+    end
+
+    def prepare_for_merged_reads
+      @state = :merging
+      sync_configuration
+    end
+
+    def prepare_for_merged_writes
+      @state = :deprecated
+      sync_configuration
+    end
+
+    def decomission!
+      @state = :recycle
+    end
   end
 end
