@@ -7,8 +7,10 @@ module Jetpants
 
     desc 'merge_shards', 'Merge two or more shards using an aggregator instance'
     def merge_shards
-      shards_to_merge = []
-      aggregate_node
+      min_id = ask("Please provide the min ID of the shard range to merge")
+      max_id = ask("Please provide the max ID of the shard_range to merge")
+      shards_to_merge = shards.select{ |shard| (shard.min_id.to_i >= min_id.to_i && shard.max_id.to_i <= max_id.to_i && shard.max_id != 'INFINITY') }
+      aggregate_node = ask_node("Please supply the IP of an aggregator node")
 
       # claim nodes for the new shard
       spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool + 1, role: :standby_slave, like: shards_to_merge.first.master)
@@ -25,7 +27,7 @@ module Jetpants
       raise "There was an error initializing aggregate replication to some nodes, please verify all master" unless aggregate_node.all_replication_runing?
 
       # catch aggregate node up to data sources
-      slaves_to_replicate.each do |shard_slave|
+      slaves_to_replicate.concurrent_each do |shard_slave|
         aggregate_node.aggregate_catch_up_to_master shard_slave
       end
 
