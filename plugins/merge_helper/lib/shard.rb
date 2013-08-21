@@ -133,8 +133,9 @@ module Jetpants
       shards.select { |shard| ( 
         shard.min_id.to_i <= @min_id.to_i
         && shard.max_id.to_i >= @max_id.to_i
-        && shard.max_id != 'INFINITY')
-      }.first
+        && shard.max_id != 'INFINITY'
+        && shard.state == :merging_child
+      )}.first
     end
 
     def prepare_for_merged_reads
@@ -149,6 +150,10 @@ module Jetpants
 
     def decomission!
       @state = :recycle
+    end
+
+    def in_config?
+      @state == :merging || super
     end
   end
 end
