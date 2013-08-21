@@ -134,7 +134,7 @@ module Jetpants
         shard.min_id.to_i <= @min_id.to_i
         && shard.max_id.to_i >= @max_id.to_i
         && shard.max_id != 'INFINITY'
-        && shard.state == :merging_child
+        && [ :merging_child, :initializing ].include?(shard.state) 
       )}.first
     end
 
