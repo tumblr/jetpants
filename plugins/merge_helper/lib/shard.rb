@@ -130,11 +130,13 @@ module Jetpants
     end
 
     def combined_shard
-      shards.select { |shard| ( 
+      Jetpants.shards.select { |shard| ( 
         shard.min_id.to_i <= @min_id.to_i \
         && shard.max_id.to_i >= @max_id.to_i \
         && shard.max_id != 'INFINITY' \
-        && [ :merging_child, :initializing ].include?(shard.state) 
+        && @max_id != 'INFINITY' \
+        && [ :merging_child, :initializing ].include?(shard.state) \
+        && shard != self
       )}.first
     end
 
@@ -153,7 +155,7 @@ module Jetpants
     end
 
     def in_config?
-      @state == :merging || super
+      [:merging, :ready, :child, :needs_cleanup, :read_only, :offline].include? @state
     end
   end
 end
