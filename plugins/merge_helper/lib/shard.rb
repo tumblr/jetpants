@@ -151,7 +151,7 @@ module Jetpants
     end
 
     def decomission!
-      @state = :recycle
+      @state = :decommissioned
     end
 
     def in_config?
