@@ -131,9 +131,9 @@ module Jetpants
 
     def combined_shard
       shards.select { |shard| ( 
-        shard.min_id.to_i <= @min_id.to_i
-        && shard.max_id.to_i >= @max_id.to_i
-        && shard.max_id != 'INFINITY'
+        shard.min_id.to_i <= @min_id.to_i \
+        && shard.max_id.to_i >= @max_id.to_i \
+        && shard.max_id != 'INFINITY' \
         && [ :merging_child, :initializing ].include?(shard.state) 
       )}.first
     end

@@ -70,7 +70,7 @@ module Jetpants
     end
 
     no_tasks do
-      ask_merge_shards
+      def ask_merge_shards
         shards_to_merge = shards.select{ |shard| shard.combined_shard }
         shards_str = shards_to_merge.join(', ')
         answer = ask "Detected shards to merge as #{shard_str}, procede (enter YES in all caps if so)?"
