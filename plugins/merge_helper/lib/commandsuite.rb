@@ -48,7 +48,6 @@ module Jetpants
     def merge_shards_reads
       ask_merge_shards
       shards_to_merge.map(&:prepare_for_merged_reads)
-      shards_to_merge.first.combined_shard.state = :merging_child
       Jetpants.topology.write_config
     end
 
