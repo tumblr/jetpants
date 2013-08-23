@@ -58,6 +58,7 @@ module Jetpants
       combined_shard = shards_to_merge.first.combined_shard
       shards_to_merge.map(&:prepare_for_merged_writes)
       combined_shard.state = :ready
+      combined_shard.sync_config
       Jetpants.topology.write_config
     end
 
@@ -70,7 +71,7 @@ module Jetpants
 
     no_tasks do
       def ask_merge_shards
-        shards_to_merge = shards.select{ |shard| shard.combined_shard }
+        shards_to_merge = shards.select{ |shard| !shard.combined_shard.nil? }
         shards_str = shards_to_merge.join(', ')
         answer = ask "Detected shards to merge as #{shard_str}, procede (enter YES in all caps if so)?"
         exit unless answer == "YES"
