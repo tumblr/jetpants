@@ -46,7 +46,7 @@ module Jetpants
     # regenerate config and switch reads to new shard's master
     desc 'merge_shards_reads', 'Switch reads to the new merged master'
     def merge_shards_reads
-      ask_merge_shards
+      shards_to_merge = ask_merge_shards
       shards_to_merge.map(&:prepare_for_merged_reads)
       Jetpants.topology.write_config
     end
@@ -54,7 +54,7 @@ module Jetpants
     # regenerate config and switch writes to new shard's master
     desc 'merge_shards_writes', 'Switch writes to the new merged master'
     def merge_shards_writes
-      ask_merge_shards
+      shards_to_merge = ask_merge_shards
       combined_shard = shards_to_merge.first.combined_shard
       shards_to_merge.map(&:prepare_for_merged_writes)
       combined_shard.state = :ready
@@ -64,7 +64,7 @@ module Jetpants
     # clean up aggregator node and old shards
     desc 'merge_shards_cleanup', 'Clean up the old shards and aggregator node'
     def merge_shards_cleanup
-      ask_merge_shards
+      shards_to_merge = ask_merge_shards
       shards_to_merge.map(&:decomission!)
     end
 
@@ -74,6 +74,8 @@ module Jetpants
         shards_str = shards_to_merge.join(', ')
         answer = ask "Detected shards to merge as #{shard_str}, procede (enter YES in all caps if so)?"
         exit unless answer == "YES"
+
+        shards_to_merge
       end
     end
   end
