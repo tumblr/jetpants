@@ -20,7 +20,9 @@ module Jetpants
       raise "Invalide aggregate node!" unless aggregate_node.aggregator?
 
       # claim nodes for the new shard
-      spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool + 1, role: :standby_slave, like: shards_to_merge.first.master)
+      spare_count = Jetpants.standby_slaves_per_pool + 1;
+      spares_for_aggregate_shard = Jetpants.topology.claim_spares(spare_count, role: :standby_slave, like: shards_to_merge.first.master)
+      raise "Not enough spares available!" unless spares_for_aggregate_shard.count == spare_count
       aggregate_shard_master = spares_for_aggregate_shard.pop
 
       # We need to make sure to sort shards in id range order
