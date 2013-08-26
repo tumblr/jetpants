@@ -11,11 +11,11 @@ module Jetpants
       max_id = ask("Please provide the max ID of the shard_range to merge")
       # for now we assume we'll never merge the shard at the head of the list
       shards_to_merge = shards.select{ |shard| (shard.min_id.to_i >= min_id.to_i && shard.max_id.to_i <= max_id.to_i && shard.max_id != 'INFINITY') }
-      shards_str = shards_to_merge.join(', ')
+      shard_str = shards_to_merge.join(', ')
       answer = ask "Detected shards to merge as #{shard_str}, proceed (enter YES in all caps if so)?"
       raise "Aborting on user input" unless answer == "YES"
 
-      aggregate_node_ip = ask"Please supply the IP of an aggregator node"
+      aggregate_node_ip = ask "Please supply the IP of an aggregator node"
       aggregate_node = Aggregator.new(aggregate_node_ip)
       raise "Invalide aggregate node!" unless aggregate_node.aggregator?
 
@@ -80,7 +80,7 @@ module Jetpants
         shards_to_merge = shards.select{ |shard| !shard.combined_shard.nil? }
         shards_str = shards_to_merge.join(', ')
         answer = ask "Detected shards to merge as #{shard_str}, proceed (enter YES in all caps if so)?"
-        exit unless answer == "YES"
+        raise "Aborting on user input" unless answer == "YES"
 
         shards_to_merge
       end
