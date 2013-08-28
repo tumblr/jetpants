@@ -154,8 +154,6 @@ module Jetpants
       # trigger the logic in the jetpants collins helper to eject the boxes in the cluster
       @state = :recycle
       sync_configuration
-      @state = :decommissioned
-      sync_configuration
     end
 
     def in_config?
