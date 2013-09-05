@@ -1,3 +1,5 @@
+require 'bloom-filter'
+
 module Jetpants
   class Shard
     # Runs queries against a slave in the pool to verify sharding key values
@@ -21,6 +23,73 @@ module Jetpants
       }
 
       table_statuses
+    end
+
+    def check_duplicate_keys(shards, table, key)
+      shards.each do |shard|
+        raise "Invalid shard #{shard}!" unless shard.is_a? Shard
+        raise "Attempting to validate table not con" unless shard.has_table? table.name
+      end
+      raise "Currently only possible to compare 2 shards!" unless shards.count == 2
+      raise "Invalid index '#{key}' for table '#{table}'!" if table.indexes[key].nil?
+      raise "Only currently implemented for single-column indexes" unless table.indexes[key][:columns].count > 1
+
+      source_shard = shards.first
+      source_db = source_shard.standby_slaves.last
+      comparison_shard = shards.last
+      comparison_db = comparison_shard.standby_slaves.last
+      column = table.indexes[key][:columns].first
+      dbs = [ source_db, comparison_db ]
+
+      dbs.concurrent_each do |db|
+        db.pause_replication
+        db.stop_query_killer
+        db.disable_monitoring
+      end
+
+      chunk_size = 5000
+
+      min_val = source_db.query_return_first_value("SELECT min(#{column}) FROM #{table}")
+      max_val = source_db.query_return_first_value("SELECT min(#{column}) FROM #{table}")
+
+      # maximum possible entries and desired error rate
+      max_size = (max_val.to_i - min_val.to_i) / Jetpants.shards.count
+      filter = BloomFilter.new size: max_size, error_rate: 0.001
+      curr_val = min_val
+
+      puts "Generating filter from #{source_shard}"
+      while curr_val < max_val do
+        vals = source_db.query_return_array("SELECT #{column} FROM #{table} WHERE #{column} > #{val} LIMIT #{chunk_size}").map{ |row| row.values.first }
+        vals.each{ |val| filter.insert val }
+        curr_val = vals.last
+      end
+
+      min_val = comparison_db.query_return_first_value("SELECT min(#{column}) FROM #{table}")
+      max_val = comparison_db.query_return_first_value("SELECT min(#{column}) FROM #{table}")
+      possible_dupes = []
+      curr_val = min_val
+
+      puts "Searching for duplicates in #{comparison_shard}"
+      while curr_val < max_val do
+        vals = comparison_db.query_return_array("SELECT #{column} FROM #{table} WHERE #{column} > #{val} LIMIT #{chunk_size}").map{ |row| row.values.first }
+        vals.each{ |val| possible_dupes << val if filter.include? val }
+        curr_val = vals.last
+      end
+
+      if possible_dupes.empty?
+        puts "There were no duplicates"
+      else
+        puts "There are potential duplicates"
+      end
+
+      possible_dupes
+    ensure
+      dbs.concurrent_each do |db|
+        db.start_replication
+        db.catch_up_to_master
+        db.start_query_killer
+        db.enable_monitoring
+      end
     end
 
     # Generate a list of filenames for exported data
@@ -109,9 +178,9 @@ module Jetpants
 
       # import data in a separate loop, as we want to leave the origin slaves
       # in a non-replicating state for as little time as possible
-      slaves_to_replicate.map { |slave| 
+      data_nodes.concurrent_map { |db|
+        slaves_to_replicate.map { |slave| 
         # load data and inject export counts from earlier for validation
-        data_nodes.concurrent_map { |db|
           db.inject_counts export_counts[slave]
           db.import_data tables, slave.pool.min_id, slave.pool.max_id
         }
