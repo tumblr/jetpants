@@ -25,14 +25,15 @@ module Jetpants
       table_statuses
     end
 
-    def check_duplicate_keys(shards, table, key)
+    def self.check_duplicate_keys(shards, table, key)
+      dbs = []
       shards.each do |shard|
         raise "Invalid shard #{shard}!" unless shard.is_a? Shard
         raise "Attempting to validate table not con" unless shard.has_table? table.name
       end
       raise "Currently only possible to compare 2 shards!" unless shards.count == 2
       raise "Invalid index '#{key}' for table '#{table}'!" if table.indexes[key].nil?
-      raise "Only currently implemented for single-column indexes" unless table.indexes[key][:columns].count > 1
+      raise "Only currently implemented for single-column indexes" unless table.indexes[key][:columns].count == 1
 
       source_shard = shards.first
       source_db = source_shard.standby_slaves.last
@@ -84,11 +85,13 @@ module Jetpants
 
       possible_dupes
     ensure
-      dbs.concurrent_each do |db|
-        db.start_replication
-        db.catch_up_to_master
-        db.start_query_killer
-        db.enable_monitoring
+      unless dbs.empty?
+        dbs.concurrent_each do |db|
+          db.start_replication
+          db.catch_up_to_master
+          db.start_query_killer
+          db.enable_monitoring
+        end
       end
     end
 
