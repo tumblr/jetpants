@@ -25,7 +25,7 @@ module Jetpants
       table_statuses
     end
 
-    def self.check_duplicate_keys(shards, table, key)
+    def self.check_duplicate_keys(shards, table, key, min_key_val = nil)
       dbs = []
       shards.each do |shard|
         raise "Invalid shard #{shard}!" unless shard.is_a? Shard
@@ -50,7 +50,7 @@ module Jetpants
 
       chunk_size = 5000
 
-      min_val = source_db.query_return_first_value("SELECT min(#{column}) FROM #{table}")
+      min_val = min_key_val || source_db.query_return_first_value("SELECT min(#{column}) FROM #{table}")
       max_val = source_db.query_return_first_value("SELECT max(#{column}) FROM #{table}")
 
       # maximum possible entries and desired error rate
@@ -58,21 +58,21 @@ module Jetpants
       filter = BloomFilter.new size: max_size, error_rate: 0.001
       curr_val = min_val
 
-      puts "Generating filter from #{source_shard}"
+      puts "Generating filter from #{source_shard} from values #{min_val}-#{max_val}"
       while curr_val < max_val do
-        vals = source_db.query_return_array("SELECT #{column} FROM #{table} WHERE #{column} > #{val} LIMIT #{chunk_size}").map{ |row| row.values.first }
+        vals = source_db.query_return_array("SELECT #{column} FROM #{table} WHERE #{column} > #{curr_val} LIMIT #{chunk_size}").map{ |row| row.values.first }
         vals.each{ |val| filter.insert val }
         curr_val = vals.last
       end
 
-      min_val = comparison_db.query_return_first_value("SELECT min(#{column}) FROM #{table}")
+      min_val = min_key_val || comparison_db.query_return_first_value("SELECT min(#{column}) FROM #{table}")
       max_val = comparison_db.query_return_first_value("SELECT max(#{column}) FROM #{table}")
       possible_dupes = []
       curr_val = min_val
 
-      puts "Searching for duplicates in #{comparison_shard}"
+      puts "Searching for duplicates in #{comparison_shard} from values #{min_val}-#{max_val}"
       while curr_val < max_val do
-        vals = comparison_db.query_return_array("SELECT #{column} FROM #{table} WHERE #{column} > #{val} LIMIT #{chunk_size}").map{ |row| row.values.first }
+        vals = comparison_db.query_return_array("SELECT #{column} FROM #{table} WHERE #{column} > #{curr_val} LIMIT #{chunk_size}").map{ |row| row.values.first }
         vals.each{ |val| possible_dupes << val if filter.include? val }
         curr_val = vals.last
       end
@@ -80,7 +80,7 @@ module Jetpants
       if possible_dupes.empty?
         puts "There were no duplicates"
       else
-        puts "There are potential duplicates"
+        puts "There are #{possible_dupes.count} potential duplicates"
       end
 
       possible_dupes
