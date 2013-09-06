@@ -44,6 +44,8 @@ module Jetpants
       aggregate_shard_master.catch_up_to_master
       aggregate_shard_master.pause_replication
 
+      aggregate_shard_master.pool = aggregate_shard
+
       # build up the rest of the new shard
       aggregate_shard_master.enslave! spares_for_aggregate_shard
 
@@ -66,6 +68,8 @@ module Jetpants
       shards_to_merge.map(&:prepare_for_merged_writes)
       combined_shard.state = :ready
       combined_shard.sync_config
+      combined_shard.master.disable_read_only!
+      combined_shard.master.disable_replication!
       Jetpants.topology.write_config
     end
 
