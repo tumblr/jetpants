@@ -5,7 +5,7 @@ require 'thor'
 module Jetpants
   class CommandSuite < Thor
 
-    desc 'merge_shards', 'Merge two or more shards using an aggregator instance'
+    desc 'merge_shards', 'Share merge step #1 of 4: Merge two or more shards using an aggregator instance'
     def merge_shards
       min_id = ask("Please provide the min ID of the shard range to merge")
       max_id = ask("Please provide the max ID of the shard range to merge")
@@ -53,7 +53,7 @@ module Jetpants
     end
 
     # regenerate config and switch reads to new shard's master
-    desc 'merge_shards_reads', 'Switch reads to the new merged master'
+    desc 'merge_shards_reads', 'Share merge step #2 of 4: Switch reads to the new merged master'
     def merge_shards_reads
       shards_to_merge = ask_merge_shards
       shards_to_merge.map(&:prepare_for_merged_reads)
@@ -61,7 +61,7 @@ module Jetpants
     end
 
     # regenerate config and switch writes to new shard's master
-    desc 'merge_shards_writes', 'Switch writes to the new merged master'
+    desc 'merge_shards_writes', 'Share merge step #3 of 4: Switch writes to the new merged master'
     def merge_shards_writes
       shards_to_merge = ask_merge_shards
       combined_shard = shards_to_merge.first.combined_shard
@@ -74,7 +74,7 @@ module Jetpants
     end
 
     # clean up aggregator node and old shards
-    desc 'merge_shards_cleanup', 'Clean up the old shards and aggregator node'
+    desc 'merge_shards_cleanup', 'Share merge step #4 of 4: Clean up the old shards and aggregator node'
     def merge_shards_cleanup
       shards_to_merge = ask_merge_shards
       shards_to_merge.map(&:decomission!)
