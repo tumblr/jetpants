@@ -10,7 +10,7 @@ module Jetpants
       min_id = ask("Please provide the min ID of the shard range to merge")
       max_id = ask("Please provide the max ID of the shard range to merge")
       # for now we assume we'll never merge the shard at the head of the list
-      shards_to_merge = shards.select{ |shard| (shard.min_id.to_i >= min_id.to_i && shard.max_id.to_i <= max_id.to_i && shard.max_id != 'INFINITY') }
+      shards_to_merge = Jetpants.shards.select{ |shard| (shard.min_id.to_i >= min_id.to_i && shard.max_id.to_i <= max_id.to_i && shard.max_id != 'INFINITY') }
       shard_str = shards_to_merge.join(', ')
       answer = ask "Detected shards to merge as #{shard_str}, proceed (enter YES in all caps if so)?"
       raise "Aborting on user input" unless answer == "YES"
@@ -25,10 +25,10 @@ module Jetpants
       raise "Not enough spares available!" unless spares_for_aggregate_shard.count == spare_count
       aggregate_shard_master = spares_for_aggregate_shard.pop
 
+      Shard.set_up_aggregate_node(shards_to_merge, aggregate_node, aggregate_shard_master)
+
       aggregate_shard = Shard.new(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_shard_master, :initializing)
       Jetpants.topology.pools << aggregate_shard 
-
-      Shard.set_up_aggregate_node(shards_to_merge, aggregate_node, aggregate_shard_master)
 
       aggregate_node.start_all_slaves
 
