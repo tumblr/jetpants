@@ -98,7 +98,7 @@ module Jetpants
     # we do not drop the table after an alter
     def drop_old_alter_table(database, table)
       database ||= app_schema
-      master.mysql_root_cmd("USE #{database}; DROP TABLE _#{table}_old")
+      master.mysql_root_cmd("USE #{database}; DROP TABLE IF EXISTS _#{table}_old")
     end
 
   end
