@@ -77,10 +77,11 @@ module Jetpants
     def merge_shards_cleanup
       shards_to_merge = ask_merge_shards
       combined_shard = shards_to_merge.first.combined_shard
+      aggregator = combined_shard.master.master
+      aggregator.pause_all_replication
+      aggregator.remove_all_nodes!
       combined_shard.master.stop_replication
       combined_shard.master.disable_replication!
-      aggregator = combined_shard.master.master
-      aggregator.remove_all_nodes!
       shards_to_merge.map(&:decomission!)
     end
 
