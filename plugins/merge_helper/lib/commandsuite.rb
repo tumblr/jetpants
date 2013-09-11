@@ -48,6 +48,7 @@ module Jetpants
 
       # build up the rest of the new shard
       aggregate_shard_master.enslave! spares_for_aggregate_shard
+      aggregate_shard_master.disable_read_only!
 
       aggregate_shard.sync_configuration
     end
@@ -76,8 +77,10 @@ module Jetpants
     def merge_shards_cleanup
       shards_to_merge = ask_merge_shards
       combined_shard = shards_to_merge.first.combined_shard
-      combined_shard.master.disable_read_only!
+      combined_shard.master.stop_replication
       combined_shard.master.disable_replication!
+      aggregator = combined_shard.master.master
+      aggregator.remove_all_nodes!
       shards_to_merge.map(&:decomission!)
     end
 

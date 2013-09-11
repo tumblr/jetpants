@@ -104,6 +104,12 @@ module Jetpants
       @aggregating_node_list.delete(node)
     end
 
+    def remove_all_nodes!
+      aggregating_nodes.each do |node|
+        remove_aggregate_node! node
+      end
+    end
+
     def change_master_to
       # we don't use change_master_to on aggregate nodes, use add_node_to_aggregate
       raise "Please use add_node_to_aggregate on aggregator nodes" if aggregator?
