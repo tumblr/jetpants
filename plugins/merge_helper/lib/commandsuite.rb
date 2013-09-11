@@ -68,8 +68,6 @@ module Jetpants
       shards_to_merge.map(&:prepare_for_merged_writes)
       combined_shard.state = :ready
       combined_shard.sync_config
-      combined_shard.master.disable_read_only!
-      combined_shard.master.disable_replication!
       Jetpants.topology.write_config
     end
 
@@ -77,6 +75,9 @@ module Jetpants
     desc 'merge_shards_cleanup', 'Share merge step #4 of 4: Clean up the old shards and aggregator node'
     def merge_shards_cleanup
       shards_to_merge = ask_merge_shards
+      combined_shard = shards_to_merge.first.combined_shard
+      combined_shard.master.disable_read_only!
+      combined_shard.master.disable_replication!
       shards_to_merge.map(&:decomission!)
     end
 
