@@ -30,7 +30,7 @@ module Jetpants
       aggregate_shard = Shard.new(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_shard_master, :initializing)
       Jetpants.topology.pools << aggregate_shard 
 
-      aggregate_node.start_all_slaves
+      aggregate_node.resume_all_replication
 
       raise "There was an error initializing aggregate replication to some nodes, please verify all master" unless aggregate_node.all_replication_running?
       raise "Count of aggregating nodes does not equal count of shards being merged" unless aggregate_node.aggregating_nodes.count == shards_to_merge.count
