@@ -44,8 +44,6 @@ module Jetpants
       aggregate_shard_master.catch_up_to_master
       aggregate_shard_master.pause_replication
 
-      aggregate_shard_master.pool = aggregate_shard
-
       # build up the rest of the new shard
       aggregate_shard_master.enslave! spares_for_aggregate_shard
       aggregate_shard_master.disable_read_only!
