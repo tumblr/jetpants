@@ -43,13 +43,13 @@ module Jetpants
       aggregate_shard_master.start_replication
       aggregate_shard_master.catch_up_to_master
       aggregate_shard_master.pause_replication
+      aggregate_shard.state = :initialized
 
       # build up the rest of the new shard
       aggregate_shard_master.enslave! spares_for_aggregate_shard
       aggregate_shard_master.disable_read_only!
 
       # the initializing state prevents the shard config from being synched to collins
-      aggregate_shard.state = :initialized
       aggregate_shard.sync_configuration
     end
 
@@ -68,7 +68,7 @@ module Jetpants
       combined_shard = shards_to_merge.first.combined_shard
       shards_to_merge.map(&:prepare_for_merged_writes)
       combined_shard.state = :ready
-      combined_shard.sync_config
+      combined_shard.sync_configuration
       Jetpants.topology.write_config
     end
 
@@ -77,10 +77,12 @@ module Jetpants
     def merge_shards_cleanup
       shards_to_merge = ask_merge_shards
       combined_shard = shards_to_merge.first.combined_shard
-      aggregator = combined_shard.master.master
-      raise "Unexpected replication toplogy! Cannot find aggregator instance!" unless aggregator.aggregator?
-      aggregator.pause_all_replication
-      aggregator.remove_all_nodes!
+      aggregator_host = combined_shard.master.master
+      raise "Unexpected replication toplogy! Cannot find aggregator instance!" unless aggregator_host.aggregator?
+      # currently there isn't a good way to automatically get aggregator objects back from normal topology traversal
+      aggregator_instance = Aggregator.new(aggregator_host.ip)
+      aggregator_instance.pause_all_replication
+      aggregator_instance.remove_all_nodes!
       combined_shard.master.stop_replication
       combined_shard.master.disable_replication!
       shards_to_merge.map(&:decomission!)
