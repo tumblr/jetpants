@@ -48,6 +48,7 @@ module Jetpants
       aggregate_shard_master.enslave! spares_for_aggregate_shard
       aggregate_shard_master.disable_read_only!
 
+      # the initializing state prevents the shard config from being synched to collins
       aggregate_shard.state = :initialized
       aggregate_shard.sync_configuration
     end
