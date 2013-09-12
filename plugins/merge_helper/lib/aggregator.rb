@@ -101,7 +101,7 @@ module Jetpants
       output mysql_root_cmd "CHANGE MASTER '#{node.pool}' TO MASTER_USER='test'; RESET SLAVE '#{node.pool}' ALL"
       node.slaves.delete(self) rescue nil
       @replication_states[node] = nil
-      @aggregating_node_list.delete(node)
+      @aggregating_node_list.select!{ |n| n != node }
     end
 
     def remove_all_nodes!
@@ -190,7 +190,7 @@ module Jetpants
       raise "Not performing aggregate replication for #{node} (#{node.pool})" unless aggregating_for? node
       status = aggregate_slave_status(node)
       file, pos = status[:relay_master_log_file], status[:exec_master_log_pos].to_i
-      output "Has executed through master's binlog coordinates of (#{file}, #{pos})." if display_info
+      output "Has executed through master (#{node})'s binlog coordinates of (#{file}, #{pos})." if display_info
       [file, pos]
     end
 
