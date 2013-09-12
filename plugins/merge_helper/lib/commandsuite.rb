@@ -90,9 +90,9 @@ module Jetpants
 
     no_tasks do
       def ask_merge_shards
-        shards_to_merge = shards.select{ |shard| !shard.combined_shard.nil? }
+        shards_to_merge = Jetpants.shards.select{ |shard| !shard.combined_shard.nil? }
         shards_str = shards_to_merge.join(', ')
-        answer = ask "Detected shards to merge as #{shard_str}, proceed (enter YES in all caps if so)?"
+        answer = ask "Detected shards to merge as #{shards_str}, proceed (enter YES in all caps if so)?"
         raise "Aborting on user input" unless answer == "YES"
 
         shards_to_merge
