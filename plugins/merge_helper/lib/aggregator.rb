@@ -105,7 +105,8 @@ module Jetpants
     end
 
     def remove_all_nodes!
-      aggregating_nodes.each do |node|
+      nodes = aggregating_nodes.clone
+      nodes.each do |node|
         remove_aggregate_node! node
       end
     end
