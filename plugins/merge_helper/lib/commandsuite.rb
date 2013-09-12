@@ -48,6 +48,7 @@ module Jetpants
       aggregate_shard_master.enslave! spares_for_aggregate_shard
       aggregate_shard_master.disable_read_only!
 
+      aggregate_shard.state = :initialized
       aggregate_shard.sync_configuration
     end
 
@@ -76,6 +77,7 @@ module Jetpants
       shards_to_merge = ask_merge_shards
       combined_shard = shards_to_merge.first.combined_shard
       aggregator = combined_shard.master.master
+      raise "Unexpected replication toplogy! Cannot find aggregator instance!" unless aggregator.aggregator?
       aggregator.pause_all_replication
       aggregator.remove_all_nodes!
       combined_shard.master.stop_replication

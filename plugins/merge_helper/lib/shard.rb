@@ -207,7 +207,7 @@ module Jetpants
         && shard.max_id.to_i >= @max_id.to_i \
         && shard.max_id != 'INFINITY' \
         && @max_id != 'INFINITY' \
-        && shard.state == :initializing \
+        && shard.state == :initialized \
         && shard != self
       )}.first
     end
