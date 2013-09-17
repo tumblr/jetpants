@@ -10,6 +10,7 @@ module Jetpants
     method_option :database, :desc => 'Database to run the alter table on'
     method_option :table, :desc => 'Table to run the alter table on'
     method_option :all_shards, :desc => 'To run on all the shards', :type => :boolean
+    method_option :no_check_plan, :desc => 'Do not check the query execution plan', :type => :boolean
     def alter_table
       unless options[:all_shards]
         pool_name = options[:pool] || ask('Please enter a name of a pool: ')
@@ -22,9 +23,9 @@ module Jetpants
       alter = options[:alter] || ask('Please enter a alter table statment (eg ADD COLUMN c1 INT): ')
 
       if options[:all_shards]
-        Jetpants.topology.alter_table_shards(database, table, alter, options[:dry_run])
+        Jetpants.topology.alter_table_shards(database, table, alter, options[:dry_run], options[:no_check_plan])
       else
-        unless pool.alter_table(database, table, alter, options[:dry_run])
+        unless pool.alter_table(database, table, alter, options[:dry_run], false, options[:no_check_plan])
           print "check for errors during online schema change\n"
         end
       end
