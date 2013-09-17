@@ -19,38 +19,41 @@ module Jetpants
       aggregate_node = Aggregator.new(aggregate_node_ip)
       raise "Invalide aggregate node!" unless aggregate_node.aggregator?
 
-      # claim nodes for the new shard
+      # claim node for the new shard master
       spare_count = Jetpants.standby_slaves_per_pool + 1;
-      spares_for_aggregate_shard = Jetpants.topology.claim_spares(spare_count, role: :standby_slave, like: shards_to_merge.first.master)
-      raise "Not enough spares available!" unless spares_for_aggregate_shard.count == spare_count
-      aggregate_shard_master = spares_for_aggregate_shard.pop
+      raise "Not enough spares available!" unless Jetpants.count_spares(like: shards_to_merge.first.master) >= spare_count
+      # claim the slaves further along in the process
+      aggregate_shard_master = Jetpants.topology.claim_spare(1, role: :master, like: shards_to_merge.first.master)
 
       Shard.set_up_aggregate_node(shards_to_merge, aggregate_node, aggregate_shard_master)
 
-      aggregate_shard = Shard.new(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_shard_master, :initializing)
-      Jetpants.topology.pools << aggregate_shard 
-
       aggregate_node.resume_all_replication
 
-      raise "There was an error initializing aggregate replication to some nodes, please verify all master" unless aggregate_node.all_replication_running?
+      raise "There was an error initializing aggregate replication to some nodes, please verify all masters" unless aggregate_node.all_replication_running?
       raise "Count of aggregating nodes does not equal count of shards being merged" unless aggregate_node.aggregating_nodes.count == shards_to_merge.count
+
+      aggregate_shard_master.start_replication
 
       # catch aggregate node up to data sources
       aggregate_node.aggregating_nodes.concurrent_each do |shard_slave|
         aggregate_node.aggregate_catch_up_to_master shard_slave
       end
 
-      aggregate_shard_master.start_replication
+      aggregate_shard = Shard.new(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_shard_master, :initializing)
+      Jetpants.topology.pools << aggregate_shard 
+
       aggregate_shard_master.catch_up_to_master
-      aggregate_shard_master.pause_replication
-      aggregate_shard.state = :initialized
 
       # build up the rest of the new shard
+      spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: aggregate_shard_master)
       aggregate_shard_master.enslave! spares_for_aggregate_shard
+      spares_for_aggregate_shard.concurrent_each(&:start_replication)
+      spares_for_aggregate_shard.concurrent_each(&:catch_up_to_master)
+      aggregate_shard_master.catch_up_to_master
       aggregate_shard_master.disable_read_only!
 
-      # the initializing state prevents the shard config from being synched to collins
-      aggregate_shard.sync_configuration
+      # there is an implicit sync config here if you're using jetpants_collins
+      aggregate_shard.state = :initialized
     end
 
     # regenerate config and switch reads to new shard's master

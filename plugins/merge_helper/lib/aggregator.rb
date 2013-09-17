@@ -219,7 +219,7 @@ module Jetpants
         if lag == 0
           times_at_zero += 1
           if times_at_zero >= threshold
-            output "Caught up to master."
+            output "Caught up to master \"#{node.pool}\" (#{node})."
             return true
           end
           sleep poll_frequency
@@ -228,13 +228,13 @@ module Jetpants
           sleep 1
           raise "Unable to restart replication" if aggregate_seconds_behind_master(node).nil?
         else
-          output "Currently #{lag} seconds behind master."
+          output "Currently #{lag} seconds behind master \"#{node.pool}\" (#{node})."
           times_at_zero = 0
           extra_sleep_time = (lag > 30000 ? 300 : (aggregate_seconds_behind_master(node) / 100).ceil)
           sleep poll_frequency + extra_sleep_time
         end
       end
-      raise "This instance did not catch up to its aggregate data source \"#{node.pool}\" within #{timeout} seconds"
+      raise "This instance did not catch up to its aggregate data source \"#{node.pool}\" (#{node}) within #{timeout} seconds"
     end
 
     def slave_status(*args)
@@ -321,7 +321,7 @@ module Jetpants
         aggregating_nodes.concurrent_each do |node|
           counts = tables.limited_concurrent_map(8) { |table|
             rows = node.query_return_first_value("SELECT count(*) FROM #{table}")
-            output "#{node} - #{table} : #{rows}"
+            node.output "#{rows}", table
             [ table, rows ]
           }
           node_counts[node] = Hash[counts]
@@ -330,7 +330,7 @@ module Jetpants
         # gather counts for aggregate node
         aggregate_counts = tables.limited_concurrent_map(8) { |table|
           rows = self.query_return_first_value("SELECT count(*) FROM #{table}")
-          output "#{table} : #{rows}"
+          output "#{rows}", table
           [ table, rows ]
         }
         aggregate_counts = Hash[aggregate_counts]

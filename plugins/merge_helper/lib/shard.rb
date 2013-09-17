@@ -58,7 +58,7 @@ module Jetpants
       filter = BloomFilter.new size: max_size, error_rate: 0.001
       curr_val = min_val
 
-      puts "Generating filter from #{source_shard} from values #{min_val}-#{max_val}"
+      source_db.output "Generating filter from #{source_shard} from values #{min_val}-#{max_val}"
       while curr_val < max_val do
         vals = source_db.query_return_array("SELECT #{column} FROM #{table} WHERE #{column} > #{curr_val} LIMIT #{chunk_size}").map{ |row| row.values.first }
         vals.each{ |val| filter.insert val }
@@ -70,7 +70,7 @@ module Jetpants
       possible_dupes = []
       curr_val = min_val
 
-      puts "Searching for duplicates in #{comparison_shard} from values #{min_val}-#{max_val}"
+      comparison_db.output "Searching for duplicates in #{comparison_shard} from values #{min_val}-#{max_val}"
       while curr_val < max_val do
         vals = comparison_db.query_return_array("SELECT #{column} FROM #{table} WHERE #{column} > #{curr_val} LIMIT #{chunk_size}").map{ |row| row.values.first }
         vals.each{ |val| possible_dupes << val if filter.include? val }
@@ -78,9 +78,9 @@ module Jetpants
       end
 
       if possible_dupes.empty?
-        puts "There were no duplicates"
+        source_db.output "There were no duplicates"
       else
-        puts "There are #{possible_dupes.count} potential duplicates"
+        source_db.output "There are #{possible_dupes.count} potential duplicates"
       end
 
       possible_dupes
