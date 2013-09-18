@@ -91,6 +91,9 @@ module Jetpants
       aggregator_instance.remove_all_nodes!
       combined_shard.master.stop_replication
       combined_shard.master.disable_replication!
+      shards_to_merge.each do |shard|
+        shard.master.enable_read_only!
+      end
       shards_to_merge.map(&:decomission!)
     end
 
@@ -122,11 +125,6 @@ module Jetpants
         aggregator_instance.aggregating_nodes.each do |shard_slave|
           raise "Aggregator replication source #{shard_slave} (#{shard_slave.pool}) not in list of shard slaves!" unless source_slaves.inclue? shard_slave
         end
-      end
-    end
-  end
-end
-
       end
     end
   end
