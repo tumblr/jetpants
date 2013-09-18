@@ -60,6 +60,7 @@ module Jetpants
     desc 'merge_shards_reads', 'Share merge step #2 of 4: Switch reads to the new merged master'
     def merge_shards_reads
       shards_to_merge = ask_merge_shards
+      validate_replication_stream shards_to_merge
       shards_to_merge.map(&:prepare_for_merged_reads)
       Jetpants.topology.write_config
     end
@@ -68,6 +69,7 @@ module Jetpants
     desc 'merge_shards_writes', 'Share merge step #3 of 4: Switch writes to the new merged master'
     def merge_shards_writes
       shards_to_merge = ask_merge_shards
+      validate_replication_stream shards_to_merge
       combined_shard = shards_to_merge.first.combined_shard
       shards_to_merge.map(&:prepare_for_merged_writes)
       combined_shard.state = :ready
@@ -79,6 +81,7 @@ module Jetpants
     desc 'merge_shards_cleanup', 'Share merge step #4 of 4: Clean up the old shards and aggregator node'
     def merge_shards_cleanup
       shards_to_merge = ask_merge_shards
+      validate_replication_stream shards_to_merge
       combined_shard = shards_to_merge.first.combined_shard
       aggregator_host = combined_shard.master.master
       raise "Unexpected replication toplogy! Cannot find aggregator instance!" unless aggregator_host.aggregator?
@@ -99,6 +102,31 @@ module Jetpants
         raise "Aborting on user input" unless answer == "YES"
 
         shards_to_merge
+      end
+
+      def validate_replication_stream shards
+        source_slaves = shards.map(&:slaves).flatten
+        shards.each do |shard|
+          shard.slaves.each do |slave|
+            raise "Replication not running for #{slave} in #{slave.pool}!" unless slave.replicating?
+          end
+        end
+        combined_shard = shards.last.combined_shard
+        combined_shard.slaves.each do |slave|
+          raise "Replication not running for #{slave} in #{slave.pool}!" unless slave.replicating?
+        end
+        aggregator_host = combined_shard.master.master
+        aggregator_instance = Aggregator.new(aggregator_host.ip)
+        raise "Unexpected replication toplogy! Cannot find aggregator instance!" unless aggregator_host.aggregator?
+        raise "Aggregator instance not replicating all data sources!" unless aggregator_instance.all_replication_running?
+        aggregator_instance.aggregating_nodes.each do |shard_slave|
+          raise "Aggregator replication source #{shard_slave} (#{shard_slave.pool}) not in list of shard slaves!" unless source_slaves.inclue? shard_slave
+        end
+      end
+    end
+  end
+end
+
       end
     end
   end
