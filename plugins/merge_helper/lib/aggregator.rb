@@ -308,7 +308,7 @@ module Jetpants
     # on an aggregating server and its data sources
     # WARNING! This will pause replication on the nodes this machine aggregates from
     # And perform expensive rowcount operations on them
-    def validate_aggregate_row_counts(restart_monitoring = false, tables = false)
+    def validate_aggregate_row_counts(restart_monitoring = true, tables = false)
       tables = Table.from_config 'sharded_tables' unless tables
       aggregating_nodes.concurrent_each do |node|
         node.disable_monitoring
