@@ -97,6 +97,12 @@ module Jetpants
       shards_to_merge.map(&:decomission!)
     end
 
+    desc 'validate_merge_replication', 'Validate replication streams for the nodes involved with a merge'
+    def validate_merge_replication
+      shards_to_merge = ask_merge_shards
+      validate_replication_stream shards_to_merge
+    end
+
     no_tasks do
       def ask_merge_shards
         shards_to_merge = Jetpants.shards.select{ |shard| !shard.combined_shard.nil? }
