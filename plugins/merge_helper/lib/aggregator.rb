@@ -130,11 +130,12 @@ module Jetpants
     def aggregate_pause_replication(node)
       raise "Attempting to pause aggregate replication from an invalid node" unless node
       raise "Attempting to pause aggregate replication for a node that is not currently being aggregated" unless aggregating_for? node
-      aggregate_repl_binlog_coordinates(node, true)
       if @replication_states[node] == :paused
         output "Aggregate replication was already paused."
+        aggregate_repl_binlog_coordinates(node, true)
       else
         output mysql_root_cmd "STOP SLAVE '#{node.pool}'"
+        aggregate_repl_binlog_coordinates(node, true)
         @replication_states[node] = :paused
       end
       @repl_paused = !any_replication_running?
