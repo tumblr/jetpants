@@ -120,11 +120,13 @@ module Jetpants
         shards.each do |shard|
           shard.slaves.each do |slave|
             raise "Replication not running for #{slave} in #{slave.pool}!" unless slave.replicating?
+            slave.output "Replication running for #{shard}"
           end
         end
         combined_shard = shards.last.combined_shard
         combined_shard.slaves.each do |slave|
           raise "Replication not running for #{slave} in #{slave.pool}!" unless slave.replicating?
+          slave.output "Replication running for #{combined_shard}"
         end
         aggregator_host = combined_shard.master.master
         aggregator_instance = Aggregator.new(aggregator_host.ip)
@@ -133,6 +135,7 @@ module Jetpants
         aggregator_instance.aggregating_nodes.each do |shard_slave|
           raise "Aggregator replication source #{shard_slave} (#{shard_slave.pool}) not in list of shard slaves!" unless source_slaves.include? shard_slave
         end
+        aggregator_instance.output "All replication streams running on merge node"
       end
     end
   end
