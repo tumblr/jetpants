@@ -44,7 +44,11 @@ module Jetpants
           aggregate_pause_replication(aggregate_node)
           @replication_states[aggregate_node] = :paused
         else
-          @replication_states[aggregate_node] = :running
+          if status[:slave_io_running].downcase == 'yes'
+            @replication_states[aggregate_node] = :running
+          else
+            @replication_states[aggregate_node] = :paused
+          end
         end
       end 
     end
