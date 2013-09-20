@@ -169,6 +169,7 @@ module Jetpants
           overwrite: true
         )
         # clean up files on origin slave
+        slave.output "Cleaning up export files..."
         slave.pool.table_export_filenames(full_path = true, tables).map { |file|
           slave.ssh_cmd("rm -f #{file}")
         }

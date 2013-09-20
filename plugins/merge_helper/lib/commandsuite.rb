@@ -43,6 +43,8 @@ module Jetpants
 
       aggregate_shard = Shard.new(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_shard_master, :initializing)
       Jetpants.topology.pools << aggregate_shard 
+      # ensure a record is present in collins
+      aggregate_shard.sync_configuration
 
       # build up the rest of the new shard
       spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: aggregate_shard_master)
