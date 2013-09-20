@@ -129,7 +129,7 @@ module Jetpants
         raise "Unexpected replication toplogy! Cannot find aggregator instance!" unless aggregator_host.aggregator?
         raise "Aggregator instance not replicating all data sources!" unless aggregator_instance.all_replication_running?
         aggregator_instance.aggregating_nodes.each do |shard_slave|
-          raise "Aggregator replication source #{shard_slave} (#{shard_slave.pool}) not in list of shard slaves!" unless source_slaves.inclue? shard_slave
+          raise "Aggregator replication source #{shard_slave} (#{shard_slave.pool}) not in list of shard slaves!" unless source_slaves.include? shard_slave
         end
       end
     end
