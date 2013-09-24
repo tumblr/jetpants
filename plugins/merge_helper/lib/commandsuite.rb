@@ -91,7 +91,6 @@ module Jetpants
       aggregator_instance = Aggregator.new(aggregator_host.ip)
       aggregator_instance.pause_all_replication
       aggregator_instance.remove_all_nodes!
-      combined_shard.master.stop_replication
       combined_shard.master.disable_replication!
       shards_to_merge.each do |shard|
         shard.master.enable_read_only!
@@ -128,6 +127,8 @@ module Jetpants
           raise "Replication not running for #{slave} in #{slave.pool}!" unless slave.replicating?
           slave.output "Replication running for #{combined_shard}"
         end
+        raise "Replication not running for #{combined_shard.master}!" unless combined_shard.master.replicating?
+        combined_shard.master.output "Replication running for #{combined_shard} master"
         aggregator_host = combined_shard.master.master
         aggregator_instance = Aggregator.new(aggregator_host.ip)
         raise "Unexpected replication toplogy! Cannot find aggregator instance!" unless aggregator_host.aggregator?
