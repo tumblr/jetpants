@@ -13,15 +13,10 @@ module Jetpants
       @master = false
     end
 
-    def after_probe
+    def probe_master
       return unless running?
       raise "Attempting to probe a database without aggregation capabilities as an aggregate node" unless aggregator?
       probe_aggregate_nodes
-    end
-
-    def probe_master
-      # override this here to avoid a recursion loop when probing
-      # shouldn't be used, instead use aggregate methods
     end
 
     def replication_states

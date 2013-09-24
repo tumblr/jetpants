@@ -56,11 +56,13 @@ module Jetpants
     # case you will need to force a probe so that Jetpants learns about the
     # change.
     def probe(force=false)
-      return if probed? && !force
-      output "Probing MySQL installation"
-      probe_running
-      probe_master
-      probe_slaves
+      @probe_mutex.synchronize {
+        return if probed? && !force
+        output "Probing MySQL installation (locked)"
+        probe_running
+        probe_master
+        probe_slaves
+      }
       self
     end
     
@@ -346,7 +348,6 @@ module Jetpants
     def probe_slaves
       return unless @running # leaves @slaves as nil to indicate unknown state
       @slaves = []
-      slaves_mutex = Mutex.new
       processes = mysql_root_cmd("SHOW PROCESSLIST", :terminator => ';').split("\n")
       
       # We have to de-dupe the output, since it's possible in weird edge cases for
@@ -361,7 +362,7 @@ module Jetpants
       ips.keys.concurrent_each do |ip|
         db = ip.to_db
         db.probe
-        slaves_mutex.synchronize {@slaves << db if db.master == self}
+        @slaves << db if db.master == self
       end
     end
     
