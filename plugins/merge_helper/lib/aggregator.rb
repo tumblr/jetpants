@@ -334,7 +334,7 @@ module Jetpants
         slave = slaves.last
         aggregate_counts = tables.limited_concurrent_map(8) { |table|
           rows = slave.query_return_first_value("SELECT count(*) FROM #{table}")
-          slave "#{rows}", table
+          slave.output "#{rows}", table
           [ table, rows ]
         }
         aggregate_counts = Hash[aggregate_counts]
