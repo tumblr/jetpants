@@ -59,6 +59,7 @@ module Jetpants
     end
 
     # Similar to operations that change master
+    # This method uses the aggregating node's pool as the connection name
     def add_node_to_aggregate(node, option_hash = {})
       raise "Attempting to add a node to aggregate to a non-aggregation node" unless aggregator?
       raise "Attempting to add an invalide aggregation source" unless node
@@ -310,7 +311,8 @@ module Jetpants
     # And perform expensive rowcount operations on them
     def validate_aggregate_row_counts(restart_monitoring = true, tables = false)
       tables = Table.from_config 'sharded_tables' unless tables
-      aggregating_nodes.concurrent_each do |node|
+      query_nodes = [ slaves, aggregating_nodes ].flatten
+      query_nodes.concurrent_each do |node|
         node.disable_monitoring
         node.stop_query_killer
         node.pause_replication
@@ -327,10 +329,12 @@ module Jetpants
           node_counts[node] = Hash[counts]
         end
 
-        # gather counts for aggregate node
+        # gather counts from slave
+        # this should be the new shard master
+        slave = slaves.last
         aggregate_counts = tables.limited_concurrent_map(8) { |table|
-          rows = self.query_return_first_value("SELECT count(*) FROM #{table}")
-          output "#{rows}", table
+          rows = slave.query_return_first_value("SELECT count(*) FROM #{table}")
+          slave "#{rows}", table
           [ table, rows ]
         }
         aggregate_counts = Hash[aggregate_counts]
@@ -354,7 +358,7 @@ module Jetpants
         end
       ensure
         if restart_monitoring
-          aggregating_nodes.concurrent_each do |node|
+          query_nodes.concurrent_each do |node|
             node.start_replication
             node.catch_up_to_master
             node.start_query_killer
