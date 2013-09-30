@@ -168,7 +168,8 @@ module Jetpants
     # some replication streams in a paused state
     def resume_all_replication
       raise "Resuming replication with no aggregating nodes" if aggregating_nodes.empty?
-      output "Resuming replication for #{aggregating_nodes.join(", ")}"
+      paused_nodes = replication_states.select{|node,state| state == :paused}.keys.map(&:pool)
+      output "Resuming replication for #{paused_nodes.join(", ")}"
       output mysql_root_cmd "START ALL SLAVES"
       @replication_states.keys.each do |key|
         @replication_states[key] = :running
