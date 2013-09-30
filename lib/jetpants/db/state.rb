@@ -58,7 +58,7 @@ module Jetpants
     def probe(force=false)
       @probe_mutex.synchronize {
         return if probed? && !force
-        output "Probing MySQL installation (locked)"
+        output "Probing MySQL installation"
         probe_running
         probe_master
         probe_slaves
