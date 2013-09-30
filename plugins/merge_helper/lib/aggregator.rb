@@ -117,7 +117,7 @@ module Jetpants
     end
 
     def pause_replication(*args)
-      if args
+      unless args.empty?
         aggregate_pause_replication(*args)
       else
         pause_all_replication
@@ -149,7 +149,7 @@ module Jetpants
     end
 
     def resume_replication(*args)
-      if args
+      unless args.empty?
         aggregate_resume_replication(*args)
       else
         resume_all_replication
@@ -239,7 +239,7 @@ module Jetpants
     end
 
     def slave_status(*args)
-      if args
+      unless args.empty?
         aggregate_slave_status(*args)
       else
         all_slave_statuses
