@@ -47,7 +47,7 @@ module Jetpants
       aggregate_shard.sync_configuration
 
       # build up the rest of the new shard
-      spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: aggregate_shard_master)
+      spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: aggregate_node.aggregating_nodes.first)
       aggregate_shard_master.enslave! spares_for_aggregate_shard
       spares_for_aggregate_shard.concurrent_each(&:start_replication)
       spares_for_aggregate_shard.concurrent_each(&:catch_up_to_master)
