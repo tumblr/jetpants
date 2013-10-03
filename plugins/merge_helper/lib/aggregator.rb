@@ -313,7 +313,7 @@ module Jetpants
     def validate_aggregate_row_counts(restart_monitoring = true, tables = false)
       tables = Table.from_config 'sharded_tables' unless tables
       query_nodes = [ slaves, aggregating_nodes ].flatten
-      query_nodes.concurrent_each do |node|
+      aggregating_nodes.concurrent_each do |node|
         node.disable_monitoring
         node.stop_query_killer
         node.pause_replication
@@ -328,6 +328,14 @@ module Jetpants
             [ table, rows ]
           }
           node_counts[node] = Hash[counts]
+        end
+
+        # wait until here to pause replication
+        # to make sure all statements drain through
+        slaves.concurrent_each do |node|
+          node.disable_monitoring
+          node.stop_query_killer
+          node.pause_replication
         end
 
         # gather counts from slave
