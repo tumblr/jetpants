@@ -108,5 +108,16 @@ module Jetpants
     def disable_monitoring(*services)
     end
     
+    # No built-in effect. Use when performing actions which will cause the
+    # server to go offline or become unresponsive, as an escalated enable_monitoring
+    # Plugins can override and/or implement before/after hooks
+    def set_downtime(hours)
+    end
+
+    # No built-in effect. Use when performing actions which will cause the
+    # server to go offline or become unresponsive, as an escalated disable_monitoring
+    # Plugins can override and/or implement before/after hooks
+    def cancel_downtime
+    end
   end
 end
