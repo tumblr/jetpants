@@ -147,6 +147,7 @@ module Jetpants
       slaves_to_replicate.concurrent_map { |slave|
         # these get cleaned up further down after replication is set up
         slave.disable_monitoring
+        slave.set_downtime 6
         slave.stop_query_killer
         slave.pause_replication
 
@@ -178,6 +179,7 @@ module Jetpants
         slave.catch_up_to_master
         slave.enable_monitoring
         slave.start_query_killer
+        slave.cancel_downtime
       }
 
       # import data in a separate loop, as we want to leave the origin slaves
