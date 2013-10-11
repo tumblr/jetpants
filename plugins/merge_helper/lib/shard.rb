@@ -135,6 +135,7 @@ module Jetpants
 
       # grab slave list to export data
       slaves_to_replicate = shards_to_merge.map { |shard| shard.standby_slaves.last }
+      slaves_to_replicate.concurrent_map(&:prepare_for_export)
 
       # sharded table list to ship
       tables = Plugin::MergeHelper.tables_to_merge
@@ -169,10 +170,7 @@ module Jetpants
           overwrite: true
         )
         # clean up files on origin slave
-        slave.output "Cleaning up export files..."
-        slave.pool.table_export_filenames(full_path = true, tables).map { |file|
-          slave.ssh_cmd("rm -f #{file}")
-        }
+        slave.cleanup_export tables
         # restart origin slave replication
         slave.resume_replication
         slave.catch_up_to_master

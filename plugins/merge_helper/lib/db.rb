@@ -29,5 +29,17 @@ module Jetpants
     def inject_counts(counts)
       @counts = counts
     end
+
+    # hook to perform any preparation for data export
+    def prepare_for_export(tables = [])
+    end
+
+    # clean up exported files etc.
+    def cleanup_export(tables = [])
+      output "Cleaning up export files..."
+      @pool.table_export_filenames(full_path = true, tables).map { |file|
+        ssh_cmd("rm -f #{file}")
+      }
+    end
   end
 end
