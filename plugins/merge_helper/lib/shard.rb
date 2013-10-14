@@ -179,7 +179,7 @@ module Jetpants
         slave.catch_up_to_master
         slave.enable_monitoring
         slave.start_query_killer
-        slave.cancel_downtime
+        slave.cancel_downtime rescue nil
       }
 
       # import data in a separate loop, as we want to leave the origin slaves
