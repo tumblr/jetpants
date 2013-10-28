@@ -362,7 +362,7 @@ module Jetpants
         total_node_counts.each do |table,count|
           if total_node_counts[table] != aggregate_counts[table]
             valid = false
-            output "Counts for #{table} did not match.  #{aggregate_counts[table]} on aggregator and #{total_node_counts[table]} on nodes"
+            output "Counts for #{table} did not match.  #{aggregate_counts[table]} on combined node and #{total_node_counts[table]} on source nodes"
           end
         end
       ensure
