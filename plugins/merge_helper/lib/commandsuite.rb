@@ -61,8 +61,18 @@ module Jetpants
     # regenerate config and switch reads to new shard's master
     desc 'merge_shards_reads', 'Share merge step #2 of 4: Switch reads to the new merged master'
     def merge_shards_reads
+      # obtain relevant shards
       shards_to_merge = ask_merge_shards
+      combined_shard = shards_to_merge.first.combined_shard
+
+      # validate topology and state
+      raise "Combined shard #{combined_shard} in unexpected state #{combined_shard.state}, should be 'initialized'" unless combined_shard.state == :initialized
+      shards_to_merge.each do |shard|
+        raise "Shard to merge #{shard} in unexpected state #{shard.state}, should be 'ready'" unless shard.state == :ready
+      end
       validate_replication_stream shards_to_merge
+
+      # manipulate state for reads and write config
       shards_to_merge.map(&:prepare_for_merged_reads)
       Jetpants.topology.write_config
     end
@@ -70,9 +80,18 @@ module Jetpants
     # regenerate config and switch writes to new shard's master
     desc 'merge_shards_writes', 'Share merge step #3 of 4: Switch writes to the new merged master'
     def merge_shards_writes
+      # obtain relevant shards
       shards_to_merge = ask_merge_shards
-      validate_replication_stream shards_to_merge
       combined_shard = shards_to_merge.first.combined_shard
+
+      # perform topology/replication and state validation
+      validate_replication_stream shards_to_merge
+      raise "Combined shard #{combined_shard} in unexpected state #{combined_shard.state}, should be 'initialized'" unless combined_shard.state == :initialized
+      shards_to_merge.each do |shard|
+        raise "Shard to merge #{shard} in unexpected state #{shard.state}, should be 'merging'" unless shard.state == :merging
+      end
+
+      # perform state manipulation for writes and write config
       shards_to_merge.map(&:prepare_for_merged_writes)
       combined_shard.state = :ready
       combined_shard.sync_configuration
@@ -82,12 +101,20 @@ module Jetpants
     # clean up aggregator node and old shards
     desc 'merge_shards_cleanup', 'Share merge step #4 of 4: Clean up the old shards and aggregator node'
     def merge_shards_cleanup
+      # obtain relevant shards
       shards_to_merge = ask_merge_shards
-      validate_replication_stream shards_to_merge
       combined_shard = shards_to_merge.first.combined_shard
+
+      # perform topology and replication validation
+      validate_replication_stream shards_to_merge
+      raise "Combined shard #{combined_shard} in unexpected state #{combined_shard.state}, should be 'ready'" unless combined_shard.state == :ready
+      shards_to_merge.each do |shard|
+        raise "Shard to merge #{shard} in unexpected state #{shard.state}, should be 'deprecated'" unless shard.state == :deprecated
+      end
       aggregator_host = combined_shard.master.master
       raise "Unexpected replication toplogy! Cannot find aggregator instance!" unless aggregator_host.aggregator?
-      # currently there isn't a good way to automatically get aggregator objects back from normal topology traversal
+
+      # tear down aggregate replication and clean up state
       aggregator_instance = Aggregator.new(aggregator_host.ip)
       aggregator_instance.pause_all_replication
       aggregator_instance.remove_all_nodes!
