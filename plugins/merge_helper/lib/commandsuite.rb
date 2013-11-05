@@ -57,6 +57,18 @@ module Jetpants
       # there is an implicit sync config here if you're using jetpants_collins
       aggregate_shard.state = :initialized
     end
+    def self.before_merge_shards
+      reminders(
+        'This process may take several hours. You probably want to run this from a screen session.',
+        'Be especially careful if you are relying on SSH Agent Forwarding for your root key, since this is not screen-friendly.'
+      )
+    end
+    def self.after_merge_shards
+      reminders(
+        'Proceed to next step: jetpants merge_shards_reads'
+      )
+    end
+
 
     # regenerate config and switch reads to new shard's master
     desc 'merge_shards_reads', 'Share merge step #2 of 4: Switch reads to the new merged master'
@@ -76,6 +88,15 @@ module Jetpants
       shards_to_merge.map(&:prepare_for_merged_reads)
       Jetpants.topology.write_config
     end
+    def self.after_merge_shards_reads
+      reminders(
+        'Commit/push the configuration in version control.',
+        'Deploy the configuration to all machines.',
+        'Wait for reads to stop on the old parent masters.',
+        'Proceed to next step: jetpants merge_shards_writes',
+      )
+    end
+
 
     # regenerate config and switch writes to new shard's master
     desc 'merge_shards_writes', 'Share merge step #3 of 4: Switch writes to the new merged master'
@@ -96,6 +117,14 @@ module Jetpants
       combined_shard.state = :ready
       combined_shard.sync_configuration
       Jetpants.topology.write_config
+    end
+    def self.after_merge_shards_writes
+      reminders(
+        'Commit/push the configuration in version control.',
+        'Deploy the configuration to all machines.',
+        'Wait for writes to stop on the old parent masters.',
+        'Proceed to next step: jetpants merge_shards_cleanup',
+      )
     end
 
     # clean up aggregator node and old shards
@@ -123,6 +152,11 @@ module Jetpants
         shard.master.enable_read_only!
       end
       shards_to_merge.map(&:decomission!)
+    end
+    def self.after_merge_shards_cleanup
+      reminders(
+        'Review old nodes for hardware issues before re-using, or simply cancel them.',
+      )
     end
 
     desc 'validate_merge_replication', 'Validate replication streams for the nodes involved with a merge'
