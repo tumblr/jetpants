@@ -1,10 +1,9 @@
 module Jetpants
   class DB
     # Tests against the version of mysql that's running to determine if it is an aggregator node
+    # Override this in a custom plugin to accurately determine whether a node is an aggregator or not
     def aggregator?
-      return @aggregator unless @aggregator.nil?
-      version_info = query_return_array('SHOW VARIABLES LIKE "version"')
-      @aggregator = !version_info.nil? && !version_info.empty? && version_info.first[:Value].downcase.include?("mariadb")
+      false
     end
 
     # Export and ship the table schema to a specified node

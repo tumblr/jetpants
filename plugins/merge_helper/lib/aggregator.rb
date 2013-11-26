@@ -10,9 +10,12 @@ module Jetpants
 
     def initialize(ip, port=3306)
       super
+      # we initialize master here prior to probing state due to the fact that the aggregator
+      # uses a special set of multi-replication-stream functions and we don't track master state
       @master = false
     end
 
+    # override the single master state probe with a probe of all replication sources
     def probe_master
       return unless running?
       raise "Attempting to probe a database without aggregation capabilities as an aggregate node" unless aggregator?
@@ -24,6 +27,7 @@ module Jetpants
       @replication_states
     end
 
+    # uses multi-source replication semantics to build a list of replication sources
     def probe_aggregate_nodes
       @aggregating_node_list = []
       @replication_states = {}
@@ -123,6 +127,7 @@ module Jetpants
         pause_all_replication
       end
     end
+
     def aggregate_pause_replication(node)
       raise "Attempting to pause aggregate replication from an invalid node" unless node
       raise "Attempting to pause aggregate replication for a node that is not currently being aggregated" unless aggregating_for? node
@@ -137,6 +142,7 @@ module Jetpants
       @repl_paused = !any_replication_running?
     end
 
+    # pauses replication from all sources, updating internal state
     def pause_all_replication
       raise "Pausing replication with no aggregating nodes" if aggregating_nodes.empty?
       replication_names = aggregating_nodes.map{|node| node.pool}.join(", ")
@@ -155,6 +161,8 @@ module Jetpants
         resume_all_replication
       end
     end
+
+    # resume replication from all sources, updating internal state
     def aggregate_resume_replication(node)
       raise "Attempting to resume aggregate replication for a node not in aggregation list" unless aggregating_for? node
       aggregate_repl_binlog_coordinates(node, true)
@@ -188,6 +196,7 @@ module Jetpants
     def repl_binlog_coordinates(*args)
       aggregate_repl_binlog_coordinates(*args)
     end
+
     def aggregate_repl_binlog_coordinates(node, display_info=true)
       raise "Not performing aggregate replication for #{node} (#{node.pool})" unless aggregating_for? node
       status = aggregate_slave_status(node)
@@ -199,6 +208,7 @@ module Jetpants
     def seconds_behind_master(*args)
       aggregate_seconds_behind_master(*args)
     end
+
     def aggregate_seconds_behind_master(node)
       raise "Not aggregate replicating #{node} (#{node.pool})" unless aggregating_for? node
       lag = aggregate_slave_status(node)[:seconds_behind_master]
@@ -208,6 +218,7 @@ module Jetpants
     def catch_up_to_master(*args)
       aggregate_catch_up_to_master(*args)
     end
+
     # This is a lot of copypasta, punting on it for now until if/when we integrate more with core
     def aggregate_catch_up_to_master(node, timeout=3600, threshold=3, poll_frequency=5)
       raise "Attempting to catch up aggregate replication for a node which is not in the aggregation list" unless aggregating_for? node
@@ -246,6 +257,7 @@ module Jetpants
         all_slave_statuses
       end
     end
+
     def aggregate_slave_status(node)
       raise "Attempting to retrieve aggregate slave status for an invalid node" unless node
       raise "Attempting to retrieve aggregate slave status for a node which is not being aggregated" unless aggregating_for? node
