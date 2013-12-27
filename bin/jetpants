@@ -222,7 +222,7 @@ module Jetpants
       end
       
       source.start_mysql if ! source.running?
-      error "source (#{source}) is not a standby slave" unless source.is_standby?
+      error "source (#{source}) is not a standby or backup slave" unless (node.is_standby? || node.for_backups?) 
       
       targets.each do |t|
         error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
