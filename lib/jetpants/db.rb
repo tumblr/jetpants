@@ -70,6 +70,9 @@ module Jetpants
       # This is ephemeral, only known to Jetpants if you previously called
       # DB#start_mysql or DB#restart_mysql in this process
       @options = []
+
+      # Mutex used to lock probing state
+      @probe_mutex = Mutex.new
     end
     
     ###### Host methods ########################################################

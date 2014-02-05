@@ -2,7 +2,7 @@ require 'rake'
 
 Gem::Specification.new do |s|
   s.name = "jetpants"
-  s.version = "0.8.3"
+  s.version = "0.8.4"
 
   s.homepage = 'https://github.com/tumblr/jetpants/'
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
@@ -28,4 +28,5 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'highline', '~> 1.6.12'
   s.add_runtime_dependency 'colored', '~> 1.2'
   s.add_runtime_dependency 'collins_client', '~> 0.2.7'
+  s.add_runtime_dependency 'bloom-filter', '~> 0.2.0'
 end
