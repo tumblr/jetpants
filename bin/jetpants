@@ -473,8 +473,8 @@ module Jetpants
       new_last_shard_master.disable_read_only! if new_last_shard_master.running?
       if last_shard.slaves_layout[:standby_slave] > 0
         # Verify spare count again, now that we can actually supply the new master as the :like context
-        raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: new_last_shard_master) >= Jetpants.standby_slaves_per_pool
-        new_last_shard_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: new_last_shard_master)
+        raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: new_last_shard_master) >= last_shard.slaves_layout[:standby_slave]
+        new_last_shard_slaves = Jetpants.topology.claim_spares(last_shard.slaves_layout[:standby_slave], role: :standby_slave, like: new_last_shard_master)
         new_last_shard_slaves.each do |x| 
           x.change_master_to new_last_shard_master
           x.resume_replication

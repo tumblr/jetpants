@@ -74,7 +74,7 @@ module Jetpants
       
       # Before running this task, the pool should already have an extra standby slave,
       # since we're going to be removing the master from the pool.
-      standby_slaves_needed = Jetpants.standby_slaves_per_pool + 1
+      standby_slaves_needed = demoted.pool(true).slaves_layout[:standby_slave] + 1
       error "Only run this task on a pool with 3 standby slaves!" unless demoted.pool(true).standby_slaves.size >= standby_slaves_needed
       
       # Verify that all nodes except the master are running the same version, and

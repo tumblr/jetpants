@@ -4,12 +4,12 @@ module Jetpants
     # master for the other new slaves
     def branched_upgrade_prep
       raise "Shard #{self} in wrong state to perform this action! expected :ready, found #{@state}" unless @state == :ready
-      raise "Not enough standby slaves of this shard!" unless standby_slaves.size >= Jetpants.standby_slaves_per_pool
+      raise "Not enough standby slaves of this shard!" unless standby_slaves.size >= slaves_layout[:standby_slave]
       source = standby_slaves.last
       spares_available = Jetpants.topology.count_spares(role: :standby_slave, like: source, version: Plugin::UpgradeHelper.new_version)
-      raise "Not enough spares available!" unless spares_available >= 1 + Jetpants.standby_slaves_per_pool
+      raise "Not enough spares available!" unless spares_available >= 1 + slaves_layout[:standby_slave]
       
-      targets = Jetpants.topology.claim_spares(1 + Jetpants.standby_slaves_per_pool, role: :standby_slave, like: source, version: Plugin::UpgradeHelper.new_version)
+      targets = Jetpants.topology.claim_spares(1 + slaves_layout[:standby_slave], role: :standby_slave, like: source, version: Plugin::UpgradeHelper.new_version)
       
       # Disable fast shutdown on the source
       source.mysql_root_cmd 'SET GLOBAL innodb_fast_shutdown = 0'
@@ -41,7 +41,7 @@ module Jetpants
       raise "Shard #{self} in wrong state to perform this action! expected :ready, found #{@state}" unless @state == :ready
       future_master = nil
       slaves.each do |s|
-        future_master = s if s.version_cmp(@master) == 1 && s.slaves.size == Jetpants.standby_slaves_per_pool
+        future_master = s if s.version_cmp(@master) == 1 && s.slaves.size == slaves_layout[:standby_slave] + slaves_layout[:backup_slave]
       end
       raise "Shard #{self} does not have correct hierarchical replication setup to proceed" unless future_master
       @master = future_master
