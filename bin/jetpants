@@ -512,13 +512,18 @@ module Jetpants
     end
 
     def backup_per_pool
-      # get spares that are backup slaves
-      ## TODO
-      spares_available Jetpants.topology.count_spares(role: :backup_slave)
-      spares = Jetpants.topology.claim_spares(Jetpants.backup_slaves_per_pool, role: :backup_slave)
+      spares_available = Jetpants.topology.count_spares(role: :backup_slave)
 
-      # find shards that do not have a backup slave
-      need_backup_shards = Jetpants.topology.shards.reject { |shard| shard.backup_slaves.count > 0 }
+      raise "No backup slaves available" if spares_available.empty?
+
+      # find shards that need a backup slave
+      need_backup_shards = Jetpants.topology.shards.reject { |shard| shard.backup_slaves.count >= shard.slaves_layout[:backup_slave] }
+
+      possible_iterations = spares_available.count < need_backup_shards.count ? spares_available.count : need_backup_shards.count
+
+      spares = Jetpants.topology.claim_spares(possible_iterations, role: :backup_slave)
+
+      need_backup_shards.first(possible_iterations)
 
       # loop through and place a backup slave per pool that is without
       need_backup_shards.limited_concurrent_map(5) do |shard|
