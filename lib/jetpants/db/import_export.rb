@@ -334,7 +334,7 @@ module Jetpants
       databases = query_return_array("SHOW DATABASES").map { |row|
         row[:Database]
       }.reject { |s|
-        ['information_schema', 'performance_schema'].include? s
+        Jetpants.mysql_clone_ignore.include? s
       }
       files = (databases + ['ibdata1', app_schema]).uniq
       files << 'ib_lru_dump' if ssh_cmd("test -f #{mysql_directory}/ib_lru_dump 2>/dev/null; echo $?").chomp.to_i == 0
