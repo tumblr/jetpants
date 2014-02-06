@@ -325,8 +325,6 @@ module Jetpants
         destinations[t] = t.mysql_directory
         raise "Over 100 MB of existing MySQL data on target #{t}, aborting copy!" if t.data_set_size > 100000000
       end
-      [self, targets].flatten.concurrent_each {|t| t.stop_query_killer; t.stop_mysql}
-      targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_logfile*"}
       
       # Construct the list of files and dirs to copy. We include ib_lru_dump if present
       # (ie, if using Percona Server with innodb_buffer_pool_restore_at_startup enabled)
@@ -336,6 +334,10 @@ module Jetpants
       }.reject { |s|
         Jetpants.mysql_clone_ignore.include? s
       }
+
+      [self, targets].flatten.concurrent_each {|t| t.stop_query_killer; t.stop_mysql}
+      targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_logfile*"}
+
       files = (databases + ['ibdata1', app_schema]).uniq
       files << 'ib_lru_dump' if ssh_cmd("test -f #{mysql_directory}/ib_lru_dump 2>/dev/null; echo $?").chomp.to_i == 0
       
