@@ -21,6 +21,13 @@ mysql_grant_privs:
     - LOCK TABLES
     - EXECUTE
 
+# Specific schemata may be optionally ignored while cloning.  If this is not
+# overridden it will default to information_schema and performance_schema.
+mysql_clone_ignore:
+    - some_temporary_schema
+    - information_schema
+    - performance_schema
+
 # Define what directory to put exported files in. If you have /var/lib/mysql
 # on an SSD RAID mount and the rest of your OS on a rotational disk mount,
 # it's fine to put the export_location on the rotational disk, which probably

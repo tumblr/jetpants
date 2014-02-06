@@ -331,7 +331,12 @@ module Jetpants
       # Construct the list of files and dirs to copy. We include ib_lru_dump if present
       # (ie, if using Percona Server with innodb_buffer_pool_restore_at_startup enabled)
       # since this will greatly improve warm-up time of the cloned nodes
-      files = ['ibdata1', 'mysql', 'test', app_schema]
+      databases = query_return_array("SHOW DATABASES").map { |row|
+        row[:Database]
+      }.reject { |s|
+        Jetpants.mysql_clone_ignore.include? s
+      }
+      files = (databases + ['ibdata1', app_schema]).uniq
       files << 'ib_lru_dump' if ssh_cmd("test -f #{mysql_directory}/ib_lru_dump 2>/dev/null; echo $?").chomp.to_i == 0
       
       fast_copy_chain(mysql_directory, 
