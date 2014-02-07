@@ -101,6 +101,7 @@ module Jetpants
         
         # Returns a Collins::Client object
         def service
+          tries ||= 1
           return @collins_service if @collins_service
           
           %w(url user password).each do |setting|
@@ -118,6 +119,9 @@ module Jetpants
           }
           @collins_service = Collins::Client.new(config)
         end
+      rescue XXXCHANGEMEXXX => e
+        sleep 5
+        retry unless (tries -= 1).zero?
       end
       
       
@@ -134,6 +138,7 @@ module Jetpants
       # If you pass in an array, returns a hash mapping each of these fields to their values.
       # Hash will also contain an extra field called :asset, storing the Collins::Asset object.
       def collins_get(*field_names)
+        tries ||= 1
         asset = collins_asset
         if field_names.count > 1 || field_names[0].is_a?(Array)
           field_names.flatten!
@@ -152,6 +157,9 @@ module Jetpants
         else
           nil
         end
+      rescue XXXCHANGEMEXXX => e
+        sleep 5
+        retry unless (tries -= 1).zero?
       end
 
       # Pass in a hash mapping field name symbols to values to set
@@ -161,6 +169,7 @@ module Jetpants
       #
       # Alternatively, pass in 2 strings (field_name, value) to set just a single Collins attribute (or status)
       def collins_set(*args)
+        tries ||= 1
         attrs = (args.count == 1 ? args[0] : {args[0] => args[1]})
         asset = attrs[:asset] || collins_asset
         
@@ -233,6 +242,9 @@ module Jetpants
           end
         end
         
+      rescue XXXCHANGEMEXXX => e
+        sleep 5
+        retry unless (tries -= 1).zero?
       end
       
       # Returns a single downcased "status:state" string, useful when trying to compare both fields
