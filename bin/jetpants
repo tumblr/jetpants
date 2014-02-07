@@ -511,15 +511,16 @@ module Jetpants
       )
     end
 
-    def backup_per_pool
+    desc 'backup_per_pool', 'adds a backup slave for every pool that needs it'
+    def rebalance_backup_slaves
       spares_available = Jetpants.topology.count_spares(role: :backup_slave)
 
-      raise "No backup slaves available" if spares_available.empty?
+      raise "No backup slaves available" if spares_available == 0
 
       # find shards that need a backup slave
       need_backup_shards = Jetpants.topology.shards.reject { |shard| shard.backup_slaves.count >= shard.slaves_layout[:backup_slave] }
 
-      possible_iterations = spares_available.count < need_backup_shards.count ? spares_available.count : need_backup_shards.count
+      possible_iterations = spares_available < need_backup_shards.count ? spares_available : need_backup_shards.count
 
       spares = Jetpants.topology.claim_spares(possible_iterations, role: :backup_slave)
 
@@ -530,7 +531,7 @@ module Jetpants
 
         if spares.count > 0
 
-          puts "going to do shard #{shard}"
+          output "going to do shard #{shard}"
 
           source = shard.standby_slaves.last
           source.master.probe if source.master # fail early if there are any replication issues in this pool
