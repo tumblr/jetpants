@@ -157,12 +157,18 @@ module Jetpants
           nil
         end
       rescue SocketError => e
-        sleep backoff
-        # double the backoff up to the maximum delay, or 16 seconds if undefined
-        backoff = [(backoff == 0) ? 1 : backoff << 1,
-                   Jetpants.plugins['jetpants_collins']['max_retry_backoff'] || 16
-                  ].min
-        retry unless (retries -= 1).zero?
+        puts e
+        unless (retries -= 1).zero?
+          puts "Backing off for #{backoff} seconds, then retrying."
+          sleep backoff
+          # double the backoff up to the maximum delay, or 16 seconds if undefined
+          backoff = [(backoff == 0) ? 1 : backoff << 1,
+                     Jetpants.plugins['jetpants_collins']['max_retry_backoff'] || 16
+                    ].min
+          retry
+        else
+          puts "Max retries exceeded.  Not retrying."
+        end
       end
 
       # Pass in a hash mapping field name symbols to values to set
@@ -248,12 +254,18 @@ module Jetpants
         end
         
       rescue SocketError => e
-        sleep backoff
-        # double the backoff up to the maximum delay, or 16 seconds if undefined
-        backoff = [(backoff == 0) ? 1 : backoff << 1,
-                   Jetpants.plugins['jetpants_collins']['max_retry_backoff'] || 16
-                  ].min
-        retry unless (retries -= 1).zero?
+        puts e
+        unless (retries -= 1).zero?
+          puts "Backing off for #{backoff} seconds, then retrying."
+          sleep backoff
+          # double the backoff up to the maximum delay, or 16 seconds if undefined
+          backoff = [(backoff == 0) ? 1 : backoff << 1,
+                     Jetpants.plugins['jetpants_collins']['max_retry_backoff'] || 16
+                    ].min
+          retry
+        else
+          puts "Max retries exceeded.  Not retrying."
+        end
       end
       
       # Returns a single downcased "status:state" string, useful when trying to compare both fields
