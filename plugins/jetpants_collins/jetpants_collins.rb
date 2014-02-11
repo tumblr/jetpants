@@ -101,7 +101,6 @@ module Jetpants
         
         # Returns a Collins::Client object
         def service
-          tries ||= 1
           return @collins_service if @collins_service
           
           %w(url user password).each do |setting|
@@ -119,9 +118,6 @@ module Jetpants
           }
           @collins_service = Collins::Client.new(config)
         end
-      rescue XXXCHANGEMEXXX => e
-        sleep 5
-        retry unless (tries -= 1).zero?
       end
       
       
@@ -138,8 +134,11 @@ module Jetpants
       # If you pass in an array, returns a hash mapping each of these fields to their values.
       # Hash will also contain an extra field called :asset, storing the Collins::Asset object.
       def collins_get(*field_names)
-        tries ||= 1
         asset = collins_asset
+
+        retries ||= Jetpants.plugins['jetpants_collins']['retries'] || 1
+        backoff ||= 0
+
         if field_names.count > 1 || field_names[0].is_a?(Array)
           field_names.flatten!
           want_state = !! field_names.delete(:state)
@@ -157,9 +156,13 @@ module Jetpants
         else
           nil
         end
-      rescue XXXCHANGEMEXXX => e
-        sleep 5
-        retry unless (tries -= 1).zero?
+      rescue SocketError => e
+        sleep backoff
+        # double the backoff up to the maximum delay, or 16 seconds if undefined
+        backoff = [(backoff == 0) ? 1 : backoff << 1,
+                   Jetpants.plugins['jetpants_collins']['max_retry_backoff'] || 16
+                  ].min
+        retry unless (retries -= 1).zero?
       end
 
       # Pass in a hash mapping field name symbols to values to set
@@ -169,9 +172,11 @@ module Jetpants
       #
       # Alternatively, pass in 2 strings (field_name, value) to set just a single Collins attribute (or status)
       def collins_set(*args)
-        tries ||= 1
         attrs = (args.count == 1 ? args[0] : {args[0] => args[1]})
         asset = attrs[:asset] || collins_asset
+
+        retries ||= Jetpants.plugins['jetpants_collins']['retries'] || 1
+        backoff ||= 0
         
         # refuse to set Collins values on machines in remote data center unless
         # inter_dc_mode is enabled
@@ -242,9 +247,13 @@ module Jetpants
           end
         end
         
-      rescue XXXCHANGEMEXXX => e
-        sleep 5
-        retry unless (tries -= 1).zero?
+      rescue SocketError => e
+        sleep backoff
+        # double the backoff up to the maximum delay, or 16 seconds if undefined
+        backoff = [(backoff == 0) ? 1 : backoff << 1,
+                   Jetpants.plugins['jetpants_collins']['max_retry_backoff'] || 16
+                  ].min
+        retry unless (retries -= 1).zero?
       end
       
       # Returns a single downcased "status:state" string, useful when trying to compare both fields
