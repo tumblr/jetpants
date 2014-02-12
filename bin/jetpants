@@ -511,7 +511,7 @@ module Jetpants
       )
     end
 
-    desc 'backup_per_pool', 'adds a backup slave for every pool that needs it'
+    desc 'rebalance_backup_slaves', 'adds a backup slave for every pool that needs it'
     def rebalance_backup_slaves
       spares_available = Jetpants.topology.count_spares(role: :backup_slave)
 
@@ -531,7 +531,7 @@ module Jetpants
 
         if spares.count > 0
 
-          output "going to do shard #{shard}"
+          output "Looking at adding a backup slave to shard #{shard}"
 
           source = shard.standby_slaves.last
           source.master.probe if source.master # fail early if there are any replication issues in this pool
