@@ -33,12 +33,32 @@ module Jetpants
       ##### CLASS METHODS ######################################################
 
       class << self
+
+        # Exponential backoff.  Pass idempotent blocks only!
+        def with_retries(&block)
+          retries ||= Jetpants.plugins['jetpants_collins']['retries'] || 1
+          backoff ||= 0
+          block.call
+        rescue SocketError => e
+          puts e
+          unless (retries -= 1).zero?
+            puts "Backing off for #{backoff} seconds, then retrying."
+            sleep backoff
+            # increase backoff, taking the path 0, 1, 2, 4, 8, ..., max_retry_backoff
+            backoff = [(backoff == 0) ? 1 : backoff << 1,
+                       Jetpants.plugins['jetpants_collins']['max_retry_backoff'] || 16
+                      ].min
+            retry
+          else
+            puts "Max retries exceeded.  Not retrying."
+          end
+        end
         
         # We delegate missing class (module) methods to the collins API client,
         # if it responds to them.
         def method_missing(name, *args, &block)
           if service.respond_to? name
-            service.send name, *args, &block
+            with_retries { service.send name, *args, &block }
           else
             super
           end
@@ -51,12 +71,14 @@ module Jetpants
         def included(base)
           base.class_eval do 
             def self.collins_attr_accessor(*fields)
-              fields.each do |field|
-                define_method("collins_#{field}") do
-                  (collins_get(field) || '').downcase
-                end
-                define_method("collins_#{field}=") do |value|
-                  collins_set(field, value)
+              with_retries do
+                fields.each do |field|
+                  define_method("collins_#{field}") do
+                    (collins_get(field) || '').downcase
+                  end
+                  define_method("collins_#{field}=") do |value|
+                    collins_set(field, value)
+                  end
                 end
               end
             end
@@ -72,7 +94,7 @@ module Jetpants
         def datacenter
           (Jetpants.plugins['jetpants_collins']['datacenter'] || 'UNKNOWN-DC').upcase
         end
-        
+
         # Ordinarily, in a multi-dacenter environment, jetpants_collins places a number
         # of restrictions on interacting with assets that aren't in the local datacenter,
         # for safety's sake and to simplify how hierarchical replication trees are represented:
@@ -136,9 +158,6 @@ module Jetpants
       def collins_get(*field_names)
         asset = collins_asset
 
-        retries ||= Jetpants.plugins['jetpants_collins']['retries'] || 1
-        backoff ||= 0
-
         if field_names.count > 1 || field_names[0].is_a?(Array)
           field_names.flatten!
           want_state = !! field_names.delete(:state)
@@ -156,19 +175,6 @@ module Jetpants
         else
           nil
         end
-      rescue SocketError => e
-        puts e
-        unless (retries -= 1).zero?
-          puts "Backing off for #{backoff} seconds, then retrying."
-          sleep backoff
-          # double the backoff up to the maximum delay, or 16 seconds if undefined
-          backoff = [(backoff == 0) ? 1 : backoff << 1,
-                     Jetpants.plugins['jetpants_collins']['max_retry_backoff'] || 16
-                    ].min
-          retry
-        else
-          puts "Max retries exceeded.  Not retrying."
-        end
       end
 
       # Pass in a hash mapping field name symbols to values to set
@@ -181,9 +187,6 @@ module Jetpants
         attrs = (args.count == 1 ? args[0] : {args[0] => args[1]})
         asset = attrs[:asset] || collins_asset
 
-        retries ||= Jetpants.plugins['jetpants_collins']['retries'] || 1
-        backoff ||= 0
-        
         # refuse to set Collins values on machines in remote data center unless
         # inter_dc_mode is enabled
         if asset && asset.type.downcase == 'server_node' && asset.location && asset.location.upcase != Plugin::JetCollins.datacenter
@@ -251,20 +254,6 @@ module Jetpants
               end
             end
           end
-        end
-        
-      rescue SocketError => e
-        puts e
-        unless (retries -= 1).zero?
-          puts "Backing off for #{backoff} seconds, then retrying."
-          sleep backoff
-          # double the backoff up to the maximum delay, or 16 seconds if undefined
-          backoff = [(backoff == 0) ? 1 : backoff << 1,
-                     Jetpants.plugins['jetpants_collins']['max_retry_backoff'] || 16
-                    ].min
-          retry
-        else
-          puts "Max retries exceeded.  Not retrying."
         end
       end
       
