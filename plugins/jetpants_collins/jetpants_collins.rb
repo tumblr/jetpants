@@ -71,14 +71,12 @@ module Jetpants
         def included(base)
           base.class_eval do 
             def self.collins_attr_accessor(*fields)
-              with_retries do
-                fields.each do |field|
-                  define_method("collins_#{field}") do
-                    (collins_get(field) || '').downcase
-                  end
-                  define_method("collins_#{field}=") do |value|
-                    collins_set(field, value)
-                  end
+              fields.each do |field|
+                define_method("collins_#{field}") do
+                  with_retries { (collins_get(field) || '').downcase }
+                end
+                define_method("collins_#{field}=") do |value|
+                  with_retries { collins_set(field, value) }
                 end
               end
             end
