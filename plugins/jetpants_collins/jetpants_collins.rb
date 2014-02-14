@@ -39,9 +39,10 @@ module Jetpants
           retries ||= Jetpants.plugins['jetpants_collins']['retries'] || 1
           backoff ||= 0
           block.call
-        rescue SocketError => e
+        rescue Exception => e
           puts e
-          unless (retries -= 1).zero?
+          unless retries.zero?
+            retries -= 1
             puts "Backing off for #{backoff} seconds, then retrying."
             sleep backoff
             # increase backoff, taking the path 0, 1, 2, 4, 8, ..., max_retry_backoff
@@ -268,5 +269,5 @@ end # module Jetpants
 
 
 # load all the monkeypatches for other Jetpants classes
-%w(asset host db pool shard topology).each {|mod| require "jetpants_collins/#{mod}"}
+%w(asset host db pool shard topology commandsuite).each {|mod| require "jetpants_collins/#{mod}"}
 
