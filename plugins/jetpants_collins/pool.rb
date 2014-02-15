@@ -165,6 +165,29 @@ module Jetpants
       end
       results
     end
-    
+
+    def db_location_map
+      location_hierarchy = [ :dc, :row, :position ]
+      dbs = [ master, slaves ].flatten
+      location_map = {}
+
+      db_locs = dbs.map{|db| [ db, db.location_hash ]}.flatten
+      locations = Hash[*db_locs]
+
+      locations.each do |db,db_loc|
+        location_hierarchy.reduce(location_map) do |map,hierarchy_val|
+          if hierarchy_val == location_hierarchy.last
+            map[db_loc[hierarchy_val]] ||= []
+            map[db_loc[hierarchy_val]] << db
+          else
+            map[db_loc[hierarchy_val]] ||= {}
+          end
+          map[db_loc[hierarchy_val]]
+        end
+      end
+
+      # current example:    EWR01-C410-U06
+      location_map
+    end
   end
 end
