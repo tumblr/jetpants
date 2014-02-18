@@ -1,6 +1,6 @@
 module Jetpants
 
-  # This mixin defines an output function that includes class, and optionally
+  # This mixin defines an output function that prints the class, and optionally
   # caller file, method and line number if output_file_data is set.
   module Output
     def self.included(base)
