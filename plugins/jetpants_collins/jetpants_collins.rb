@@ -52,6 +52,7 @@ module Jetpants
             retry
           else
             puts "Max retries exceeded.  Not retrying."
+            raise e
           end
         end
         
