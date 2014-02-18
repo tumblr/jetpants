@@ -96,6 +96,9 @@ module Jetpants
           Jetpants.plugins['jetpants_collins']['inter_dc_mode'] || false
         end
         
+        def to_s
+          Jetpants.plugins['jetpants_collins']['url']
+        end
         
         private
         
