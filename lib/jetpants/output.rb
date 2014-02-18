@@ -10,7 +10,7 @@ module Jetpants
           str = nil if str && str.length == 0
           str ||= "Completed (no output)"
           output = Time.now.strftime("%H:%M:%S") + " [#{self}] "
-          output << "called from #{caller[0]} " if Jetpants.output_file_data
+          output << "called from #{caller[0]} " if Jetpants.output_caller_info
           output << table.name << ': ' if table
           output << str
           print output + "\n"
