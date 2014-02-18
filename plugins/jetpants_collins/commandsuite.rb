@@ -7,12 +7,9 @@ module Jetpants
 
     @enabled_secondary_retries_once = false
 
-    # Override Thor.dispatch to allow simple callbacks, which must be before_foo / 
-    # after_foo *class* methods of Jetpants::CommandSuite. 
-    # These aren't as full-featured as normal Jetpants::Callback: you can only have
-    # ONE before_foo or after_foo method (they override instead of stacking); no arg
-    # passing; no callback abort exception type. Mostly useful for plugins overriding
-    # reminder text before or after a task.
+    # Override Thor.dispatch to use separate retry settings for potentially long-running
+    # console and Thor command tasks, as well as allowing simple callbacks identically
+    # to those defined in bin/jetpants
     def self.dispatch(task, given_args, given_ops, config)
       if !@enabled_secondary_retries_once
         Jetpants.plugins['jetpants_collins']['retries'] =
