@@ -7,8 +7,8 @@ module Jetpants
           str = nil if str && str.length == 0
           str ||= "Completed (no output)"
           output = Time.now.strftime("%H:%M:%S") + " [#{self}] "
-          output << table.name << ': ' if table
           output << "in file #{caller[0]}" if show_caller_file
+          output << table.name << ': ' if table
           output << str
           print output + "\n"
           output
