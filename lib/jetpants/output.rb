@@ -5,7 +5,7 @@ module Jetpants
   module Output
     def self.included(base)
       base.class_eval do
-        define_method "output" do |str, table=nil|
+        def output str, table=nil
           str = str.to_s.strip
           str = nil if str && str.length == 0
           str ||= "Completed (no output)"
