@@ -35,10 +35,10 @@ module Jetpants
       class << self
 
         # Exponential backoff.  Pass idempotent blocks only!
-        def with_retries(&block)
+        def with_retries
           retries ||= Jetpants.plugins['jetpants_collins']['retries'] || 1
           backoff ||= 0
-          block.call
+          yield if block_given?
         rescue Exception => e
           puts e
           unless retries.zero?
