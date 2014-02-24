@@ -73,18 +73,6 @@ module Jetpants
     end
     
     ##### NEW METHODS ##########################################################
-    
-    # return a data center, zone/cluster, row, position, and elevation
-    # add to config^^
-    def parse_location_string pos
-      return {} if pos.empty?
-
-      dc, position, elevation = pos.split('-')
-      row = position[1,1]
-      zone = nil
-
-      { dc: dc, zone: zone, row: row, position: position, elevation: elevation }
-    end
 
     # Returns true if this database is located in the same datacenter as jetpants_collins
     # has been figured for, false otherwise.
@@ -92,14 +80,9 @@ module Jetpants
       @host.collins_location != Plugin::JetCollins.datacenter
     end
 
+    # override in a custom plugin to parse location info in a specific environment
     # return a data center, zone/cluster, row, position, and elevation
-    # add to config^^
     def location_hash
-      parse_location_string collins_get('rack_position')
-    end
-
-    def data_center_location
-
     end
     
     # Returns true if this database is a spare node and looks ready for use, false otherwise.
