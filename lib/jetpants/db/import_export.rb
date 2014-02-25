@@ -330,7 +330,7 @@ module Jetpants
       # (ie, if using Percona Server with innodb_buffer_pool_restore_at_startup enabled)
       # since this will greatly improve warm-up time of the cloned nodes
       databases = mysql_root_cmd("SHOW DATABASES").split("\n").select { |row|
-        !!(row =~ /^Database:.*$/)
+        row.include?('Database:')
       }.map{ |line|
         line.split(":").last.strip
       }.reject { |s|
