@@ -1,5 +1,6 @@
 require 'net/ssh'
 require 'socket'
+require 'output'
 
 module Jetpants
   
