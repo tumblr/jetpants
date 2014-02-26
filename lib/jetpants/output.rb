@@ -4,7 +4,7 @@ module Jetpants
   # caller file, method and line number if output_caller_info is set.
   module Output
     def output str, table=nil
-      str = if str.nil? or str.is_a? String and str.length == 0
+      str = if str.nil? or (str.is_a? String and str.length == 0)
         "Completed (no output)"
       else
         str.to_s.strip

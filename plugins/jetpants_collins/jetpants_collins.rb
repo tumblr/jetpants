@@ -76,10 +76,10 @@ module Jetpants
             def self.collins_attr_accessor(*fields)
               fields.each do |field|
                 define_method("collins_#{field}") do
-                  with_retries { (collins_get(field) || '').downcase }
+                  Jetpants::Plugin::JetCollins.with_retries { (collins_get(field) || '').downcase }
                 end
                 define_method("collins_#{field}=") do |value|
-                  with_retries { collins_set(field, value) }
+                  Jetpants::Plugin::JetCollins.with_retries { collins_set(field, value) }
                 end
               end
             end
