@@ -33,6 +33,7 @@ module Jetpants
       ##### CLASS METHODS ######################################################
 
       class << self
+        include Output
 
         # Exponential backoff.  Pass idempotent blocks only!
         def with_retries
@@ -40,10 +41,10 @@ module Jetpants
           backoff ||= 0
           yield if block_given?
         rescue Exception => e
-          puts e
+          output e
           unless retries.zero?
             retries -= 1
-            puts "Backing off for #{backoff} seconds, then retrying."
+            output "Backing off for #{backoff} seconds, then retrying."
             sleep backoff
             # increase backoff, taking the path 0, 1, 2, 4, 8, ..., max_retry_backoff
             backoff = [(backoff == 0) ? 1 : backoff << 1,
@@ -51,7 +52,7 @@ module Jetpants
                       ].min
             retry
           else
-            puts "Max retries exceeded.  Not retrying."
+            output "Max retries exceeded.  Not retrying."
             raise e
           end
         end
