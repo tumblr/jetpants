@@ -267,7 +267,7 @@ module Jetpants
       p = pool
       case
       when !@master then :master                                # nodes that aren't slaves (including orphans) 
-      when p.master == self then :master                        # nodes that the topology thinks are masters
+      when p && p.master == self then :master                   # nodes that the topology thinks are masters
       when for_backups? then :backup_slave
       when p && p.active_slave_weights[self] then :active_slave # if pool in topology, determine based on expected/ideal state
       when !p && !is_standby? then :active_slave                # if pool missing from topology, determine based on actual state
