@@ -564,6 +564,7 @@ rescue Exception => e
   print e
 
   if Jetpants.debug_exceptions
+    puts "Entering debugging session (debug_exceptions is enabled).  Resume with ctrl+d"
     Pry.config.prompt = proc {|_, _, _| "# debug > "}
     binding.pry
   end
