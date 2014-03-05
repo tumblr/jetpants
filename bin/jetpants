@@ -558,4 +558,13 @@ end
 # We load jetpants last so that plugins can monkeypatch Jetpants::CommandSuite if desired.
 require 'jetpants'
 
-Jetpants::CommandSuite.start
+begin
+  Jetpants::CommandSuite.start
+rescue Exception => e
+  print e
+
+  if Jetpants.debug_exceptions
+    Pry.config.prompt = proc {|_, _, _| "# debug > "}
+    binding.pry
+  end
+end
