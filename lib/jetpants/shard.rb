@@ -173,9 +173,13 @@ module Jetpants
         c.clone_slaves_from_master
       end
       
+      output "Initial split complete."
+    end
+
+    # puts the shard in a state that triggers reads to move to child shards
+    def move_reads_to_children
       @state = :deprecated
       sync_configuration
-      output "Initial split complete."
     end
     
     # Transitions the shard's children into the :needs_cleanup state. It is the
