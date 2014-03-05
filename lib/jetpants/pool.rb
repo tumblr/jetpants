@@ -19,6 +19,7 @@ module Jetpants
   # configuration-generator plugin
   class Pool
     include CallbackHandler
+    include Output
 
     # human-readable String name of pool
     attr_reader   :name
@@ -347,19 +348,7 @@ module Jetpants
     def to_s
       @name
     end
-    
-    # Displays the provided output, along with information about the current time,
-    # and self (the name of this Pool)
-    def output(str)
-      str = str.to_s.strip
-      str = nil if str && str.length == 0
-      str ||= "Completed (no output)"
-      output = Time.now.strftime("%H:%M:%S") + " [#{self}] "
-      output << str
-      print output + "\n"
-      output
-    end
-    
+
     # Jetpants::Pool proxies missing methods to the pool's @master Jetpants::DB instance.
     def method_missing(name, *args, &block)
       if @master.respond_to? name

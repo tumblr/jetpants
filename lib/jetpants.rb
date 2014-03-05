@@ -32,6 +32,7 @@ module Jetpants
     'mysql_root_password'     =>  false,      # mysql root password. omit if specified in /root/.my.cnf instead.
     'mysql_grant_ips'         =>  ['192.168.%'],  # mysql user manipulations are applied to these IPs
     'mysql_grant_privs'       =>  ['ALL'],    # mysql user manipulations grant this set of privileges by default
+    'mysql_clone_ignore'      =>  ['information_schema', 'performance_schema'], # these schemata will be ignored during cloning
     'export_location'         =>  '/tmp',     # directory to use for data dumping
     'verify_replication'      =>  true,       # raise exception if the 2 repl threads are in different states, or if actual repl topology differs from Jetpants' understanding of it
     'plugins'                 =>  {},         # hash of plugin name => arbitrary plugin data (usually a nested hash of settings)
@@ -40,6 +41,7 @@ module Jetpants
     'compress_with'           =>  false,      # command line to use for compression in large file transfers
     'decompress_with'         =>  false,      # command line to use for decompression in large file transfers
     'private_interface'       =>  'bond0',    # network interface corresponding to private IP
+    'output_caller_info'      =>  false,      # includes calling file, line and method in output calls
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]

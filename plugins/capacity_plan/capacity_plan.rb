@@ -71,7 +71,7 @@ module Jetpants
 
         output += "\n\n________________________________________________________________________________________________________\n"
         output += "Usage and Time Left\n"
-        output += " --------- The 'GB per day' and 'Days left' fields are using a growth rate that is calulated by taking \n --------- a exponically decaying avg\n\n"
+        output += " --------- The 'GB per day' and 'Days left' fields are using a growth rate that is calculated by taking \n --------- an exponentially decaying avg\n\n"
 
         ##get segments for 24 hour blocks
         segments = segmentify(history, 60 * 60 * 24)
@@ -140,7 +140,7 @@ module Jetpants
         size * 60 * 60 * 24 * 30
       end
 
-      #use a exponically decaying avg unless there is a count then use a cummulative moving avg
+      #use an exponentially decaying avg unless there is a count then use a cumulative moving avg
       def calc_avg(avg, new_value, count=false)
         unless count
           (new_value * 0.5) + (avg * (1.0 - 0.5))
