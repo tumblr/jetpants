@@ -130,22 +130,17 @@ module Jetpants
     # pool intentionally has a blank sync_configuration implementation.  Rely on
     # Collins for pool information if it is already in one.
     def pool(create_if_missing=false)
-      result = if collins_pool 
-                 Jetpants.topology.pool(collins_pool)
-               else
-                 Jetpants.topology.pool(self)
-               end
+      result = Jetpants.topology.pool(collins_pool || self)
 
       if !result && master
-        result ||= Jetpants.topology.pool(master)
-      end
-      if !result && create_if_missing
+        result = Jetpants.topology.pool(master)
+      elsif !result && create_if_missing
         pool_master = master || self
         result = Pool.new('anon_pool_' + pool_master.ip.tr('.', ''), pool_master)
         def result.sync_configuration; end
       end
-      return result
+      result
     end
- 
+
   end
 end

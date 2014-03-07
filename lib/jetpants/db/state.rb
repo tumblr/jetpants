@@ -242,15 +242,15 @@ module Jetpants
     # pool intentionally has a blank sync_configuration implementation.
     def pool(create_if_missing=false)
       result = Jetpants.topology.pool(self)
+
       if !result && master
-        result ||= Jetpants.topology.pool(master)
-      end
-      if !result && create_if_missing
+        result = Jetpants.topology.pool(master)
+      elsif !result && create_if_missing
         pool_master = master || self
         result = Pool.new('anon_pool_' + pool_master.ip.tr('.', ''), pool_master)
         def result.sync_configuration; end
       end
-      return result
+      result
     end
     
     # Determines the DB's role in its pool. Returns either :master,
