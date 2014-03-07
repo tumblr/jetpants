@@ -4,7 +4,7 @@
 # module in a Thor command processor, providing a command-line interface to
 # common Jetpants functionality.
 
-%w[thor pry highline/import colored].each {|g| require g}
+%w[thor pry pry-rescue highline/import colored].each {|g| require g}
 
 module Jetpants
 
@@ -558,4 +558,20 @@ end
 # We load jetpants last so that plugins can monkeypatch Jetpants::CommandSuite if desired.
 require 'jetpants'
 
-Jetpants::CommandSuite.start
+def with_debug
+  Pry::rescue do
+    begin
+      yield if block_given?
+    rescue => e
+      Pry.config.prompt = proc {|_, _, _| "# debug > "}
+      puts "Entering debugging session (debug_exceptions is enabled).  Resume with ctrl+d."
+      Pry::rescued e
+    end
+  end
+end
+
+if Jetpants.debug_exceptions
+  with_debug { Jetpants::CommandSuite.start }
+else
+  Jetpants::CommandSuite.start
+end

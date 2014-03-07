@@ -40,6 +40,8 @@ module Jetpants
     'compress_with'           =>  false,      # command line to use for compression in large file transfers
     'decompress_with'         =>  false,      # command line to use for decompression in large file transfers
     'private_interface'       =>  'bond0',    # network interface corresponding to private IP
+    'output_caller_info'      =>  false,      # includes calling file, line and method in output calls
+    'debug_exceptions'        =>  false,      # open a pry session when an uncaught exception is thrown
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]

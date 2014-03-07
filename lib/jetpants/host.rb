@@ -1,5 +1,6 @@
 require 'net/ssh'
 require 'socket'
+require 'output'
 
 module Jetpants
   
@@ -7,6 +8,7 @@ module Jetpants
   # connections to the host as needed.
   class Host
     include CallbackHandler
+    include Output
     
     # IP address of the Host, as a string.
     attr_reader :ip
@@ -400,19 +402,7 @@ module Jetpants
       return 'unknown' unless available?
       @hostname ||= ssh_cmd('hostname').chomp
     end
-    
-    # Displays the provided output, along with information about the current time,
-    # and self (the IP of this Host)
-    def output(str)
-      str = str.to_s.strip
-      str = nil if str && str.length == 0
-      str ||= "Completed (no output)"
-      output = Time.now.strftime("%H:%M:%S") + " [#{self}] "
-      output << str
-      print output + "\n"
-      output
-    end
-    
+
     # Returns the host's IP address as a string.
     def to_s
       return @ip

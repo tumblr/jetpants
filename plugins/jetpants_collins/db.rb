@@ -7,7 +7,7 @@ module Jetpants
     
     include Plugin::JetCollins
     
-    collins_attr_accessor :slave_weight
+    collins_attr_accessor :slave_weight, :nodeclass
     
     # Because we only support 1 mysql instance per machine for now, we can just
     # delegate this over to the host
