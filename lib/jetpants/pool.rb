@@ -54,7 +54,7 @@ module Jetpants
       @name = name
       @slave_name = false
       @aliases = []
-      @master = master.to_db
+      @master = master.to_db || nil
       @master_read_weight = 0
       @active_slave_weights = {}
       @tables = nil

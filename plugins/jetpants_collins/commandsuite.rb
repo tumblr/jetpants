@@ -30,6 +30,36 @@ module Jetpants
       super
       self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
     end
+
+    desc 'create_pool', 'create a new database pool'
+    method_option :name, :name => 'unique name of new pool to be created'
+    method_option :master, :master => 'ip of pre-configured master for new pool'
+    def create_pool
+      name = options[:name] || ask('Please ender the name of the new pool.')
+      if configuration_assets('MYSQL_POOL').map(&:pool).include? name.upcase
+        error "Pool #{name} already exists"
+      end
+      master = options[:master] ||
+               ask("Please enter the ip of the master, or 'none' if one does not yet exist.")
+      if (master.downcase != 'none') && ! is_ip? master
+        error "Master must either be 'none' or a valid ip."
+      end
+
+      master = master == 'none' ? nil : master
+      new_pool = Pool.new(name, master || nil)
+      new_pool.sync_configuration
+
+      application = case agree("Would you like to set a collins application attribute? [yes/no]")
+      when "yes"
+        ask('What is the name of the collins application for this pool?')
+      end
+
+      if application and application.length == 0
+        error 'Application must not be empty.'
+      else
+        new_pool.collins_set(:application => application) if application
+      end
+    end
  
   end
 end
