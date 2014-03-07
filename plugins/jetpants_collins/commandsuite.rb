@@ -57,7 +57,7 @@ module Jetpants
       if application and application.length == 0
         error 'Application must not be empty.'
       else
-        new_pool.collins_set(:application => application) if application
+        new_pool.collins_set(:application => application)
       end
     end
  
