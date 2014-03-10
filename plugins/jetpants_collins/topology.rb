@@ -98,6 +98,18 @@ module Jetpants
     
     
     ##### NEW METHODS ##########################################################
+
+    def db_location_report(shards_only = false)
+      if shards_only
+        pools_to_consider = shards
+      else
+        pools_to_consider = pools
+      end
+
+      global_map = {}
+      pools_to_consider.reduce(global_map){ |map, shard| map.deep_merge! shard.db_layout }
+      global_map
+    end
     
     # Returns an array of Collins::Asset objects meeting the given criteria.
     # Caches the result for subsequent use.
