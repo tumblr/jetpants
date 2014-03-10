@@ -186,7 +186,6 @@ module Jetpants
         end
       end
 
-      # current example:    EWR01-C410-U06
       location_map
     end
   end

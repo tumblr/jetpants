@@ -81,7 +81,8 @@ module Jetpants
     end
 
     # override in a custom plugin to parse location info in a specific environment
-    # return a data center, zone/cluster, row, position, and elevation
+    # returning relevant location information to parse in pool::location_map
+    # ex: { dc: dc,row: row, position: position }
     def location_hash
     end
     
