@@ -166,8 +166,8 @@ module Jetpants
       results
     end
 
-    def db_location_map
-      location_hierarchy = [ :dc, :row, :position ]
+    def db_layout
+      location_hierarchy = Jetpants.plugins['jetpants_collins']['location_hierarchy'].map(&:to_sym)
       dbs = [ master, slaves ].flatten
       location_map = {}
 
