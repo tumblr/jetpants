@@ -2,11 +2,17 @@
 
 # Add a deep_merge method to Hash in order to more effectively join configs
 class Hash
-  def deep_merge!(other_hash)
+  DEEP_MERGE_CONCAT = 1
+
+  def deep_merge!(other_hash, flags = 0)
+    concat = flags & DEEP_MERGE_CONCAT
     merge!(other_hash) do |key, oldval, newval|
       if (oldval.class == self.class && newval.class == oldval.class)
-        oldval.deep_merge!(newval)
-      elsif (oldval.class == Array && newval.class == oldval.class)
+        oldval.deep_merge!(newval, flags)
+      elsif (
+        (concat == DEEP_MERGE_CONCAT) &&
+        oldval.class == Array && newval.class == oldval.class
+      )
         oldval.concat(newval)
       else
         newval

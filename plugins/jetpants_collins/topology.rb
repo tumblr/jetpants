@@ -107,7 +107,7 @@ module Jetpants
       end
 
       global_map = {}
-      pools_to_consider.reduce(global_map){ |map, shard| map.deep_merge! shard.db_layout }
+      pools_to_consider.reduce(global_map){ |map, shard| map.deep_merge!(shard.db_layout,Hash::DEEP_MERGE_CONCAT) }
       global_map
     end
     
