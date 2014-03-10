@@ -4,7 +4,13 @@
 class Hash
   def deep_merge!(other_hash)
     merge!(other_hash) do |key, oldval, newval|
-      (oldval.class == self.class && newval.class == oldval.class) ? oldval.deep_merge!(newval) : newval
+      if (oldval.class == self.class && newval.class == oldval.class)
+        oldval.deep_merge!(newval)
+      elsif (oldval.class == Array && newval.class == oldval.class)
+        oldval.concat(newval)
+      else
+        newval
+      end
     end
   end
 end
