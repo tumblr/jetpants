@@ -40,6 +40,8 @@ module Jetpants
           retries ||= Jetpants.plugins['jetpants_collins']['retries'] || 1
           backoff ||= 0
           yield if block_given?
+        rescue SystemExit, Interrupt
+          raise
         rescue Exception => e
           output e
           unless retries.zero?
