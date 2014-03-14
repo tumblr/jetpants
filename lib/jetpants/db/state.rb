@@ -264,6 +264,7 @@ module Jetpants
     # masters in the middle of a shard split), we return :master if
     # Jetpants.topology considers the node to be the master for a pool.
     def role
+      probe unless probed?
       p = pool
       case
       when !@master then :master                                # nodes that aren't slaves (including orphans) 
