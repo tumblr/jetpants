@@ -39,9 +39,8 @@ module Jetpants
       if configuration_assets('MYSQL_POOL').map(&:pool).include? name.upcase
         error "Pool #{name} already exists"
       end
-      master = options[:master] ||
-               ask("Please enter the ip of the master, or 'none' if one does not yet exist.")
-      if (master.downcase != 'none') && ! is_ip? master
+      master = options[:master] || ask("Please enter the ip of the master, or 'none' if one does not yet exist.")
+      if (master.downcase != 'none') && ! (is_ip? master)
         error "Master must either be 'none' or a valid ip."
       end
 
