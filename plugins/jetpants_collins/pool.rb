@@ -167,6 +167,8 @@ module Jetpants
     end
 
     def db_layout
+      raise "Database physical location hierarchy not set!" if Jetpants.plugins['jetpants_collins']['location_hierarchy'].nil?
+
       location_hierarchy = Jetpants.plugins['jetpants_collins']['location_hierarchy'].map(&:to_sym)
       dbs = [ master, slaves ].flatten
       location_map = {}
