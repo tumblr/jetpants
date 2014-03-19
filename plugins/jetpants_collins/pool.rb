@@ -165,6 +165,28 @@ module Jetpants
       end
       results
     end
-    
+
+    def db_layout
+      location_hierarchy = Jetpants.plugins['jetpants_collins']['location_hierarchy'].map(&:to_sym)
+      dbs = [ master, slaves ].flatten
+      location_map = {}
+
+      db_locs = dbs.map{|db| [ db, db.location_hash ]}.flatten
+      locations = Hash[*db_locs]
+
+      locations.each do |db,db_loc|
+        location_hierarchy.reduce(location_map) do |map,hierarchy_val|
+          if hierarchy_val == location_hierarchy.last
+            map[db_loc[hierarchy_val]] ||= []
+            map[db_loc[hierarchy_val]] << db
+          else
+            map[db_loc[hierarchy_val]] ||= {}
+          end
+          map[db_loc[hierarchy_val]]
+        end
+      end
+
+      location_map
+    end
   end
 end

@@ -73,11 +73,17 @@ module Jetpants
     end
     
     ##### NEW METHODS ##########################################################
-    
+
     # Returns true if this database is located in the same datacenter as jetpants_collins
     # has been figured for, false otherwise.
     def in_remote_datacenter?
       @host.collins_location != Plugin::JetCollins.datacenter
+    end
+
+    # override in a custom plugin to parse location info in a specific environment
+    # returning relevant location information to parse in pool::location_map
+    # ex: { dc: dc,row: row, position: position }
+    def location_hash
     end
     
     # Returns true if this database is a spare node and looks ready for use, false otherwise.
