@@ -20,8 +20,10 @@ module Jetpants
       raise "Invalide aggregate node!" unless aggregate_node.aggregator?
 
       # claim node for the new shard master
-      spare_count = Jetpants.standby_slaves_per_pool + 1;
+      spare_count = shards_to_merge.first.slaves_layout[:standby_slave] + 1;
       raise "Not enough spares available!" unless Jetpants.count_spares(like: shards_to_merge.first.master) >= spare_count
+      raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= shards_to_merge.first.slaves_layout[:backup_slave]
+
       # claim the slaves further along in the process
       aggregate_shard_master = Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
 
@@ -47,7 +49,13 @@ module Jetpants
       aggregate_shard.sync_configuration
 
       # build up the rest of the new shard
-      spares_for_aggregate_shard = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: aggregate_node.aggregating_nodes.first)
+      spares_for_aggregate_shard = Jetpants.topology.claim_spares(shards_to_merge.first.slaves_layout[:standby_slave], role: :standby_slave, like: aggregate_node.aggregating_nodes.first)
+      if shards_to_merge.first.slaves_layout[:backup_slave] > 0
+        backup_spares = Jetpants.topology.claim_spares(shards_to_merge.first.slaves_layout[:backup_slave], role: :backup_slave)
+      else
+        backup_spares = []
+      end
+      spares_for_aggregate_shard = [spares_for_aggregate_shard, backup_spares].flatten
       aggregate_shard_master.enslave! spares_for_aggregate_shard
       spares_for_aggregate_shard.concurrent_each(&:start_replication)
       spares_for_aggregate_shard.concurrent_each(&:catch_up_to_master)

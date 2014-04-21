@@ -230,15 +230,20 @@ module Jetpants
     # a production shard that's been marked as offline.
     def clone_slaves_from_master
       # If shard is already in state :child, it may already have slaves
-      slaves_needed = Jetpants.standby_slaves_per_pool
+      slaves_needed = slaves_layout[:standby_slave]
       slaves_needed -= standby_slaves.size if @state == :child
-      if slaves_needed < 1
-        output "Shard already has enough standby slaves, skipping step of cloning more"
+      backup_slaves_needed = slaves_layout[:backup_slave]
+      backup_slaves_needed -= backup_slaves.size if @state == :child
+      if slaves_needed < 1 && backup_slaves_needed < 1
+        output "Shard already has enough standby slaves and backup slaves, skipping step of cloning more"
         return
       end
       
       slaves_available = Jetpants.topology.count_spares(role: :standby_slave, like: master)
       raise "Not enough standby_slave role machines in spare pool!" if slaves_needed > slaves_available
+
+      backup_slaves_available = Jetpants.topology.count_spares(role: :backup_slave)
+      raise "Not enough backup_slave role machines in spare pool!" if backup_slaves_needed > backup_slaves_available
       
       # Handle state transitions
       if @state == :child || @state == :importing
@@ -251,9 +256,10 @@ module Jetpants
       end
       
       my_slaves = Jetpants.topology.claim_spares(slaves_needed, role: :standby_slave, like: master)
-      enslave!(my_slaves)
-      my_slaves.each &:resume_replication
-      [self, my_slaves].flatten.each {|db| db.catch_up_to_master}
+      backup_slaves = Jetpants.topology.claim_spares(backup_slaves_needed, role: :backup_slave)
+      enslave!([my_slaves, backup_slaves].flatten)
+      [my_slaves, backup_slaves].flatten.each &:resume_replication
+      [self, my_slaves,backup_slaves].flatten.each {|db| db.catch_up_to_master}
       
       # Update state, if relevant
       if @state == :replicating

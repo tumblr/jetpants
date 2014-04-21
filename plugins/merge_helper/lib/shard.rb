@@ -25,7 +25,13 @@ module Jetpants
       table_statuses
     end
 
-    def self.check_duplicate_keys(shards, table, key, min_key_val = nil)
+    # Uses a bloom filter to check for duplicate unique keys on two shards
+    # @shards - an array of two shards
+    # @table - the table object to examine
+    # @key - the (symbol) of the key for which to verify uniqueness
+    # @min_key_val - the minimum value of the key to consider
+    # @chunk_size - the number of values to retrieve in one query
+    def self.check_duplicate_keys(shards, table, key, min_key_val = nil, chunk_size = 5000)
       dbs = []
       shards.each do |shard|
         raise "Invalid shard #{shard}!" unless shard.is_a? Shard
@@ -47,8 +53,6 @@ module Jetpants
         db.stop_query_killer
         db.disable_monitoring
       end
-
-      chunk_size = 5000
 
       min_val = min_key_val || source_db.query_return_first_value("SELECT min(#{column}) FROM #{table}")
       max_val = source_db.query_return_first_value("SELECT max(#{column}) FROM #{table}")

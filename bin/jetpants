@@ -453,8 +453,9 @@ module Jetpants
       # because the new last shard can't be created yet (chicken-and-egg problem -- master
       # must exist before we create the pool). The assumption is the hardware spec
       # of the new last shard and previous last shard will be the same.
-      raise "Not enough total spare machines!" unless Jetpants.topology.count_spares(like: last_shard_master) >= Jetpants.standby_slaves_per_pool + 1
-      raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: last_shard_master) >= Jetpants.standby_slaves_per_pool
+      raise "Not enough total spare machines!" unless Jetpants.topology.count_spares(like: last_shard_master) >= last_shard.slaves_layout[:standby_slave] + last_shard.slaves_layout[:backup_slave] + 1
+      raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: last_shard_master) >= last_shard.slaves_layout[:standby_slave]
+      raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= last_shard.slaves_layout[:backup_slave]
       raise "Cannot find a spare master-role machine!" unless Jetpants.topology.count_spares(role: :master, like: last_shard_master) >= 1
       
       # In asset tracker, remove the last shard pool and replace it with a new pool. The new pool
@@ -470,15 +471,26 @@ module Jetpants
       # NOT to actually set the pool of the returned object.)
       new_last_shard_master = Jetpants.topology.claim_spare(role: :master, like: last_shard_master)
       new_last_shard_master.disable_read_only! if new_last_shard_master.running?
-      if Jetpants.standby_slaves_per_pool > 0
+      if last_shard.slaves_layout[:standby_slave] > 0
         # Verify spare count again, now that we can actually supply the new master as the :like context
-        raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: new_last_shard_master) >= Jetpants.standby_slaves_per_pool
-        new_last_shard_slaves = Jetpants.topology.claim_spares(Jetpants.standby_slaves_per_pool, role: :standby_slave, like: new_last_shard_master)
+        raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: new_last_shard_master) >= last_shard.slaves_layout[:standby_slave]
+        new_last_shard_slaves = Jetpants.topology.claim_spares(last_shard.slaves_layout[:standby_slave], role: :standby_slave, like: new_last_shard_master)
         new_last_shard_slaves.each do |x| 
           x.change_master_to new_last_shard_master
           x.resume_replication
         end
       end
+
+      # Set up backup slaves
+      if last_shard.slaves_layout[:backup_slave] > 0
+        raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= last_shard.slaves_layout[:backup_slave]
+        new_last_shard_backup_slaves = Jetpants.topology.claim_spares(last_shard.slaves_layout[:backup_slave], role: :backup_slave)
+        new_last_shard_backup_slaves.each do |x| 
+          x.change_master_to new_last_shard_master
+          x.resume_replication
+        end
+      end
+
       new_last_shard = Shard.new(cutover_id, 'INFINITY', new_last_shard_master)
       new_last_shard.sync_configuration
       Jetpants.topology.pools << new_last_shard
@@ -497,6 +509,53 @@ module Jetpants
         'Commit/push the configuration in version control.',
         'Deploy the configuration to all machines.',
       )
+    end
+
+    desc 'rebalance_backup_slaves', 'adds a backup slave for every pool that needs it'
+    def rebalance_backup_slaves
+      spares_available = Jetpants.topology.count_spares(role: :backup_slave)
+
+      raise "No backup slaves available" if spares_available == 0
+
+      # find shards that need a backup slave
+      need_backup_shards = Jetpants.topology.shards.reject { |shard| shard.backup_slaves.count >= shard.slaves_layout[:backup_slave] }
+
+      possible_iterations = spares_available < need_backup_shards.count ? spares_available : need_backup_shards.count
+
+      spares = Jetpants.topology.claim_spares(possible_iterations, role: :backup_slave)
+
+      need_backup_shards.first(possible_iterations)
+
+      # loop through and place a backup slave per pool that is without
+      need_backup_shards.limited_concurrent_map(5) do |shard|
+
+        if spares.count > 0
+
+          output "Looking at adding a backup slave to shard #{shard}"
+
+          source = shard.standby_slaves.last
+          source.master.probe if source.master # fail early if there are any replication issues in this pool
+
+
+          targets = [spares.pop]
+
+          source.start_mysql if ! source.running?
+          error "source (#{source}) is not a standby slave" unless source.is_standby?
+
+          targets.each do |t|
+            error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
+            error "target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0 
+            error "target #{t} already has a pool" if t.pool
+          end
+
+          source.enslave_siblings!(targets)
+          targets.concurrent_each {|t| t.resume_replication; t.catch_up_to_master(21600)}
+          source.pool.sync_configuration
+          puts "Cloning complete. #{shard}"
+
+        end
+
+      end
     end
     
     

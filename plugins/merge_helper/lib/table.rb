@@ -5,9 +5,7 @@ module Jetpants
 
     # Generate a query to determine if there are any rows outside of the shard id range
     def sql_range_check(sharding_key, min_id, max_id)
-      sql = "SELECT count(*) AS invalid_records FROM #{@name} WHERE #{sharding_key} > #{max_id} OR #{sharding_key} < #{min_id}"
-
-      return sql
+      "SELECT count(*) AS invalid_records FROM #{@name} WHERE #{sharding_key} > #{max_id} OR #{sharding_key} < #{min_id}"
     end
 
     # Generate a list of chunked filenames for import/export

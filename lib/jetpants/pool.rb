@@ -323,6 +323,13 @@ module Jetpants
       
       replicas.all? {|r| r.replicating?}
     end
+
+    def slaves_layout
+      {
+        :standby_slave => Jetpants.standby_slaves_per_pool,
+        :backup_slave  => Jetpants.backup_slaves_per_pool
+      }
+    end
     
     # Informs your asset tracker about any changes in the pool's state or members.
     # Plugins should override this, or use before_sync_configuration / after_sync_configuration
