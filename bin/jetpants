@@ -264,7 +264,12 @@ module Jetpants
       puts "This task turns an active slave into a standby slave."
       node = ask_node('Please enter node IP: ', options[:node])
       describe node
-      raise "Node is not an active slave" unless node.role == :active_slave
+      if node.running?
+        raise "Node is not an active slave" unless node.role == :active_slave
+      else
+        inform "Unable to connect to node #{node} to pull slave"
+        error  "Unable to pull slave" unless agree "Please confirm that #{node} is offline [yes/no]: "
+      end
       node.pool.mark_slave_standby(node)
       Jetpants.topology.write_config
     end
