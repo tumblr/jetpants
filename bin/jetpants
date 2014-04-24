@@ -391,6 +391,8 @@ module Jetpants
     # (ie, if app configuration is a static file that needs to be deployed to webs.)
     desc 'shard_split_child_reads', 'shard split step 2 of 4: move reads to child shards'
     def shard_split_child_reads
+      s = ask_shard_being_split
+      s.move_reads_to_children
       Jetpants.topology.write_config
     end
     def self.after_shard_split_child_reads
