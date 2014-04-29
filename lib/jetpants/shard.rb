@@ -179,6 +179,15 @@ module Jetpants
     # puts the shard in a state that triggers reads to move to child shards
     def move_reads_to_children
       @state = :deprecated
+      
+      @children.concurrent_each do |c|
+        raise "Child shard #{c}  not in :replicating state!" if c.state != :replicating
+      end
+
+      @children.concurrent_each do |c|
+        c.state = :child
+        c.sync_configuration
+      end
       sync_configuration
     end
     
@@ -265,11 +274,6 @@ module Jetpants
       [my_slaves, backup_slaves].flatten.each &:resume_replication
       [self, my_slaves,backup_slaves].flatten.each {|db| db.catch_up_to_master}
       
-      # Update state, if relevant
-      if @state == :replicating
-        @state = :child
-        sync_configuration
-      end
       @children
     end
     
