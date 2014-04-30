@@ -171,6 +171,7 @@ module Jetpants
       @children.concurrent_each do |c|
         c.prune_data! if [:initializing, :exporting, :importing].include? c.state
         c.clone_slaves_from_master
+        c.sync_configuration
       end
       
       output "Initial split complete."

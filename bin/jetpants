@@ -646,7 +646,7 @@ module Jetpants
           s = Jetpants.topology.shard shard_min, shard_max
           raise "Shard not found" unless s
         end
-        raise "Shard isn't in expected state" unless s.state == :deprecated
+        raise "Shard does not have children" if (s.children.nil? or s.children.count ==0)
         s
       end
     end
