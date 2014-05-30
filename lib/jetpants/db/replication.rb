@@ -96,16 +96,16 @@ module Jetpants
       # finds the db that's the farthest ahead 
       farthest = list.inject{ |result, db| db.ahead_of? result ? db : result } 
       
-      return get_slow_dbs(list, farthest).empty?
+      return get_slow_dbs(list, farthest)
     end
 
     def get_slow_dbs(list, farthest)
 
       # gets all dbs that aren't caught up
       dbs = list.reject{ |db| db.repl_binlog_coordinates == farthest.repl_binlog_coordinates }
-      # restarts the dbs that are still behind
+      
       return true if dbs.empty?
-
+      # restarts the dbs that are still behind
       farthest_coords = farthest.repl_binlog_coordinates
       output "Resuming replication from #{@master} until (#{farthest_coords[0]}, #{farthest_coords[1]})."
       output list.each{ |db| db.mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{farthest_coords[0]}', MASTER_LOG_POS = #{farthest_coords[1]}" } 
