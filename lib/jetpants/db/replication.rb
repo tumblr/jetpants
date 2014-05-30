@@ -71,20 +71,45 @@ module Jetpants
     alias start_replication resume_replication
     
     # Stops replication at the same coordinates on two nodes
-    def pause_replication_with(sibling)
-      [self, sibling].each &:pause_replication
+    # def pause_replication_with(sibling)
+    #   [self, sibling].each &:pause_replication
       
-      # self and sibling at same coordinates: all done
-      return true if repl_binlog_coordinates == sibling.repl_binlog_coordinates
+    #   # self and sibling at same coordinates: all done
+    #   return true if repl_binlog_coordinates == sibling.repl_binlog_coordinates
       
-      # self ahead of sibling: handle via recursion with roles swapped
-      return sibling.pause_replication_with(self) if ahead_of? sibling
+    #   # self ahead of sibling: handle via recursion with roles swapped
+    #   return sibling.pause_replication_with(self) if ahead_of? sibling
       
-      # sibling ahead of self: catch up to sibling
-      sibling_coords = sibling.repl_binlog_coordinates
-      output "Resuming replication from #{@master} until (#{sibling_coords[0]}, #{sibling_coords[1]})."
-      output(mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{sibling_coords[0]}', MASTER_LOG_POS = #{sibling_coords[1]}")
-      sleep 1 while repl_binlog_coordinates != sibling_coords
+    #   # sibling ahead of self: catch up to sibling
+    #   sibling_coords = sibling.repl_binlog_coordinates
+    #   output "Resuming replication from #{@master} until (#{sibling_coords[0]}, #{sibling_coords[1]})."
+    #   output mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{sibling_coords[0]}', MASTER_LOG_POS = #{sibling_coords[1]}"
+    #   sleep 1 while repl_binlog_coordinates != sibling_coords
+    #   true
+    # end
+
+    # Stops replication at the same coordinates on many nodes
+    def pause_replication_with(list)
+      list.unshift self
+      list.each &:pause_replication
+
+      # finds the db that's the farthest ahead 
+      farthest = list.inject(list[0]){ |result, db| db.ahead_of? result ? db : result } 
+      
+      return true if get_slow_dbs(list, farthest) == 0
+    end
+
+    def get_slow_dbs(list, farthest)
+
+      # gets all dbs that aren't caught up
+      dbs = list.reject{ |db| db.repl_binlog_coordinates == farthest.repl_binlog_coordinates }
+      # restarts the dbs that are still behind
+      farthest_coords = farthest.repl_binlog_coordinates
+      output "Resuming replication from #{@master} until (#{farthest_coords[0]}, #{farthest_coords[1]})."
+      output list.each{ |db| db.mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{farthest_coords[0]}', MASTER_LOG_POS = #{farthest_coords[1]}" }
+      
+      # continue while there are still slow dbs
+      sleep 1 while !get_slow_dbs(dbs, farthest).empty?
       true
     end
     
