@@ -71,17 +71,20 @@ module Jetpants
     alias start_replication resume_replication
 
     # Stops replication at the same coordinates on many nodes
-    def pause_replication_with(db_list)
-      db_list.unshift self
+    # First argument is the sleep interval, all arguments after
+    # are dbs
+    def pause_replication_with(interval, *db_list)
+      db_list.unshift self unless db_list.include? self
+      raise 'not all replicas share the same master!' unless db_list.all? {|db| db.master == self.master}
       db_list.each &:pause_replication
 
       # finds the db that's the farthest ahead 
       farthest = db_list.inject{ |result, db| db.ahead_of? result ? db : result } 
       
-      return catchup_slow_dbs(db_list, farthest)
+      return catchup_slow_dbs(interval, db_list, farthest)
     end
 
-    def catchup_slow_dbs(db_list, farthest)
+    def catchup_slow_dbs(interval, db_list, farthest)
 
       # gets all dbs that aren't caught up
       dbs = db_list.reject{ |db| db.repl_binlog_coordinates == farthest.repl_binlog_coordinates }
@@ -92,8 +95,8 @@ module Jetpants
       output "Resuming replication from #{@master} until (#{farthest_coords[0]}, #{farthest_coords[1]})."
       output list.each{ |db| db.mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{farthest_coords[0]}', MASTER_LOG_POS = #{farthest_coords[1]}" } 
       # continue while there are still slow dbs
-      sleep 1
-      catchup_slow_dbs(dbs, farthest)
+      sleep interval
+      catchup_slow_dbs(interval, dbs, farthest)
       true
     end
     
