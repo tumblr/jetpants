@@ -78,25 +78,25 @@ module Jetpants
       raise 'not all replicas share the same master!' unless db_list.all? {|db| db.master == self.master}
       db_list.each &:pause_replication
 
-      # finds the db that's the farthest ahead 
-      farthest = db_list.inject{ |result, db| db.ahead_of? result ? db : result } 
       
-      return catchup_slow_dbs(interval, db_list, farthest)
+      
+      return catchup_slow_dbs(interval, db_list)
     end
 
-    def catchup_slow_dbs(interval, db_list, farthest)
-
+    def catchup_slow_dbs(interval, db_list, binlog_coord)
+      if binlog_coord.nil?
+        # finds the db that's the farthest ahead 
+        binlog_coord = db_list.inject{ |result, db| db.ahead_of? result ? db.repl_binlog_coordinates : result.repl_binlog_coordinates } 
       # gets all dbs that aren't caught up
-      dbs = db_list.reject{ |db| db.repl_binlog_coordinates == farthest.repl_binlog_coordinates }
+      dbs = db_list.reject{ |db| db.repl_binlog_coordinates == binlog_coord }
       
       return true if dbs.empty?
       # restarts the dbs that are still behind
-      farthest_coords = farthest.repl_binlog_coordinates
-      output "Resuming replication from #{@master} until (#{farthest_coords[0]}, #{farthest_coords[1]})."
-      output list.each{ |db| db.mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{farthest_coords[0]}', MASTER_LOG_POS = #{farthest_coords[1]}" } 
+      output "Resuming replication from #{@master} until (#{binlog_coord[0]}, #{binlog_coord[1]})."
+      output dbs.each{ |db| db.mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{binlog_coord[0]}', MASTER_LOG_POS = #{binlog_coord[1]}" } 
       # continue while there are still slow dbs
       sleep interval
-      catchup_slow_dbs(interval, dbs, farthest)
+      catchup_slow_dbs(interval, dbs, binlog_coord)
       true
     end
     
