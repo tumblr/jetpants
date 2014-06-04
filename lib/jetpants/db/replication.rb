@@ -83,8 +83,8 @@ module Jetpants
 
     def catchup_slow_dbs(db_list, binlog_coord=nil)
       # finds the coordinates of the furthest db if they're not given
-      binlog_coord ||= db_list.inject{ |result, db| db.ahead_of? result ? db.repl_binlog_coordinates : result.repl_binlog_coordinates }
-
+      farthest = db_list.inject{ |result, db| db.ahead_of? result ? db : result }
+      binlog_coord ||= farthest.repl_binlog_coordinates
       # gets all dbs that aren't caught up
       dbs = db_list.reject{ |db| db.repl_binlog_coordinates == binlog_coord }
       
