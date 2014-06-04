@@ -95,7 +95,7 @@ module Jetpants
       output dbs.concurrent_each{ |db| db.mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{binlog_coord[0]}', MASTER_LOG_POS = #{binlog_coord[1]}" } 
       # continue while there are still slow dbs
       sleep Jetpants.repl_wait_interval
-      catchup_slow_dbs(interval, dbs, binlog_coord)
+      catchup_slow_dbs(dbs, binlog_coord)
     end
     
     # Permanently disables replication. Clears out the SHOW SLAVE STATUS output
