@@ -83,7 +83,7 @@ module Jetpants
 
     def catchup_slow_dbs(db_list, binlog_coord=nil)
 
-      farthest_replica = db_list.inject{|result, db| db.ahead_of?(result) ? db : result} # just gets the farthest replica db
+      farthest_replica = db_list.inject{|result, db| db.ahead_of?(result) ? db : result}
       
       # finds the coordinates of the furthest db if they're not given
       binlog_coord ||= farthest_replica.repl_binlog_coordinates
