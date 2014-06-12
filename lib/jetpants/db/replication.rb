@@ -96,9 +96,8 @@ module Jetpants
       dbs = db_list.reject{ |db| db.repl_binlog_coordinates == binlog_coord }
       
       return true if dbs.empty?
-      dbs_str = dbs.inject{|db_str, db| db_str.join(', ').join(db)}
       # restarts the dbs that are still behind
-      output "Resuming replication from #{dbs_str} until (#{binlog_coord[0]}, #{binlog_coord[1]})."
+      output "Resuming replication from #{dbs.join(', ')} until (#{binlog_coord[0]}, #{binlog_coord[1]})."
       output dbs.concurrent_each{ |db| db.mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{binlog_coord[0]}', MASTER_LOG_POS = #{binlog_coord[1]}" } 
       # continue while there are still slow dbs
       sleep Jetpants.repl_wait_interval
