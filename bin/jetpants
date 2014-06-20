@@ -587,47 +587,6 @@ module Jetpants
       end
     end
     
-    desc 'pause_pool_replication', 'pause replication on all slaves in a given pool'
-    method_option :pool
-    def pause_pool_replication
-      pool = Jetpants.topology.pool (options[:pool] || ask('Please enter the pool name: ')).downcase
-      error "Unable to find pool" unless pool
-
-      master = pool.master
-      error "Unable to find master for pool" unless master
-
-      slaves = master.slaves
-      error "Master does not have any replicating slaves to pause" unless slaves and not slaves.empty?
-
-      inform "Pausing replication on #{slaves.size} slaves"
-      slaves.concurrent_each do |slave|
-        slave.disable_monitoring rescue inform "Warning! Unable to disable monitoring for slave: #{slave}"
-        slave.pause_replication  rescue inform "Warning! Unable to pause replication for slave: #{slave}"
-      end
-    end
-
-    desc 'resume_pool_replication', 'resume replication on all slaves according to collins for a given pool'
-    method_option :pool
-    def resume_pool_replication
-      pool = Jetpants.topology.pool (options[:pool] || ask('Please enter the pool name: ')).downcase
-      error "Unable to find pool" unless pool
-
-      master = pool.master
-      error "Unable to find master for pool" unless master
-
-      slaves = pool.slaves_according_to_collins
-      error "Unable to find any slaves (via collins) for pool" unless slaves and not slaves.empty?
-
-      inform "Resuming replication on #{slaves.size} slaves"
-      slaves.concurrent_each(&:resume_replication)
-
-      inform "Preparing to enable monitoring after slaves catch up to master"
-      slaves.concurrent_each do |slave|
-        slave.catch_up_to_master
-        slave.enable_monitoring
-      end
-    end
-    
     no_tasks do
       def is_ip? address
         address =~ /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/
