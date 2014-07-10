@@ -199,27 +199,15 @@ module Jetpants
       source = ask_node('Please enter IP of node to clone from: ', options[:source])
       source.master.probe if source.master # fail early if there are any replication issues in this pool
       describe source
-
-      error "source (#{source}) does not have MySQL running" unless source.running?
-      error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?)
-
-      puts "You may clone to particular IP address(es), or can type \"spare\" or \"backup_spare\" to claim a node from the spare pool."
-      target = options[:target] || ask('Please enter comma-separated list of targets (IPs, "spare" or "backup_spare") to clone to: ')
+      
+      puts "You may clone to particular IP address(es), or can type \"spare\" to claim a node from the spare pool."
+      target = options[:target] || ask('Please enter comma-separated list of targets (IPs or "spare") to clone to: ')
       target = 'spare' if target.strip == '' || target.split(',').length == 0
-
       spares_needed = target.split(',').count {|t| t.strip.upcase == 'SPARE'}
-      backup_spares_needed = target.split(',').count {|t| t.strip.upcase == 'BACKUP_SPARE'}
-
       if spares_needed > 0
         spares_available = Jetpants.topology.count_spares(role: :standby_slave, like: source)
         raise "Not enough spare machines with role of standby slave! Requested #{spares_needed} but only have #{spares_available} available." if spares_needed > spares_available
         claimed_spares = Jetpants.topology.claim_spares(spares_needed, role: :standby_slave, like: source)
-      end
-
-      if backup_spares_needed > 0
-        backup_spares_available = Jetpants.topology.count_spares(role: :backup_slave, like: source)
-        raise "Not enough backup machines with role of backup slave! Requested #{backup_spares_needed} but only have #{backup_spares_available} available." if backup_spares_needed > backup_spares_available
-        claimed_backup_spares = Jetpants.topology.claim_spares(backup_spares_needed, role: :backup_slave, like: source)
       end
 
       targets = target.split(',').map do |ip|
@@ -228,13 +216,14 @@ module Jetpants
           ip.to_db
         elsif ip == '' || ip.upcase == 'SPARE'
           claimed_spares.shift
-        elsif ip.upcase == 'BACKUP_SPARE'
-          claimed_backup_spares.shift
         else
           error "target (#{ip}) does not appear to be an IP."
         end
       end
-
+      
+      source.start_mysql if ! source.running?
+      error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?) 
+      
       targets.each do |t|
         error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
         error "target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0
