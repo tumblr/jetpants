@@ -200,6 +200,14 @@ module Jetpants
       source.master.probe if source.master # fail early if there are any replication issues in this pool
       describe source
 
+      unless source.running?
+        error  "Aborting operation" unless agree "MySQL is not running on (#{source}), do you want to start it [yes/no]: "
+        source.start_mysql
+      end
+      error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?)
+
+      error "source (#{source}) does not have the MySQL process running" unless source.running?
+
       puts "You may clone to particular IP address(es), or can type \"spare\" or \"backup_spare\" to claim a node from the spare pool."
       begin
         target = options[:target] || ask('Please enter comma-separated list of targets (IPs, "spare" or "backup_spare") to clone to: ')
@@ -243,12 +251,9 @@ module Jetpants
       end
 
       targets.map do |t|
-        error "You cannot clone a slave to the same machine as the target" if t.ip == source.ip
+        error "You cannot clone a slave to the same node as the target" if t.ip == source.ip
       end
 
-      source.start_mysql unless source.running?
-      error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?) 
-      
       targets.each do |t|
         error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
         error "target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0
