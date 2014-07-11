@@ -201,7 +201,7 @@ module Jetpants
       describe source
 
       unless source.running?
-        error  "Aborting operation" unless agree "MySQL is not running on (#{source}), do you want to start it [yes/no]: "
+        error "Aborting operation" unless agree "MySQL is not running on (#{source}), do you want to start it [yes/no]: "
         source.start_mysql
       end
       error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?)
