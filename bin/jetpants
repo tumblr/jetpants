@@ -227,9 +227,6 @@ module Jetpants
         end
       end
 
-      puts spares_needed.inspect
-      exit
-
       spares_needed.map do |role, needed|
         available = Jetpants.topology.count_spares(role:  "#{role}_slave", like: source)
         raise "Not enough spare machines with role of #{role} slave! Requested #{needed} but only have #{available} available." if needed > available
