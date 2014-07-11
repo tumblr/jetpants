@@ -207,30 +207,46 @@ module Jetpants
 
       spares_needed = {'standby' => 0, 'backup' => 0}
       target.split(',').map do |t|
+        t.strip!
+        t.downcase!
+
         begin
-          role = t.downcase.strip.partition('_spare').first
+          role = t.partition('_spare').first
           role = 'standby' if role == 'spare'
           spares_needed[role] += 1
         rescue
-          error "Invalid target #{t.strip} specified"
+          error "Invalid target #{t.blue} specified" unless is_ip? t
         end
       end
 
-      targets = []
-      spares_needed.map { |role, needed|
+      puts spares_needed.inspect
+      exit
+
+      spares_needed.map do |role, needed|
         available = Jetpants.topology.count_spares(role:  "#{role}_slave", like: source)
         raise "Not enough spare machines with role of #{role} slave! Requested #{needed} but only have #{available} available." if needed > available
-        targets += Jetpants.topology.claim_spares(needed, role: role + '_slave', like: source)
-      }
+      end
 
-      target.split(',').map do |ip|
-        ip.strip!
-        if is_ip? ip
-          targets += ip.to_db
+      spares_claimed = []
+      spares_needed.map do |role, needed|
+        spares_claimed += Jetpants.topology.claim_spares(needed, role: "#{role}_slave", like: source)
+      end
+
+      error "Could not claim all the spares needed" unless (spares_needed.count == spares_claimed.count)
+
+      targets = target.split(',').map do |t|
+        if is_ip? t.strip
+          t.strip.to_db
+        else
+          spares_claimed.shift
         end
       end
 
-      source.start_mysql if ! source.running?
+      targets.map do |t|
+        error "You cannot clone a slave to the same machine as the target" if t.ip == source.ip
+      end
+
+      source.start_mysql unless source.running?
       error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?) 
       
       targets.each do |t|
@@ -634,10 +650,10 @@ module Jetpants
 
       def ask_node(prompt, supplied_node=false)
         node = supplied_node || ask(prompt)
-        error "Node (#{node}) does not appear to be an IP address." unless is_ip? node
+        error "Node (#{node.blue}) does not appear to be an IP address." unless is_ip? node
         node.to_db
       end
-      
+
       def ask_shard_being_split
         shards_being_split = Jetpants.shards.select {|s| s.children.count > 0}
         if shards_being_split.count == 0
