@@ -199,28 +199,37 @@ module Jetpants
       source = ask_node('Please enter IP of node to clone from: ', options[:source])
       source.master.probe if source.master # fail early if there are any replication issues in this pool
       describe source
-      
-      puts "You may clone to particular IP address(es), or can type \"spare\" to claim a node from the spare pool."
-      target = options[:target] || ask('Please enter comma-separated list of targets (IPs or "spare") to clone to: ')
-      target = 'spare' if target.strip == '' || target.split(',').length == 0
-      spares_needed = target.split(',').count {|t| t.strip.upcase == 'SPARE'}
-      if spares_needed > 0
-        spares_available = Jetpants.topology.count_spares(role: :standby_slave, like: source)
-        raise "Not enough spare machines with role of standby slave! Requested #{spares_needed} but only have #{spares_available} available." if spares_needed > spares_available
-        claimed_spares = Jetpants.topology.claim_spares(spares_needed, role: :standby_slave, like: source)
-      end
 
-      targets = target.split(',').map do |ip|
-        ip.strip!
-        if is_ip? ip
-          ip.to_db
-        elsif ip == '' || ip.upcase == 'SPARE'
-          claimed_spares.shift
-        else
-          error "target (#{ip}) does not appear to be an IP."
+      puts "You may clone to particular IP address(es), or can type \"spare\" or \"backup_spare\" to claim a node from the spare pool."
+      begin
+        target = options[:target] || ask('Please enter comma-separated list of targets (IPs, "spare" or "backup_spare") to clone to: ')
+      end while target.strip == '' || target.split(',').length == 0
+
+      spares_needed = {'standby' => 0, 'backup' => 0}
+      target.split(',').map do |t|
+        begin
+          role = t.downcase.strip.partition('_spare').first
+          role = 'standby' if role == 'spare'
+          spares_needed[role] += 1
+        rescue
+          error "Invalid target #{t.strip} specified"
         end
       end
-      
+
+      targets = []
+      spares_needed.map { |role, needed|
+        available = Jetpants.topology.count_spares(role:  "#{role}_slave", like: source)
+        raise "Not enough spare machines with role of #{role} slave! Requested #{needed} but only have #{available} available." if needed > available
+        targets += Jetpants.topology.claim_spares(needed, role: role + '_slave', like: source)
+      }
+
+      target.split(',').map do |ip|
+        ip.strip!
+        if is_ip? ip
+          targets += ip.to_db
+        end
+      end
+
       source.start_mysql if ! source.running?
       error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?) 
       
