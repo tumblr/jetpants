@@ -204,26 +204,33 @@ module Jetpants
         error "Aborting operation" unless agree "MySQL is not running on (#{source}), do you want to start it [yes/no]: "
         source.start_mysql
       end
+      error "source (#{source}) does not have the MySQL process running" unless source.running?
       error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?)
 
-      error "source (#{source}) does not have the MySQL process running" unless source.running?
-
-      puts "You may clone to particular IP address(es), or can type \"spare\" or \"backup_spare\" to claim a node from the spare pool."
+      puts 'You may clone to particular IP address(es), or can type "spare" or "backup_spare" to claim a node from the spare pool.'
       begin
         target = options[:target] || ask('Please enter comma-separated list of targets (IPs, "spare" or "backup_spare") to clone to: ')
       end while target.strip == '' || target.split(',').length == 0
 
+      # Array to hold all the target nodes
+      targets = []
+
+      # This serves as a whitelist of the target shortcuts currently supported
+      # You can enter "spare", "standby_spare" (which is same as "spare") or "backup_spare"
       spares_needed = {'standby' => 0, 'backup' => 0}
+
       target.split(',').map do |t|
         t.strip!
         t.downcase!
 
-        begin
+        if is_ip? t
+          targets.push t.to_db
+        else
           role = t.partition('_spare').first
           role = 'standby' if role == 'spare'
+
+          error "Invalid target #{t.blue} specified" if spares_needed[role].nil?
           spares_needed[role] += 1
-        rescue
-          error "Invalid target #{t.blue} specified" unless is_ip? t
         end
       end
 
@@ -232,26 +239,12 @@ module Jetpants
         raise "Not enough spare machines with role of #{role} slave! Requested #{needed} but only have #{available} available." if needed > available
       end
 
-      spares_claimed = []
       spares_needed.map do |role, needed|
-        spares_claimed += Jetpants.topology.claim_spares(needed, role: "#{role}_slave", like: source)
-      end
-
-      error "Could not claim all the spares needed" unless (spares_needed.count == spares_claimed.count)
-
-      targets = target.split(',').map do |t|
-        if is_ip? t.strip
-          t.strip.to_db
-        else
-          spares_claimed.shift
-        end
-      end
-
-      targets.map do |t|
-        error "You cannot clone a slave to the same node as the target" if t.ip == source.ip
+        targets.push Jetpants.topology.claim_spares(needed, role: "#{role}_slave", like: source)
       end
 
       targets.each do |t|
+        error "You cannot clone a slave to the same node as the target" if t.ip == source.ip
         error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
         error "target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0
       end
