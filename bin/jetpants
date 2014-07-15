@@ -235,12 +235,14 @@ module Jetpants
       end
 
       spares_needed.map do |role, needed|
-        available = Jetpants.topology.count_spares(role:  "#{role}_slave", like: source)
+        next if needed == 0
+        available = Jetpants.topology.count_spares(role:  "#{role}_slave".to_sym, like: source)
         raise "Not enough spare machines with role of #{role} slave! Requested #{needed} but only have #{available} available." if needed > available
       end
 
       spares_needed.map do |role, needed|
-        targets.push Jetpants.topology.claim_spares(needed, role: "#{role}_slave", like: source)
+        next if needed == 0
+        targets.concat Jetpants.topology.claim_spares(needed, role: "#{role}_slave".to_sym, like: source)
       end
 
       targets.each do |t|
