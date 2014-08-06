@@ -71,7 +71,7 @@ module Jetpants
       end
 
       min_val = min_key_val || comparison_db.query_return_first_value("SELECT min(#{column}) FROM #{table}")
-      max_val = comparison_db.query_return_first_value("SELECT max(#{column}) FROM #{table}")
+      max_val = max_key_val || comparison_db.query_return_first_value("SELECT max(#{column}) FROM #{table}")
       possible_dupes = []
       curr_val = min_val
 
