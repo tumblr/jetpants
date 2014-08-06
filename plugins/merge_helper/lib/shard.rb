@@ -30,8 +30,9 @@ module Jetpants
     # @table - the table object to examine
     # @key - the (symbol) of the key for which to verify uniqueness
     # @min_key_val - the minimum value of the key to consider
+    # @max_key_val - the maximum value of the key to consider
     # @chunk_size - the number of values to retrieve in one query
-    def self.check_duplicate_keys(shards, table, key, min_key_val = nil, chunk_size = 5000)
+    def self.check_duplicate_keys(shards, table, key, min_key_val = nil, max_key_val = nil, chunk_size = 5000)
       dbs = []
       shards.each do |shard|
         raise "Invalid shard #{shard}!" unless shard.is_a? Shard
@@ -55,7 +56,7 @@ module Jetpants
       end
 
       min_val = min_key_val || source_db.query_return_first_value("SELECT min(#{column}) FROM #{table}")
-      max_val = source_db.query_return_first_value("SELECT max(#{column}) FROM #{table}")
+      max_val = max_key_val || source_db.query_return_first_value("SELECT max(#{column}) FROM #{table}")
 
       # maximum possible entries and desired error rate
       max_size = (max_val.to_i - min_val.to_i) / Jetpants.shards.count
