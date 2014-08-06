@@ -46,22 +46,11 @@ module Jetpants
       # Populate the cache for all master and active_slave nodes. (We restrict to these types
       # because this is sufficient for creating Pool objects and generating app config files.)
       Jetpants.topology.server_node_assets(false, :master, :active_slave)
-      
-      functional_partition_assets = []
-      shard_assets = []
-      configuration_assets('MYSQL_POOL', 'MYSQL_SHARD').each do |asset|
-        if asset.primary_role.upcase == 'MYSQL_SHARD'
-          shard_assets << asset
-        else
-          functional_partition_assets << asset
-        end
-      end
-      
-      functional_partition_assets.sort_by! {|a| (a.config_sort_order || 0).to_i}
-      shard_assets.sort_by! {|a| a.shard_min_id.to_i}
-      @pools = functional_partition_assets.map(&:to_pool) + shard_assets.map(&:to_pool)
+
+      @pools = configuration_assets('MYSQL_POOL', 'MYSQL_SHARD').map(&:to_pool)
       @pools.compact! # remove nils from pools that had no master
-      
+      @pools.sort_by! { |p| sort_pools_callback p }
+
       # Set up parent/child relationships between shards currently being split.
       # We do this in a separate step afterwards so that Topology#pool can find the parent
       # by name, regardless of ordering in Collins
@@ -73,7 +62,13 @@ module Jetpants
     end
 
     def add_pool(pool)
-      @pools << pool
+      raise 'Attempt to add a non pool to the pools topology' unless pool.is_a?(Pool)
+
+      unless @pools.include? pool
+        @pools << pool
+        @pools.sort_by! { |p| sort_pools_callback p }
+      end
+      true
     end
 
     # Returns (count) DB objects.  Pulls from machines in the spare state
@@ -286,6 +281,22 @@ module Jetpants
       end
       keep_nodes.slice(0,count)
     end
-    
+
+    def sort_pools_callback(pool)
+      asset = pool.collins_asset
+      role = asset.primary_role.upcase
+
+      case role
+        when 'MYSQL_POOL'
+          position = (asset.config_sort_order || 0).to_i
+        when 'MYSQL_SHARD'
+          position = asset.shard_min_id.to_i
+        else
+          position = 0
+      end
+
+      [role, position]
+    end
+
   end
 end
