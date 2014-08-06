@@ -71,8 +71,11 @@ module Jetpants
       end
       true
     end
-    
-    
+
+    def add_pool(pool)
+      @pools << pool
+    end
+
     # Returns (count) DB objects.  Pulls from machines in the spare state
     # and converts them to the Allocated status.
     # You can pass in :role to request spares with a particular secondary_role

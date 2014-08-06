@@ -340,7 +340,7 @@ module Jetpants
     # Callback to ensure that a sync'ed pool is already in Topology.pools
     def before_sync_configuration
       unless Jetpants.topology.pools.include? self
-        Jetpants.topology.pools << self
+        Jetpants.topology.add_pool self
       end
     end
     

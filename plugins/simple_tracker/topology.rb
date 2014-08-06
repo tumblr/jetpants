@@ -17,7 +17,11 @@ module Jetpants
       # Now that all shards exist, we can safely assign parent/child relationships
       @tracker.shards.each {|h| Shard.assign_relationships(h, all_shards)}
     end
-    
+
+    def add_pool(pool)
+      @pools << pool
+    end
+
     # Generates a database configuration file for a hypothetical web application
     def write_config
       config_file_path = @tracker.app_config_file_path
