@@ -59,7 +59,7 @@ module Jetpants
       max_val = max_key_val || source_db.query_return_first_value("SELECT max(#{column}) FROM #{table}")
 
       # maximum possible entries and desired error rate
-      max_size = (max_val.to_i - min_val.to_i) / Jetpants.shards.count
+      max_size = (max_val.to_i - min_val.to_i) / (Jetpants.shards.count / 2)
       filter = BloomFilter.new size: max_size, error_rate: 0.001
       curr_val = min_val
 
