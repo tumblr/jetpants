@@ -59,8 +59,8 @@ module Jetpants
       max_val = max_key_val || source_db.query_return_first_value("SELECT max(#{column}) FROM #{table}")
 
       # maximum possible entries and desired error rate
-      max_size = (max_val.to_i - min_val.to_i)
-      filter = BloomFilter.new size: max_size, error_rate: 0.001
+      max_size = (max_val.to_i - min_val.to_i) / 3
+      filter = BloomFilter.new size: max_size
       curr_val = min_val
 
       source_db.output "Generating filter from #{source_shard} from values #{min_val}-#{max_val}"
