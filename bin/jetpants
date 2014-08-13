@@ -493,7 +493,7 @@ module Jetpants
       last_shard.sync_configuration
       last_shard_replace = Shard.new(last_shard.min_id, cutover_id - 1, last_shard_master)
       last_shard_replace.sync_configuration
-      Jetpants.topology.pools << last_shard_replace
+      Jetpants.topology.add_pool last_shard_replace
       
       # Now put another new shard after that one. (See earlier comment as to why we're supplying
       # the pool from the old last shard. This param is just used to select the right type of hardware,
@@ -522,7 +522,7 @@ module Jetpants
 
       new_last_shard = Shard.new(cutover_id, 'INFINITY', new_last_shard_master)
       new_last_shard.sync_configuration
-      Jetpants.topology.pools << new_last_shard
+      Jetpants.topology.add_pool new_last_shard
       
       # Create tables on the new shard's master, obtaining schema from previous last shard
       tables = Table.from_config 'sharded_tables'
