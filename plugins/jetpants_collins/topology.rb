@@ -283,7 +283,7 @@ module Jetpants
     end
 
     def sort_pools_callback(pool)
-      asset = pool.collins_asset(true)
+      asset = pool.collins_asset
       role = asset.primary_role.upcase
 
       case role
