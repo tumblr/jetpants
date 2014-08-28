@@ -263,7 +263,7 @@ module Jetpants
       ls_out = ssh_cmd "ls --color=never -1AgGF #{dir}"  # disable color, 1 file per line, all but . and .., hide owner+group, include type suffix
       result = {}
       ls_out.split("\n").each do |line|
-        next unless matches = line.match(/^[\w-]+\s+\d+\s+(?<size>\d+).*(?:\d\d:\d\d|\d{4})\s+(?<name>.*)$/)
+        next unless matches = line.match(/^[\.\w-]+\s+\d+\s+(?<size>\d+).*(?:\d\d:\d\d|\d{4})\s+(?<name>.*)$/)
         file_name = matches[:name]
         file_name = file_name[0...-1] if file_name =~ %r![*/=>@|]$!
         result[file_name.split('/')[-1]] = (matches[:name][-1] == '/' ? '/' : matches[:size].to_i)
