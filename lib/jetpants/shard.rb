@@ -250,15 +250,15 @@ module Jetpants
       backup_slaves_needed -= backup_slaves.size if @state == :child
 
       if standby_slaves_needed < 1 && backup_slaves_needed < 1
-        output 'Shard already has enough standby slaves and backup slaves, skipping step of cloning more'
+        output "Shard already has enough standby slaves and backup slaves, skipping step of cloning more"
         return
       end
 
       slaves_available = Jetpants.topology.count_spares(role: :standby_slave, like: master)
-      raise 'Not enough standby_slave role machines in spare pool!' if standby_slaves_needed > slaves_available
+      raise "Not enough standby_slave role machines in spare pool!" if standby_slaves_needed > slaves_available
 
       backup_slaves_available = Jetpants.topology.count_spares(role: :backup_slave)
-      raise 'Not enough backup_slave role machines in spare pool!' if backup_slaves_needed > backup_slaves_available
+      raise "Not enough backup_slave role machines in spare pool!" if backup_slaves_needed > backup_slaves_available
 
       # Handle state transitions
       if @state == :child || @state == :importing
