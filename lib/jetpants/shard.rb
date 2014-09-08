@@ -244,9 +244,9 @@ module Jetpants
     # a production shard that's been marked as offline.
     def clone_slaves_from_master
       # If shard is already in state :child, it may already have slaves
-      standby_slaves_needed  = @parent ? @parent.standby_slaves.size : slaves_layout[:standby_slave]
+      standby_slaves_needed  = slaves_layout[:standby_slave]
       standby_slaves_needed -= standby_slaves.size if @state == :child
-      backup_slaves_needed  = @parent ? @parent.backup_slaves.size : slaves_layout[:backup_slave]
+      backup_slaves_needed  = slaves_layout[:backup_slave]
       backup_slaves_needed -= backup_slaves.size if @state == :child
 
       if standby_slaves_needed < 1 && backup_slaves_needed < 1
