@@ -96,9 +96,11 @@ module Jetpants
       dbs = db_list.reject{ |db| db.repl_binlog_coordinates == binlog_coord }
       
       return true if dbs.empty?
+
       # restarts the dbs that are still behind
       output "Resuming replication from #{dbs.join(', ')} until (#{binlog_coord[0]}, #{binlog_coord[1]})."
-      output dbs.concurrent_each{ |db| db.mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{binlog_coord[0]}', MASTER_LOG_POS = #{binlog_coord[1]}" } 
+      output dbs.concurrent_each{ |db| db.mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{binlog_coord[0]}', MASTER_LOG_POS = #{binlog_coord[1]}" }
+
       # continue while there are still slow dbs
       sleep Jetpants.repl_wait_interval
       catchup_slow_dbs(dbs, binlog_coord)
@@ -312,8 +314,7 @@ module Jetpants
 
     def ahead_of_coordinates?(binlog_coord)
       my_pool = pool(true)
-
-      my_coords   = (my_pool.master == self ? binlog_coordinates      : repl_binlog_coordinates)
+      my_coords = (my_pool.master == self ? binlog_coordinates : repl_binlog_coordinates)
 
       # Same coordinates
       if my_coords == binlog_coord
@@ -329,8 +330,7 @@ module Jetpants
         binlog_coord_logfile_num = binlog_coord[0].match(/^[a-zA-Z.0]+(\d+)$/)[1].to_i
         my_logfile_num > binlog_coord_logfile_num
       end
-
     end
-    
+
   end
 end
