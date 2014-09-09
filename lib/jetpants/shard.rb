@@ -254,8 +254,8 @@ module Jetpants
         return
       end
 
-      slaves_available = Jetpants.topology.count_spares(role: :standby_slave, like: master)
-      raise "Not enough standby_slave role machines in spare pool!" if standby_slaves_needed > slaves_available
+      standby_slaves_available = Jetpants.topology.count_spares(role: :standby_slave, like: master)
+      raise "Not enough standby_slave role machines in spare pool!" if standby_slaves_needed > standby_slaves_available
 
       backup_slaves_available = Jetpants.topology.count_spares(role: :backup_slave)
       raise "Not enough backup_slave role machines in spare pool!" if backup_slaves_needed > backup_slaves_available
