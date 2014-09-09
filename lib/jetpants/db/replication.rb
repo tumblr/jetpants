@@ -84,17 +84,17 @@ module Jetpants
     def catchup_slow_dbs(db_list, binlog_coord=nil)
 
       farthest_replica = db_list.inject{|result, db| db.ahead_of?(result) ? db : result}
-      
+
       # finds the coordinates of the furthest db if they're not given
       binlog_coord ||= farthest_replica.repl_binlog_coordinates
 
       # if the farthest db is greater than the coord passed in, there's a problem
-      if farthest_replica.ahead_of_coordinates?(binlog_coord) 
+      if farthest_replica.ahead_of_coordinates?(binlog_coord)
         raise "replication has been resumed on at least one replica #{farthest_replica} during this operation, unable to synchronize replicas #{db_list.join(', ')} at binlog coordinates #{binlog_coord.join("\s")}"
       end
       # gets all dbs that aren't caught up
       dbs = db_list.reject{ |db| db.repl_binlog_coordinates == binlog_coord }
-      
+
       return true if dbs.empty?
 
       # restarts the dbs that are still behind

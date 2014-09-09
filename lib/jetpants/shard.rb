@@ -389,12 +389,12 @@ module Jetpants
         spare = Jetpants.topology.claim_spare(role: :master, like: master)
         spare.disable_read_only! if (spare.running? && spare.read_only?)
         spare.output "Will be master for new shard with ID range of #{my_range.first} to #{my_range.last} (inclusive)"
-        s = Shard.new(my_range.first, my_range.last, spare, :initializing)
-        add_child(s)
-        Jetpants.topology.pools << s
-        s.sync_configuration
+        child_shard = Shard.new(my_range.first, my_range.last, spare, :initializing)
+        child_shard.sync_configuration
+        add_child(child_shard)
+        Jetpants.topology.add_pool child_shard
       end
-      
+
       # We'll clone the full parent data set from a standby slave of the shard being split
       source = standby_slaves.first
       targets = @children.map &:master

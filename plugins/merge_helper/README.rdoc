@@ -2,6 +2,10 @@
 
 \The merge helper is a plugin for Jetpants to combine shards
 
-\It is currently implemented using a MariaDB database as an aggregator node, though any installation that supports multiple replication streams would be feasible
+\It is currently implemented using a MariaDB database as an aggregator node, though any installation that supports multiple replication streams would be feasible given the appropriate methods are overridden
 
 \Command-line functionality is provided to execute a four-step merge process, with similar semantics to shard splits.  Additionally, there are several validation features.  These will both validate the merged data set as well as validate data existing in current shards.  Types of validation include programmatic shard key range validation as well as checks for duplicate globally-unique keys making use of a bloom filter.
+
+\The plugin introduces a new dependency on bloom_filter, which is used when comparing two shards for duplicate IDs.  If you are getting a large number of false positives, it may be necessary to modify the bloom filter settings.
+
+\The implementation requires an amount of storage available locally to hold the combined exported data sets.

@@ -199,32 +199,54 @@ module Jetpants
       source = ask_node('Please enter IP of node to clone from: ', options[:source])
       source.master.probe if source.master # fail early if there are any replication issues in this pool
       describe source
-      
-      puts "You may clone to particular IP address(es), or can type \"spare\" to claim a node from the spare pool."
-      target = options[:target] || ask('Please enter comma-separated list of targets (IPs or "spare") to clone to: ')
-      target = 'spare' if target.strip == '' || target.split(',').length == 0
-      spares_needed = target.split(',').count {|t| t.strip.upcase == 'SPARE'}
-      if spares_needed > 0
-        spares_available = Jetpants.topology.count_spares(role: :standby_slave, like: source)
-        raise "Not enough spare machines with role of standby slave! Requested #{spares_needed} but only have #{spares_available} available." if spares_needed > spares_available
-        claimed_spares = Jetpants.topology.claim_spares(spares_needed, role: :standby_slave, like: source)
-      end
 
-      targets = target.split(',').map do |ip|
-        ip.strip!
-        if is_ip? ip
-          ip.to_db
-        elsif ip == '' || ip.upcase == 'SPARE'
-          claimed_spares.shift
+      unless source.running?
+        error "Aborting operation" unless agree "MySQL is not running on (#{source}), do you want to start it [yes/no]: "
+        source.start_mysql
+      end
+      error "source (#{source}) does not have the MySQL process running" unless source.running?
+      error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?)
+
+      puts 'You may clone to particular IP address(es), or can type "spare" or "backup_spare" to claim a node from the spare pool.'
+      begin
+        target = options[:target] || ask('Please enter comma-separated list of targets (IPs, "spare" or "backup_spare") to clone to: ')
+      end while target.strip == '' || target.split(',').length == 0
+
+      # Array to hold all the target nodes
+      targets = []
+
+      # This serves as a whitelist of the target shortcuts currently supported
+      # You can enter "spare", "standby_spare" (which is same as "spare") or "backup_spare"
+      spares_needed = {'standby' => 0, 'backup' => 0}
+
+      target.split(',').map do |t|
+        t.strip!
+        t.downcase!
+
+        if is_ip? t
+          targets.push t.to_db
         else
-          error "target (#{ip}) does not appear to be an IP."
+          role = t.partition('_spare').first
+          role = 'standby' if role == 'spare'
+
+          error "Invalid target #{t.blue} specified" if spares_needed[role].nil?
+          spares_needed[role] += 1
         end
       end
-      
-      source.start_mysql if ! source.running?
-      error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?) 
-      
+
+      spares_needed.map do |role, needed|
+        next if needed == 0
+        available = Jetpants.topology.count_spares(role:  "#{role}_slave".to_sym, like: source)
+        raise "Not enough spare machines with role of #{role} slave! Requested #{needed} but only have #{available} available." if needed > available
+      end
+
+      spares_needed.map do |role, needed|
+        next if needed == 0
+        targets.concat Jetpants.topology.claim_spares(needed, role: "#{role}_slave".to_sym, like: source)
+      end
+
       targets.each do |t|
+        error "You cannot clone a slave to the same node as the target" if t.ip == source.ip
         error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
         error "target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0
       end
@@ -471,7 +493,7 @@ module Jetpants
       last_shard.sync_configuration
       last_shard_replace = Shard.new(last_shard.min_id, cutover_id - 1, last_shard_master)
       last_shard_replace.sync_configuration
-      Jetpants.topology.pools << last_shard_replace
+      Jetpants.topology.add_pool last_shard_replace
       
       # Now put another new shard after that one. (See earlier comment as to why we're supplying
       # the pool from the old last shard. This param is just used to select the right type of hardware,
@@ -500,7 +522,7 @@ module Jetpants
 
       new_last_shard = Shard.new(cutover_id, 'INFINITY', new_last_shard_master)
       new_last_shard.sync_configuration
-      Jetpants.topology.pools << new_last_shard
+      Jetpants.topology.add_pool new_last_shard
       
       # Create tables on the new shard's master, obtaining schema from previous last shard
       tables = Table.from_config 'sharded_tables'
@@ -625,10 +647,10 @@ module Jetpants
 
       def ask_node(prompt, supplied_node=false)
         node = supplied_node || ask(prompt)
-        error "Node (#{node}) does not appear to be an IP address." unless is_ip? node
+        error "Node (#{node.blue}) does not appear to be an IP address." unless is_ip? node
         node.to_db
       end
-      
+
       def ask_shard_being_split
         shards_being_split = Jetpants.shards.select {|s| s.children.count > 0}
         if shards_being_split.count == 0
