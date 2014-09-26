@@ -148,6 +148,10 @@ module Jetpants
       export_counts = {}
       slave_coords = {}
 
+      # concurrency controls for export/transfer
+      import_lock = Mutex.new
+      transfer_lock = Mutex.new
+
       # asynchronously export data on all slaves
       slaves_to_replicate.concurrent_map { |slave|
         # these get cleaned up further down after replication is set up
@@ -162,39 +166,36 @@ module Jetpants
         # retain coords to set up replication hierarchy
         file, pos = slave.binlog_coordinates
         slave_coords[slave] = { :log_file => file, :log_pos => pos }
-      }
 
-      # ship and load data from each slave
-      slaves_to_replicate.map { |slave|
-        # transfer data files, this will output a large list of file names
-        slave.fast_copy_chain(
-          Jetpants.export_location,
-          data_nodes,
-          port: 3307,
-          files: slave.pool.table_export_filenames(full_path = false, tables),
-          overwrite: true
-        )
+        transfer_lock.synchronize do
+          slave.fast_copy_chain(
+            Jetpants.export_location,
+            data_nodes,
+            port: 3307,
+            files: slave.pool.table_export_filenames(full_path = false, tables),
+            overwrite: true
+          )
+        end
         # clean up files on origin slave
         slave.output "Cleaning up export files..."
         slave.pool.table_export_filenames(full_path = true, tables).map { |file|
           slave.ssh_cmd("rm -f #{file}")
         }
+
         # restart origin slave replication
         slave.resume_replication
         slave.catch_up_to_master
         slave.enable_monitoring
         slave.start_query_killer
         slave.cancel_downtime rescue nil
-      }
 
-      # import data in a separate loop, as we want to leave the origin slaves
-      # in a non-replicating state for as little time as possible
-      data_nodes.concurrent_map { |db|
-        slaves_to_replicate.map { |slave| 
-        # load data and inject export counts from earlier for validation
-          db.inject_counts export_counts[slave]
-          db.import_data tables, slave.pool.min_id, slave.pool.max_id
-        }
+        import_lock.synchronize do
+          data_nodes.concurrent_map { |db|
+            # load data and inject export counts from earlier for validation
+            db.inject_counts export_counts[slave]
+            db.import_data tables, slave.pool.min_id, slave.pool.max_id
+          }
+        end
       }
 
       # clear out earlier import options
