@@ -149,7 +149,6 @@ module Jetpants
       slave_coords = {}
 
       # concurrency controls for export/transfer
-      import_lock = Mutex.new
       transfer_lock = Mutex.new
 
       # asynchronously export data on all slaves
@@ -188,14 +187,14 @@ module Jetpants
         slave.enable_monitoring
         slave.start_query_killer
         slave.cancel_downtime rescue nil
+      }
 
-        import_lock.synchronize do
-          data_nodes.concurrent_map { |db|
-            # load data and inject export counts from earlier for validation
-            db.inject_counts export_counts[slave]
-            db.import_data tables, slave.pool.min_id, slave.pool.max_id
-          }
-        end
+      data_nodes.concurrent_map { |db|
+        # load data and inject export counts from earlier for validation
+        slaves_to_replicate.map { |slave| 
+          db.inject_counts export_counts[slave]
+          db.import_data tables, slave.pool.min_id, slave.pool.max_id
+        }
       }
 
       # clear out earlier import options
