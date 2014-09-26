@@ -7,7 +7,7 @@ module Jetpants
     
     include Plugin::JetCollins
     
-    collins_attr_accessor :slave_weight
+    collins_attr_accessor :slave_weight, :nodeclass
     
     # Because we only support 1 mysql instance per machine for now, we can just
     # delegate this over to the host
@@ -73,11 +73,17 @@ module Jetpants
     end
     
     ##### NEW METHODS ##########################################################
-    
+
     # Returns true if this database is located in the same datacenter as jetpants_collins
     # has been figured for, false otherwise.
     def in_remote_datacenter?
       @host.collins_location != Plugin::JetCollins.datacenter
+    end
+
+    # override in a custom plugin to parse location info in a specific environment
+    # returning relevant location information to parse in pool::location_map
+    # ex: { dc: dc,row: row, position: position }
+    def location_hash
     end
     
     # Returns true if this database is a spare node and looks ready for use, false otherwise.
@@ -124,5 +130,23 @@ module Jetpants
       status_state = collins_status_state
       @spare_validation_errors << "Unexpected status:state value: #{status_state}" unless status_state == 'allocated:spare'
     end
+
+    # Returns the Jetpants::Pool that this instance belongs to, if any.
+    # Can optionally create an anonymous pool if no pool was found. This anonymous
+    # pool intentionally has a blank sync_configuration implementation.  Rely on
+    # Collins for pool information if it is already in one.
+    def pool(create_if_missing=false)
+      result = Jetpants.topology.pool(collins_pool || self)
+
+      if !result && master
+        result = Jetpants.topology.pool(master)
+      elsif !result && create_if_missing
+        pool_master = master || self
+        result = Pool.new('anon_pool_' + pool_master.ip.tr('.', ''), pool_master)
+        def result.sync_configuration; end
+      end
+      result
+    end
+
   end
 end

@@ -56,11 +56,13 @@ module Jetpants
     # case you will need to force a probe so that Jetpants learns about the
     # change.
     def probe(force=false)
-      return if probed? && !force
-      output "Probing MySQL installation"
-      probe_running
-      probe_master
-      probe_slaves
+      @probe_mutex.synchronize {
+        return if probed? && !force
+        output "Probing MySQL installation"
+        probe_running
+        probe_master
+        probe_slaves
+      }
       self
     end
     
@@ -240,15 +242,15 @@ module Jetpants
     # pool intentionally has a blank sync_configuration implementation.
     def pool(create_if_missing=false)
       result = Jetpants.topology.pool(self)
+
       if !result && master
-        result ||= Jetpants.topology.pool(master)
-      end
-      if !result && create_if_missing
+        result = Jetpants.topology.pool(master)
+      elsif !result && create_if_missing
         pool_master = master || self
         result = Pool.new('anon_pool_' + pool_master.ip.tr('.', ''), pool_master)
         def result.sync_configuration; end
       end
-      return result
+      result
     end
     
     # Determines the DB's role in its pool. Returns either :master,
@@ -262,10 +264,11 @@ module Jetpants
     # masters in the middle of a shard split), we return :master if
     # Jetpants.topology considers the node to be the master for a pool.
     def role
+      probe unless probed?
       p = pool
       case
       when !@master then :master                                # nodes that aren't slaves (including orphans) 
-      when p.master == self then :master                        # nodes that the topology thinks are masters
+      when p && p.master == self then :master                   # nodes that the topology thinks are masters
       when for_backups? then :backup_slave
       when p && p.active_slave_weights[self] then :active_slave # if pool in topology, determine based on expected/ideal state
       when !p && !is_standby? then :active_slave                # if pool missing from topology, determine based on actual state
@@ -346,7 +349,6 @@ module Jetpants
     def probe_slaves
       return unless @running # leaves @slaves as nil to indicate unknown state
       @slaves = []
-      slaves_mutex = Mutex.new
       processes = mysql_root_cmd("SHOW PROCESSLIST", :terminator => ';').split("\n")
       
       # We have to de-dupe the output, since it's possible in weird edge cases for
@@ -361,7 +363,7 @@ module Jetpants
       ips.keys.concurrent_each do |ip|
         db = ip.to_db
         db.probe
-        slaves_mutex.synchronize {@slaves << db if db.master == self}
+        @slaves << db if db.master == self
       end
     end
     

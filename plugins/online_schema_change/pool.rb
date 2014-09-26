@@ -4,7 +4,7 @@ module Jetpants
   class Pool
     collins_attr_accessor :online_schema_change
 
-    def alter_table(database, table, alter, dry_run=true, force=false)
+    def alter_table(database, table, alter, dry_run=true, force=false, no_check_plan=false)
       database ||= app_schema
       error = false
 
@@ -19,11 +19,13 @@ module Jetpants
 
       critical_threads_running = 2 * max_threads > 500 ? 2 * max_threads : 500
 
+      check_plan = no_check_plan ? "--nocheck-plan" : ""
+
       update_collins_for_alter(database, table, alter)
 
       master.with_online_schema_change_user('pt-osc', database) do |password|
 
-        command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --nodrop-new-table --retries=10 --set-vars='wait_timeout=100000' --dry-run --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
+        command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --nodrop-new-table --retries=10 --set-vars='wait_timeout=100000' #{check_plan} --dry-run --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
 
         print "[#{@name.to_s.red}][#{Time.now.to_s.blue}]---------------------------------------------------------------------------------------\n"
         print "[#{@name.to_s.red}][#{Time.now.to_s.blue}] #{command}\n"
@@ -43,7 +45,7 @@ module Jetpants
           end
 
           if force || continue == 'YES'
-            command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --nodrop-new-table --retries=10 --set-vars='wait_timeout=100000' --execute --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
+            command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --nodrop-new-table --retries=10 --set-vars='wait_timeout=100000' #{check_plan} --execute --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
             
             print "[#{@name.to_s.red}][#{Time.now.to_s.blue}]---------------------------------------------------------------------------------------\n\n\n"
             print "[#{@name.to_s.red}][#{Time.now.to_s.blue}] #{command}\n"
@@ -98,7 +100,7 @@ module Jetpants
     # we do not drop the table after an alter
     def drop_old_alter_table(database, table)
       database ||= app_schema
-      master.mysql_root_cmd("USE #{database}; DROP TABLE _#{table}_old")
+      master.mysql_root_cmd("USE #{database}; DROP TABLE IF EXISTS _#{table}_old")
     end
 
   end

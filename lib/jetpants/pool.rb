@@ -19,6 +19,7 @@ module Jetpants
   # configuration-generator plugin
   class Pool
     include CallbackHandler
+    include Output
 
     # human-readable String name of pool
     attr_reader   :name
@@ -53,7 +54,7 @@ module Jetpants
       @name = name
       @slave_name = false
       @aliases = []
-      @master = master.to_db
+      @master = master.to_db || nil
       @master_read_weight = 0
       @active_slave_weights = {}
       @tables = nil
@@ -322,6 +323,13 @@ module Jetpants
       
       replicas.all? {|r| r.replicating?}
     end
+
+    def slaves_layout
+      {
+        :standby_slave => Jetpants.standby_slaves_per_pool,
+        :backup_slave  => Jetpants.backup_slaves_per_pool
+      }
+    end
     
     # Informs your asset tracker about any changes in the pool's state or members.
     # Plugins should override this, or use before_sync_configuration / after_sync_configuration
@@ -340,19 +348,7 @@ module Jetpants
     def to_s
       @name
     end
-    
-    # Displays the provided output, along with information about the current time,
-    # and self (the name of this Pool)
-    def output(str)
-      str = str.to_s.strip
-      str = nil if str && str.length == 0
-      str ||= "Completed (no output)"
-      output = Time.now.strftime("%H:%M:%S") + " [#{self}] "
-      output << str
-      print output + "\n"
-      output
-    end
-    
+
     # Jetpants::Pool proxies missing methods to the pool's @master Jetpants::DB instance.
     def method_missing(name, *args, &block)
       if @master.respond_to? name

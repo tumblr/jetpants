@@ -164,7 +164,7 @@ module Jetpants
         t.enable_read_only!
       end
       resume_replication # should already have happened from the clone_to! restart anyway, but just to be explicit
-      catch_up_to_master
+      catch_up_to_master 21600
       enable_monitoring
     end
     
@@ -209,7 +209,7 @@ module Jetpants
     # returns true if slave lag is zero 3 times in a row. Gives up if this does
     # not occur within a one-hour period. If a large amount of slave lag is
     # reported, this method will automatically reduce its polling frequency.
-    def catch_up_to_master(timeout=3600, threshold=3, poll_frequency=5)
+    def catch_up_to_master(timeout=21600, threshold=3, poll_frequency=5)
       raise "This instance is not a slave" unless master
       resume_replication if @repl_paused
       
