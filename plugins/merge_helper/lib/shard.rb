@@ -189,6 +189,8 @@ module Jetpants
         slave.cancel_downtime rescue nil
       }
 
+      # import data in a separate loop, as we want to leave the origin slaves
+      # in a non-replicating state for as little time as possible
       data_nodes.concurrent_map { |db|
         # load data and inject export counts from earlier for validation
         slaves_to_replicate.map { |slave| 
