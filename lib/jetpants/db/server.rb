@@ -128,7 +128,8 @@ module Jetpants
       get_tcpdump_sample duration, dumpfile
 
       output('Analyzing the tcpdump with pt-query-digest')
-      output(self.ssh_cmd "pt-query-digest --type tcpdump --limit 30 #{dumpfile} 2> /dev/null; rm -f #{dumpfile}")
+      output(self.ssh_cmd "tcpdump -s 0 -x -n -q -tttt -r #{dumpfile} | pt-query-digest --type tcpdump --limit 30 - 2> /dev/null")
+      self.ssh_cmd "rm -f #{dumpfile}"
 
       nil
     end
@@ -137,7 +138,7 @@ module Jetpants
       raise 'tcpdump is not installed on the server' if self.ssh_cmd('which tcpdump 2> /dev/null').nil?
 
       output("Running tcpdump for #{duration} seconds and dumping temp data to #{dumpfile}")
-      self.ssh_cmd "tcpdump -i #{Jetpants.private_interface} -s 0 -G #{duration} -x -n -q -tttt 'port #{@port}' > #{dumpfile}"
+      self.ssh_cmd "tcpdump -i #{Jetpants.private_interface} -G #{duration} -W 1 'port #{@port}' -w #{dumpfile}"
     end
   end
 end
