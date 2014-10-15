@@ -5,6 +5,8 @@ module Jetpants
   # Much of this behavior needs to be overridden by a plugin to actually be
   # useful.  The implementation here is just a stub.
   class Topology
+    include CallbackHandler
+
     attr_reader :pools
     
     def initialize

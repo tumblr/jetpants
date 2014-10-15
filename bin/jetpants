@@ -540,7 +540,7 @@ module Jetpants
       )
     end
 
-    desc 'rebalance_backup_slaves', 'adds a backup slave for every pool that needs it'
+    desc 'rebalance_backup_slaves', 'Add backup slaves to pools which contain too few (does not destroy existing slaves)'
     def rebalance_backup_slaves
       spares_available = Jetpants.topology.count_spares(role: :backup_slave)
 
@@ -560,7 +560,7 @@ module Jetpants
 
         if spares.count > 0
 
-          output "Looking at adding a backup slave to shard #{shard}"
+          output "Considering shard #{shard}"
 
           source = shard.standby_slaves.last
           source.master.probe if source.master # fail early if there are any replication issues in this pool
@@ -569,62 +569,21 @@ module Jetpants
           targets = [spares.pop]
 
           source.start_mysql if ! source.running?
-          error "source (#{source}) is not a standby slave" unless source.is_standby?
+          error "Source (#{source}) is not a standby slave" unless source.is_standby?
 
           targets.each do |t|
-            error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
-            error "target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0 
-            error "target #{t} already has a pool" if t.pool
+            error "Target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
+            error "Target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0 
+            error "Target #{t} already has a pool!" if t.pool
           end
 
           source.enslave_siblings!(targets)
           targets.concurrent_each {|t| t.resume_replication; t.catch_up_to_master(21600)}
           source.pool.sync_configuration
-          puts "Cloning complete. #{shard}"
+          output "Rebalance complete for #{shard}"
 
         end
 
-      end
-    end
-    
-    desc 'pause_pool_replication', 'pause replication on all slaves in a given pool'
-    method_option :pool
-    def pause_pool_replication
-      pool = Jetpants.topology.pool (options[:pool] || ask('Please enter the pool name: ')).downcase
-      error "Unable to find pool" unless pool
-
-      master = pool.master
-      error "Unable to find master for pool" unless master
-
-      slaves = master.slaves
-      error "Master does not have any replicating slaves to pause" unless slaves and not slaves.empty?
-
-      inform "Pausing replication on #{slaves.size} slaves"
-      slaves.concurrent_each do |slave|
-        slave.disable_monitoring rescue inform "Warning! Unable to disable monitoring for slave: #{slave}"
-        slave.pause_replication  rescue inform "Warning! Unable to pause replication for slave: #{slave}"
-      end
-    end
-
-    desc 'resume_pool_replication', 'resume replication on all slaves according to collins for a given pool'
-    method_option :pool
-    def resume_pool_replication
-      pool = Jetpants.topology.pool (options[:pool] || ask('Please enter the pool name: ')).downcase
-      error "Unable to find pool" unless pool
-
-      master = pool.master
-      error "Unable to find master for pool" unless master
-
-      slaves = pool.slaves_according_to_collins
-      error "Unable to find any slaves (via collins) for pool" unless slaves and not slaves.empty?
-
-      inform "Resuming replication on #{slaves.size} slaves"
-      slaves.concurrent_each(&:resume_replication)
-
-      inform "Preparing to enable monitoring after slaves catch up to master"
-      slaves.concurrent_each do |slave|
-        slave.catch_up_to_master
-        slave.enable_monitoring
       end
     end
     
