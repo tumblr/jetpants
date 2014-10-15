@@ -68,6 +68,18 @@ module Jetpants
             super
           end
         end
+
+        def find(selector, retry_request = false)
+          if retry_request
+            Jetpants::Plugin::JetCollins.with_retries {
+              res = service.send 'find', selector
+              raise "Unable to find asset for #{selector[:pool]}" if res.empty?
+              return res
+            }
+          else
+            return service.send 'find', selector
+          end
+        end
         
         # Eigenclass mix-in for collins_attr_accessor
         # Calling "collins_attr_accessor :foo" in your class body will create
