@@ -21,7 +21,7 @@ module Jetpants
       }
       selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
       
-      results = Plugin::JetCollins.find selector
+      results = Plugin::JetCollins.find selector, !create_if_missing
       
       # If we got back multiple results, try ignoring the remote datacenter ones
       if results.count > 1
