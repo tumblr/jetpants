@@ -117,7 +117,7 @@ module Jetpants
     end
 
     # checks to see if a db is usable with another
-    def usable_with?(cmp)
+    def usable_with?(db)
       true
     end
 
