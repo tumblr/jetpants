@@ -115,7 +115,17 @@ module Jetpants
       end
       @spare_validation_errors.empty?
     end
-    
+
+    # checks to see if a db is usable with another
+    def usable_with?(cmp)
+      true
+    end
+
+    # checks ot see if a db is usable within a pool
+    def usable_in?(pool)
+      true
+    end
+
     # Performs validation checks on this node to see whether it is a usable spare.
     # The default implementation just ensures a collins status of Allocated and state
     # of SPARE.
