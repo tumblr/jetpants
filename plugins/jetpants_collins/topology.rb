@@ -264,6 +264,7 @@ module Jetpants
         size:             100,
       }
       selector = process_spare_selector_options(selector, options)
+      source = options[:like]
       
       nodes = Plugin::JetCollins.find(selector)
       keep_nodes = []
