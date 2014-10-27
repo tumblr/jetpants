@@ -264,6 +264,7 @@ module Jetpants
         size:             100,
       }
       selector = process_spare_selector_options(selector, options)
+      source = options[:like]
       
       nodes = Plugin::JetCollins.find(selector)
       keep_nodes = []
@@ -274,7 +275,7 @@ module Jetpants
       # Now iterate in a single-threaded way for simplicity
       nodes.each do |node|
         db = node.to_db
-        if db.usable_spare?
+        if(db.usable_spare? && (!source || db.usable_with?(source)))
           keep_nodes << node
           break if keep_nodes.size >= count
         end
