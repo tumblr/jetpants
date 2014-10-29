@@ -199,7 +199,7 @@ module Jetpants
       #   Symbol   => String         -- optionally set any Collins attribute
       #   :status  => String         -- optionally set the status value for the asset. Can optionally be a "status:state" string too.
       #   :asset   => Collins::Asset -- optionally pass this in to avoid an extra Collins API lookup, if asset already obtained
-      #   :raw_str => Bool           -- optionally flag the value to not be upcased, only effective when setting attributes
+      #   :literal => Bool           -- optionally flag the value to not be upcased, only effective when setting attributes
       #
       # Alternatively, pass in 2 strings (field_name, value) to set just a single Collins attribute (or status)
       def collins_set(*args)
@@ -207,8 +207,8 @@ module Jetpants
         asset = attrs[:asset] || collins_asset
 
         upcase = true 
-        unless attrs[:raw_str].nil?
-          attrs.delete(:raw_str)
+        unless attrs[:literal].nil?
+          attrs.delete(:literal)
           upcase = false
         end
 
