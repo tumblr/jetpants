@@ -206,11 +206,8 @@ module Jetpants
         attrs = (args.count == 1 ? args[0] : {args[0] => args[1]})
         asset = attrs[:asset] || collins_asset
 
-        upcase = true 
-        unless attrs[:literal].nil?
-          attrs.delete(:literal)
-          upcase = false
-        end
+        upcase = !attrs[:literal]
+        attrs.delete(:literal)
 
         # refuse to set Collins values on machines in remote data center unless
         # inter_dc_mode is enabled
