@@ -49,7 +49,7 @@ module Jetpants
       Jetpants.topology.add_pool aggregate_shard
 
       # build up the rest of the new shard
-      spares_for_aggregate_shard = Jetpants.topology.claim_spares(shards_to_merge.first.slaves_layout[:standby_slave], role: :standby_slave, like: aggregate_node.aggregating_nodes.first)
+      spares_for_aggregate_shard = Jetpants.topology.claim_spares(shards_to_merge.first.slaves_layout[:standby_slave], role: :standby_slave, like: aggregate_shard_master)
       if shards_to_merge.first.slaves_layout[:backup_slave] > 0
         backup_spares = Jetpants.topology.claim_spares(shards_to_merge.first.slaves_layout[:backup_slave], role: :backup_slave)
       else
