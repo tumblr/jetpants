@@ -199,11 +199,15 @@ module Jetpants
       #   Symbol   => String         -- optionally set any Collins attribute
       #   :status  => String         -- optionally set the status value for the asset. Can optionally be a "status:state" string too.
       #   :asset   => Collins::Asset -- optionally pass this in to avoid an extra Collins API lookup, if asset already obtained
+      #   :literal => Bool           -- optionally flag the value to not be upcased, only effective when setting attributes
       #
       # Alternatively, pass in 2 strings (field_name, value) to set just a single Collins attribute (or status)
       def collins_set(*args)
         attrs = (args.count == 1 ? args[0] : {args[0] => args[1]})
         asset = attrs[:asset] || collins_asset
+
+        upcase = !attrs[:literal]
+        attrs.delete(:literal)
 
         # refuse to set Collins values on machines in remote data center unless
         # inter_dc_mode is enabled
@@ -258,17 +262,19 @@ module Jetpants
               next
             end
             previous_value = asset.send(key)
-            if previous_value != val.to_s.upcase
-              success = Jetpants::Plugin::JetCollins.set_attribute!(asset, key.to_s.upcase, val.to_s.upcase)
+            val = val.to_s
+            val = val.upcase if upcase
+            if previous_value != val
+              success = Jetpants::Plugin::JetCollins.set_attribute!(asset, key.to_s.upcase, val)
               raise "#{self}: Unable to set Collins attribute #{key} to #{val}" unless success
-              if (val.to_s == '' || !val) && (previous_value == '' || !previous_value)
+              if (val == '' || !val) && (previous_value == '' || !previous_value)
                 false
-              elsif val.to_s == ''
+              elsif val == ''
                 output "Collins attribute #{key.to_s.upcase} removed (was: #{previous_value})"
               elsif !previous_value || previous_value == ''
-                output "Collins attribute #{key.to_s.upcase} set to #{val.to_s.upcase}"
+                output "Collins attribute #{key.to_s.upcase} set to #{val}"
               else
-                output "Collins attribute #{key.to_s.upcase} changed from #{previous_value} to #{val.to_s.upcase}"
+                output "Collins attribute #{key.to_s.upcase} changed from #{previous_value} to #{val}"
               end
             end
           end
