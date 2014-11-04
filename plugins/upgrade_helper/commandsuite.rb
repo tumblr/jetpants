@@ -115,7 +115,7 @@ module Jetpants
     
     desc 'shard_upgrade', 'upgrade a shard via four-step lockless process'
     method_option :min_id,  :desc => 'Minimum ID of shard to upgrade'
-    method_option :max_id,  :desc => 'Maximum ID of shard to ugprade'
+    method_option :max_id,  :desc => 'Maximum ID of shard to upgrade'
     method_option :reads,   :desc => 'Move reads to the new master', :type => :boolean
     method_option :writes,  :desc => 'Move writes to new master', :type => :boolean
     method_option :cleanup, :desc => 'Tear down the old-version nodes', :type => :boolean

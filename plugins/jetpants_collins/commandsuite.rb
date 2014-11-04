@@ -35,7 +35,7 @@ module Jetpants
     method_option :name, :name => 'unique name of new pool to be created'
     method_option :master, :master => 'ip of pre-configured master for new pool'
     def create_pool
-      name = options[:name] || ask('Please ender the name of the new pool.')
+      name = options[:name] || ask('Please enter the name of the new pool.')
       if configuration_assets('MYSQL_POOL').map(&:pool).include? name.upcase
         error "Pool #{name} already exists"
       end

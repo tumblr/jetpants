@@ -51,7 +51,7 @@ module Jetpants
     end
     
     
-    ###### Overrideable methods ################################################
+    ###### Overridable methods ################################################
     # Plugins should override these if the behavior is needed. (Note that plugins
     # don't need to repeat the "synchronized" decorator; it automatically
     # applies to overrides.)

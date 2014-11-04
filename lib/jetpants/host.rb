@@ -174,7 +174,7 @@ module Jetpants
     #             * :port             =>  port number to use for netcat. defaults to 7000 if omitted.
     #             * :overwrite        =>  if true, don't raise an exception if the base_dir is non-empty or :files exist. default false.
     def fast_copy_chain(base_dir, targets, options={})
-      # Normalize the filesnames param so it is an array
+      # Normalize the filenames param so it is an array
       filenames = options[:files] || ['.']
       filenames = [filenames] unless filenames.respond_to?(:each)
       
@@ -276,7 +276,7 @@ module Jetpants
     # is :files.
     # Raises an exception if the files don't exactly match, otherwise returns true.
     def compare_dir(base_dir, targets, options={})
-      # Normalize the filesnames param so it is an array
+      # Normalize the filenames param so it is an array
       filenames = options[:files] || ['.']
       filenames = [filenames] unless filenames.respond_to?(:each)
       
