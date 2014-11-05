@@ -110,7 +110,7 @@ module Jetpants
           (Jetpants.plugins['jetpants_collins']['datacenter'] || 'UNKNOWN-DC').upcase
         end
 
-        # Ordinarily, in a multi-dacenter environment, jetpants_collins places a number
+        # Ordinarily, in a multi-datacenter environment, jetpants_collins places a number
         # of restrictions on interacting with assets that aren't in the local datacenter,
         # for safety's sake and to simplify how hierarchical replication trees are represented:
         #
@@ -121,7 +121,7 @@ module Jetpants
         #     remote-datacenter slaves have slaves of their own, they're ignored/hidden.
         #   
         # You may DISABLE these restrictions by calling enable_inter_dc_mode. Normally you
-        # do NOT want to do this, except in special sitautions like a migration between
+        # do NOT want to do this, except in special situations like a migration between
         # datacenters.
         def enable_inter_dc_mode
           Jetpants.plugins['jetpants_collins']['inter_dc_mode'] = true

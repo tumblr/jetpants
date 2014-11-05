@@ -11,7 +11,7 @@ module Jetpants; end
 $LOAD_PATH.unshift File.join(File.dirname(__FILE__), 'jetpants'), File.join(File.dirname(__FILE__), '..', 'plugins')
 %w(callback table host db pool topology shard monkeypatch).each {|g| require g}
 
-# Since Jetpants is extremely multithreaded, we need to force uncaught exceptions to
+# Since Jetpants is extremely multi-threaded, we need to force uncaught exceptions to
 # kill all threads in order to have any kind of sane error handling.
 Thread.abort_on_exception = true
 

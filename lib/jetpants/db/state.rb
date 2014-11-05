@@ -108,7 +108,7 @@ module Jetpants
       global_status[:Connections].to_i - conn_counter > threshold
     end
 
-    # Gets the max theads connected over a time period
+    # Gets the max threads connected over a time period
     def max_threads_running(tries=8, interval=1.0)
       poll_status_value(:Threads_running,:max, tries, interval)
     end

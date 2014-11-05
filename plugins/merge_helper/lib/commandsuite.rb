@@ -17,7 +17,7 @@ module Jetpants
 
       aggregate_node_ip = ask "Please supply the IP of an aggregator node:"
       aggregate_node = Aggregator.new(aggregate_node_ip)
-      raise "Invalide aggregate node!" unless aggregate_node.aggregator?
+      raise "Invalid aggregate node!" unless aggregate_node.aggregator?
 
       # claim node for the new shard master
       spare_count = shards_to_merge.first.slaves_layout[:standby_slave] + 1;
@@ -25,7 +25,7 @@ module Jetpants
       raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= shards_to_merge.first.slaves_layout[:backup_slave]
 
       # claim the slaves further along in the process
-      aggregate_shard_master = ask_node("Enter the IP address of the new master or press enter to selecte a spare:") || Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
+      aggregate_shard_master = ask_node("Enter the IP address of the new master or press enter to select a spare:") || Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
 
       Shard.set_up_aggregate_node(shards_to_merge, aggregate_node, aggregate_shard_master)
 
@@ -200,7 +200,7 @@ module Jetpants
         combined_shard.master.output "Replication running for #{combined_shard} master"
         aggregator_host = combined_shard.master.master
         aggregator_instance = Aggregator.new(aggregator_host.ip)
-        raise "Unexpected replication toplogy! Cannot find aggregator instance!" unless aggregator_host.aggregator?
+        raise "Unexpected replication topology! Cannot find aggregator instance!" unless aggregator_host.aggregator?
         raise "Aggregator instance not replicating all data sources!" unless aggregator_instance.all_replication_running?
         aggregator_instance.aggregating_nodes.each do |shard_slave|
           raise "Aggregate data source #{shard_slave} not currently replicating!" unless shard_slave.replicating?

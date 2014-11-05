@@ -131,7 +131,7 @@ module Jetpants
     # of SPARE.
     # Downstream plugins may override this to do additional checks to ensure the node is
     # in a sane condition.
-    # No need to check whether the node is SSHable, MySQL is running, or not already in
+    # No need to check whether the node is SSH-able, MySQL is running, or not already in
     # a pool -- DB#usable_spare? already does that automatically.
     def validate_spare
       # Confirm node is in Allocated:SPARE status:state. (Because Collins find API hits a

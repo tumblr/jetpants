@@ -78,7 +78,7 @@ module Jetpants
         if demoted.slaves && demoted.slaves.count > 0
           demoted.slaves.each {|s| s.probe}
         else
-          replicas = ask("Please enter a comma-seperated list of IP addresses of all current replicas of #{demoted}: ").split /\s*,\s*/
+          replicas = ask("Please enter a comma-separated list of IP addresses of all current replicas of #{demoted}: ").split /\s*,\s*/
           error "No replicas entered" unless replicas && replicas.count > 0
           error "User supplied list of replicas appears to be invalid - #{replicas}" unless replicas.all? {|replica| is_ip? replica}
           demoted.instance_eval {@slaves = replicas.map &:to_db}

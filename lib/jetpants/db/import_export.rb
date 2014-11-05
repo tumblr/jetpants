@@ -143,7 +143,7 @@ module Jetpants
       drop_user(import_export_user)
     end
     
-    # Imports the data subset previously dumped thorugh export_data.
+    # Imports the data subset previously dumped through export_data.
     # Returns number of rows imported.
     def import_table_data(table, min_id=false, max_id=false)
       unless min_id && max_id && table.chunks > 0
