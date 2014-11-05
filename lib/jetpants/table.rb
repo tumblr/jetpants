@@ -81,7 +81,11 @@ module Jetpants
       @sharding_keys ||= []
       
       @primary_key = params['primary_key']
-      @chunks = params['chunks'] || 1
+      if @sharding_keys.empty?
+        @chunks = 0
+      else
+        @chunks = params['chunks'] || 1
+      end
       @order_by = params['order_by']
       @create_table_sql = params['create_table'] || params['create_table_sql']
       @pool = params['pool']
