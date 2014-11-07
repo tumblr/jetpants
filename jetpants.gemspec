@@ -30,4 +30,5 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'colored', '~> 1.2'
   s.add_runtime_dependency 'collins_client', '~> 0.2.7'
   s.add_runtime_dependency 'bloom-filter', '~> 0.2.0'
+  s.add_runtime_dependency 'pony', '~> 1.11'
 end
