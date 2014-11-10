@@ -100,6 +100,27 @@ module Jetpants
       end
     end
 
+    # Finds duplicate unique keys on two distinct shards
+    #
+    # @shards - an array of two shards
+    # @table - the table object to examine
+    # @key - the (symbol) of the key for which to verify uniqueness
+    # @min_key_val - the minimum value of the key to consider
+    # @max_key_val - the maximum value of the key to consider
+    def self.find_duplicate_keys(shards, table, key, min_key_val = nil, max_key_val = nil)
+      # check_duplicate_keys method will do all the validation of the parameters
+      keys = Shard.check_duplicate_keys(shards, table, key, min_key_val, max_key_val)
+      column = table.indexes[key][:columns].first
+
+      keys.map do |k|
+        count = shards.concurrent_map do |s|
+          s.standby_slaves.last.query_return_first("select count(*) from #{table} where #{column} = #{k}")
+        end.map(&:values).map{ |f| f.first.to_i }.reduce(&:+)
+
+        [k, count]
+      end.select{ |f| f[1] > 1 }
+    end
+
     # Generate a list of filenames for exported data
     def table_export_filenames(full_path = true, tables = false)
       export_filenames = []
