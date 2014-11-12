@@ -114,8 +114,9 @@ module Jetpants
 
       keys.map do |k|
         count = shards.concurrent_map do |s|
-          s.standby_slaves.last.query_return_first("select count(*) from #{table} where #{column} = #{k}")
-        end.map(&:values).map{ |f| f.first.to_i }.reduce(&:+)
+          query = "select count(*) from #{table} where #{column} = #{k}"
+          s.standby_slaves.last.query_return_first(query).values.first.to_i
+        end.reduce(&:+)
 
         [k, count]
       end.select{ |f| f[1] > 1 }
