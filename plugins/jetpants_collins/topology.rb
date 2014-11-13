@@ -78,12 +78,7 @@ module Jetpants
       assets = query_spare_assets(count, options)
       raise "Not enough spare machines available! Found #{assets.count}, needed #{count}" if assets.count < count
       assets.map do |asset|
-        db = asset.to_db
-        db.collins_pool = ''
-        db.collins_secondary_role = ''
-        db.collins_slave_weight = ''
-        db.collins_status = 'Allocated:CLAIMED'
-        db
+        asset.to_db.claim_spare
       end
     end
     

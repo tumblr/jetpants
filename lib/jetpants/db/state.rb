@@ -157,7 +157,12 @@ module Jetpants
     def for_backups?
       @host.hostname.start_with? 'backup'
     end
-    
+
+    # Plugin should override so that this returns if the node is a spare
+    def is_spare?
+      raise "Plugin must override DB#is_spare?"
+    end
+
     # Returns true if the node can be promoted to be the master of its pool,
     # false otherwise (also false if node is ALREADY the master)
     # Don't use this in hierarchical replication scenarios, result may be

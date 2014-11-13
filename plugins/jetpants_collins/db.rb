@@ -28,8 +28,7 @@ module Jetpants
     def for_backups?
       hostname.start_with?('backup') || in_remote_datacenter?
     end
-    
-    
+
     ##### CALLBACKS ############################################################
     
     # Determine master from Collins if machine is unreachable or MySQL isn't running.
@@ -85,7 +84,11 @@ module Jetpants
     # ex: { dc: dc,row: row, position: position }
     def location_hash
     end
-    
+
+    def is_spare?
+      collins_status_state == 'allocated:spare'
+    end
+
     # Returns true if this database is a spare node and looks ready for use, false otherwise.
     # Normally no need for plugins to override this (as of Jetpants 0.8.1), they should 
     # override DB#validate_spare instead.
@@ -137,8 +140,14 @@ module Jetpants
       # Confirm node is in Allocated:SPARE status:state. (Because Collins find API hits a
       # search index which isn't synchronously updated with all writes, there's potential
       # for a find call to return assets that just transitioned to a different status or state.)
-      status_state = collins_status_state
-      @spare_validation_errors << "Unexpected status:state value: #{status_state}" unless status_state == 'allocated:spare'
+      @spare_validation_errors << "Unexpected status:state value: #{collins_status_state}" unless is_spare?
+    end
+
+    def claim!
+      collins_pool = ''
+      collins_secondary_role = ''
+      collins_slave_weight = ''
+      collins_status = 'Allocated:CLAIMED'
     end
 
     # Returns the Jetpants::Pool that this instance belongs to, if any.
