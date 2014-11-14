@@ -29,6 +29,10 @@ module Jetpants
       hostname.start_with?('backup') || in_remote_datacenter?
     end
 
+    def is_spare?
+      collins_status_state == 'allocated:spare'
+    end
+
     ##### CALLBACKS ############################################################
     
     # Determine master from Collins if machine is unreachable or MySQL isn't running.
@@ -83,10 +87,6 @@ module Jetpants
     # returning relevant location information to parse in pool::location_map
     # ex: { dc: dc,row: row, position: position }
     def location_hash
-    end
-
-    def is_spare?
-      collins_status_state == 'allocated:spare'
     end
 
     # Returns true if this database is a spare node and looks ready for use, false otherwise.
