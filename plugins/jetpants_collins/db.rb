@@ -144,10 +144,11 @@ module Jetpants
     end
 
     def claim!
-      collins_pool = ''
-      collins_secondary_role = ''
-      collins_slave_weight = ''
-      collins_status = 'Allocated:CLAIMED'
+      self.collins_pool = ''
+      self.collins_secondary_role = ''
+      self.collins_slave_weight = ''
+      self.collins_status = 'Allocated:CLAIMED'
+      self
     end
 
     # Returns the Jetpants::Pool that this instance belongs to, if any.

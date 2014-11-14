@@ -224,11 +224,12 @@ module Jetpants
         t.downcase!
 
         if is_ip? t
-          error "The specified target #{t.blue} is NOT a spare node" unless t.to_db.is_spare?
-          unless t.to_db.usable_spare?
-            error "Aborting operation" unless agree "The target (#{t.blue}) is NOT a usable spare, do you want to use it anyway [yes/no]: "
+          target_db = t.to_db
+          error "The specified target #{t.blue} is NOT a spare node" unless target_db.is_spare?
+          unless target_db.probe! && target_db.usable_spare?
+            error 'Aborting operation' unless agree "The target (#{t.blue}) is NOT a usable spare, do you want to use it anyway [yes/no]: "
           end
-          targets.push t.to_db
+          targets.push target_db
         else
           role = t.partition('_spare').first
           role = 'standby' if role == 'spare'

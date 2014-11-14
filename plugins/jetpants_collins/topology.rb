@@ -78,11 +78,10 @@ module Jetpants
       assets = query_spare_assets(count, options)
       raise "Not enough spare machines available! Found #{assets.count}, needed #{count}" if assets.count < count
       assets.map do |asset|
-        asset.to_db.claim_spare
+        asset.to_db.claim!
       end
     end
-    
-    
+
     # This method won't ever return a number higher than 100, but that's
     # not a problem, since no single operation requires that many spares
     def count_spares(options={})
