@@ -226,8 +226,10 @@ module Jetpants
         if is_ip? t
           target_db = t.to_db
           error "The specified target #{t.blue} is NOT a spare node" unless target_db.is_spare?
-          unless target_db.probe! && target_db.usable_spare?
-            error 'Aborting operation' unless agree "The target (#{t.blue}) is NOT a usable spare, do you want to use it anyway [yes/no]: "
+          if Jetpants.plugin_enabled? 'jetpants_collins'
+            unless target_db.probe! && target_db.usable_spare?
+              error 'Aborting operation' unless agree "The target (#{t.blue}) is NOT a usable spare, do you want to use it anyway [yes/no]: "
+            end
           end
           targets.push target_db
         else
@@ -254,13 +256,15 @@ module Jetpants
         error "You cannot clone a slave to the same node as the target" if t.ip == source.ip
         error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
         error "target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0
-
-        t.claim!
       end
 
       source.enslave_siblings!(targets)
-      targets.concurrent_each {|t| t.resume_replication; t.catch_up_to_master(21600)}
+      targets.concurrent_each do |t|
+        t.resume_replication
+        t.catch_up_to_master(21600)
+      end
       source.pool.sync_configuration
+
       puts "Cloning complete."
       Jetpants.topology.write_config
     end
