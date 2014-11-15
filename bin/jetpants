@@ -226,10 +226,8 @@ module Jetpants
         if is_ip? t
           target_db = t.to_db
           error "The specified target #{t.blue} is NOT a spare node" unless target_db.is_spare?
-          if Jetpants.plugin_enabled? 'jetpants_collins'
-            unless target_db.probe! && target_db.usable_spare?
-              error 'Aborting operation' unless agree "The target (#{t.blue}) is NOT a usable spare, do you want to use it anyway [yes/no]: "
-            end
+          unless target_db.probe! && target_db.usable_spare?
+            error 'Aborting operation' unless agree "The target (#{t.blue}) is NOT a usable spare, do you want to use it anyway [yes/no]: "
           end
           targets.push target_db
         else
@@ -257,6 +255,9 @@ module Jetpants
         error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
         error "target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0
       end
+
+      # claim all the targets which are currently marked as spare
+      targets.select(&:is_spare?).each(&:claim!)
 
       source.enslave_siblings!(targets)
       targets.concurrent_each do |t|
