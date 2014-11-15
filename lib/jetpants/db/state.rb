@@ -295,7 +295,53 @@ module Jetpants
 
       host.mount_stats(mount)
     end
-    
+
+    # Returns true if this database is a spare node and looks ready for use, false otherwise.
+    # Normally no need for plugins to override this (as of Jetpants 0.8.1), they should
+    # override DB#validate_spare instead.
+    def usable_spare?
+      if @spare_validation_errors.nil?
+        @spare_validation_errors = []
+
+        # The order of checks is important -- if the node isn't even reachable by SSH,
+        # don't run any of the other checks, for example.
+        # Note that we probe concurrently in Topology#query_spare_assets, ahead of time
+        if !probed?
+          @spare_validation_errors << 'Attempt to probe node failed'
+        elsif !available?
+          @spare_validation_errors << 'Node is not reachable via SSH'
+        elsif !running?
+          @spare_validation_errors << 'MySQL is not running'
+        elsif pool
+          @spare_validation_errors << 'Node already has a pool'
+        else
+          validate_spare
+        end
+
+        unless @spare_validation_errors.empty?
+          error_text = @spare_validation_errors.join '; '
+          output "Removed from spare pool for failing checks: #{error_text}"
+        end
+      end
+      @spare_validation_errors.empty?
+    end
+
+    # Performs validation checks on this node to see whether it is a usable spare.
+    # The default implementation just ensures that the node is spare according to DB#is_spare?
+    # Downstream plugins may override this to do additional checks to ensure the node is
+    # in a sane condition.
+    # No need to check whether the node is SSH-able, MySQL is running, or not already in
+    # a pool -- DB#usable_spare? already does that automatically.
+    def validate_spare
+      @spare_validation_errors << "The node is not marked as a spare in the asset tracker" unless is_spare?
+    end
+
+    # Sets a server as "claimed" in the asset tracker so that no other operation can use it.
+    # This is used for moving servers out of the spare pool.
+    def claim!
+      raise "Plugin must override DB#claim!"
+    end
+
     ###### Private methods #####################################################
     
     private
@@ -371,6 +417,6 @@ module Jetpants
         @slaves << db if db.master == self
       end
     end
-    
+
   end
 end
