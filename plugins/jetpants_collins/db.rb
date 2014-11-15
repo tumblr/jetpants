@@ -30,7 +30,7 @@ module Jetpants
     end
 
     def is_spare?
-      collins_status_state == 'allocated:spare'
+      collins_status_state.to_s.downcase == 'allocated:spare'
     end
 
     def claim!
