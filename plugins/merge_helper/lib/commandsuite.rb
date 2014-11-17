@@ -5,7 +5,7 @@ require 'thor'
 module Jetpants
   class CommandSuite < Thor
 
-    desc 'merge_shards', 'Share merge step #1 of 4: Merge two or more shards using an aggregator instance'
+    desc 'merge_shards', 'Share merge step #1 of 5: Merge two or more shards using an aggregator instance'
     def merge_shards
       min_id = ask("Please provide the min ID of the shard range to merge:")
       max_id = ask("Please provide the max ID of the shard range to merge:")
@@ -73,13 +73,50 @@ module Jetpants
     end
     def self.after_merge_shards
       reminders(
-        'Proceed to next step: jetpants merge_shards_reads'
+        'Proceed to next step: jetpants merge_shards_validate'
       )
     end
 
+    # Performs a validation step of pausing replication and determining row counts
+    # on the aggregating server and its data sources
+    desc 'merge_shards_validate', 'Share merge step #2 of 5: Validate aggregating server row counts'
+    def merge_shards_validate
+      # obtain relevant shards
+      shards_to_merge = ask_merge_shards
+      combined_shard = shards_to_merge.first.combined_shard
+
+      # validate topology and state
+      raise "Combined shard #{combined_shard} in unexpected state #{combined_shard.state}, should be 'initialized'" unless combined_shard.state == :initialized
+      shards_to_merge.each do |shard|
+        raise "Shard to merge #{shard} in unexpected state #{shard.state}, should be 'ready'" unless shard.state == :ready
+      end
+      validate_replication_stream shards_to_merge
+
+      # we need to refresh Jetpants because of side effects with Aggregator
+      # https://jira.ewr01.tumblr.net/browse/DATASRE-714
+      Jetpants.refresh
+
+      aggregator_host = combined_shard.master.master
+      aggregator_instance = Aggregator.new(aggregator_host.ip)
+
+      unless aggregator_instance.validate_aggregate_row_counts
+        raise "Aggregating node's row count does not add up to the sum from the source shards"
+      end
+    end
+    def self.before_merge_shards_validate
+      reminders(
+          'This process may take some time. You probably want to run this from a screen session.',
+          'Be especially careful if you are relying on SSH Agent Forwarding for your root key, since this is not screen-friendly.'
+      )
+    end
+    def self.after_merge_shards_validate
+      reminders(
+          'Proceed to next step: jetpants merge_shards_reads'
+      )
+    end
 
     # regenerate config and switch reads to new shard's master
-    desc 'merge_shards_reads', 'Share merge step #2 of 4: Switch reads to the new merged master'
+    desc 'merge_shards_reads', 'Share merge step #3 of 5: Switch reads to the new merged master'
     def merge_shards_reads
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -107,7 +144,7 @@ module Jetpants
 
 
     # regenerate config and switch writes to new shard's master
-    desc 'merge_shards_writes', 'Share merge step #3 of 4: Switch writes to the new merged master'
+    desc 'merge_shards_writes', 'Share merge step #4 of 5: Switch writes to the new merged master'
     def merge_shards_writes
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -136,7 +173,7 @@ module Jetpants
     end
 
     # clean up aggregator node and old shards
-    desc 'merge_shards_cleanup', 'Share merge step #4 of 4: Clean up the old shards and aggregator node'
+    desc 'merge_shards_cleanup', 'Share merge step #5 of 5: Clean up the old shards and aggregator node'
     def merge_shards_cleanup
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -211,4 +248,3 @@ module Jetpants
     end
   end
 end
-
