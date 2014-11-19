@@ -1,6 +1,5 @@
 require 'net/ssh'
 require 'socket'
-require 'output'
 
 module Jetpants
   
@@ -9,7 +8,7 @@ module Jetpants
   class Host
     include CallbackHandler
     include Output
-    
+
     # IP address of the Host, as a string.
     attr_reader :ip
 
