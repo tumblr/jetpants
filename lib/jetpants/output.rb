@@ -13,14 +13,18 @@ module Jetpants
             end
 
       output = ''
-      output << "[#{self.pool}] " if self.is_a?(Jetpants::Pool) or self.is_a?(Jetpants::DB)
-      output << "[#{self}] " unless self.to_s == 'console'
+      output << "[#{self.pool}:#{self}] " unless self.to_s == 'console'
       output << "called from #{caller[0]} " if Jetpants.output_caller_info
       output << table.name << ': ' if table
       output << str
 
-      log = Logger.new(Jetpants.log_file)
-      log.send(level, output)
+      context = self.to_s == 'console' ? 'console' : self.class.name
+      logger = Logger.new(Jetpants.log_file, 'daily')
+      logger.send(level, context) {
+        output
+          .gsub(/\e\[\d+(;\d+)*m/, '') # remove all coloring from Highline
+          .gsub(/^#{level}: /i, '')    # remove repetition of the logging level
+      }
 
       # add the current time for display purposes
       output = [Time.now.strftime("%H:%M:%S"), output].join(' ')
