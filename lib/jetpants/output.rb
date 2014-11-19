@@ -13,6 +13,7 @@ module Jetpants
             end
 
       output = ''
+      output << "[#{self.pool}] " if self.is_a?(Jetpants::Pool) or self.is_a?(Jetpants::DB)
       output << "[#{self}] " unless self.to_s == 'console'
       output << "called from #{caller[0]} " if Jetpants.output_caller_info
       output << table.name << ': ' if table
