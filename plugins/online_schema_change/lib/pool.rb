@@ -2,7 +2,6 @@
 
 module Jetpants
   class Pool
-    collins_attr_accessor :online_schema_change
 
     def alter_table(database, table, alter, dry_run=true, force=false, no_check_plan=false)
       database ||= app_schema
@@ -10,8 +9,9 @@ module Jetpants
 
       raise "not enough space to run alter table on #{table}" unless master.has_space_for_alter?(table, database)
 
-      unless(check_collins_for_alter)
-        raise "alter table already running on #{@name}"
+      if Jetpants.plugin_enabled? 'jetpants_collins'
+        raise "alter table already running on #{@name}" unless check_collins_for_alter
+        update_collins_for_alter(database, table, alter)
       end
 
       max_threads = max_threads_running(30,1)
@@ -20,8 +20,6 @@ module Jetpants
       critical_threads_running = 2 * max_threads > 500 ? 2 * max_threads : 500
 
       check_plan = no_check_plan ? "--nocheck-plan" : ""
-
-      update_collins_for_alter(database, table, alter)
 
       master.with_online_schema_change_user('pt-osc', database) do |password|
 
@@ -64,36 +62,11 @@ module Jetpants
 
       end #end user grant block
 
-      clean_up_collins_for_alter
+      if Jetpants.plugin_enabled? 'jetpants_collins'
+        clean_up_collins_for_alter
+      end
 
       ! error
-    end
-
-    # update collins for tracking alters, so there is only one running at a time
-    def update_collins_for_alter(database, table, alter)
-      self.collins_online_schema_change = JSON.pretty_generate({
-                                'running' => true,
-                                'started' => Time.now.to_i,
-                                'database' => database,
-                                'table' => table,
-                                'alter' => alter 
-                              })
-
-    end
-
-    # check if a alter is already running
-    def check_collins_for_alter()
-      return true if self.collins_online_schema_change.empty?
-      meta = JSON.parse(self.collins_online_schema_change)
-      if(meta['running'])
-        return false 
-      end
-      return true
-    end
-
-    # clean up collins after alter
-    def clean_up_collins_for_alter()
-      self.collins_online_schema_change = ''
     end
 
     # drop old table after an alter, this is because
