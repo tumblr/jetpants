@@ -70,6 +70,9 @@ module Jetpants
             options.unshift "--no-check-alter"
             options.unshift "--execute"
 
+            # --dry-run and --execute are mutually exclusive.
+            options -= ["--dry-run"]
+
             command = "pt-online-schema-change #{options.join(' ')}"
 
             output
