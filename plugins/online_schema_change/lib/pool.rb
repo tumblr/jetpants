@@ -7,6 +7,10 @@ module Jetpants
       database ||= app_schema
       error = false
 
+      # get the version of pt-online-schema-change
+      pt_osc_version = `pt-online-schema-change --version`.to_s.split(' ').last.chomp rescue '0.0.0'
+      raise "pt-online-schema-change executable is not available on the host" unless $?.exitstatus == 1
+
       raise "not enough space to run alter table on #{table}" unless master.has_space_for_alter?(table, database)
 
       if Jetpants.plugin_enabled? 'jetpants_collins'
@@ -19,54 +23,76 @@ module Jetpants
 
       critical_threads_running = 2 * max_threads > 500 ? 2 * max_threads : 500
 
-      check_plan = no_check_plan ? "--nocheck-plan" : ""
+      # we need to escape single quotes from the alter query
+      alter = alter.gsub("'"){"\\'"}
 
       master.with_online_schema_change_user('pt-osc', database) do |password|
+        options = [
+          "--nocheck-replication-filters",
+          "--max-load='Threads_running:#{max_threads}'",
+          "--critical-load='Threads_running:#{critical_threads_running}'",
+          "--nodrop-old-table",
+          "--nodrop-new-table",
+          "--set-vars='wait_timeout=100000'",
+          "--dry-run",
+          "--print",
+          "--alter '#{alter}'",
+          "D=#{database},t=#{table},h=#{master.ip},u=pt-osc,p=#{password}"
+        ]
 
-        command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --nodrop-new-table --set-vars='wait_timeout=100000' #{check_plan} --dry-run --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
+        options.unshift("--nocheck-plan") if no_check_plan
 
-        print "[#{@name.to_s.red}][#{Time.now.to_s.blue}]---------------------------------------------------------------------------------------\n"
-        print "[#{@name.to_s.red}][#{Time.now.to_s.blue}] #{command}\n"
-        print "[#{@name.to_s.red}][#{Time.now.to_s.blue}]---------------------------------------------------------------------------------------\n"
+        # the retries option is only needed for pt-online-schema-change version 2.1
+        options.unshift("--retries=10") if pt_osc_version.to_f == 2.1
+
+        command = "pt-online-schema-change #{options.join(' ')}"
+
+        output
+        output "---------------------------------------------------------------------------------------"
+        output "#{command.green}"
+        output "---------------------------------------------------------------------------------------"
+        output
 
         IO.popen command do |io|
           io.each do |line|
-            print "[#{@name.to_s.red}][#{Time.now.to_s.blue}] #{line.gsub("\n","")}\n"
+            output line.gsub("\n", "")
           end
-          error = true if $?.to_i > 0
         end
+        error = true if $?.to_i > 0
 
-        if !(dry_run || error)
+        unless dry_run || error
           continue = 'no'
           unless force
             continue = ask('Dry run complete would you like to continue?: (YES/no)')
           end
 
           if force || continue == 'YES'
-            command = "pt-online-schema-change --nocheck-replication-filters --max-load='Threads_running:#{max_threads}' --critical-load='Threads_running:#{critical_threads_running}' --nodrop-old-table --nodrop-new-table --no-check-alter --set-vars='wait_timeout=100000' #{check_plan} --execute --print --alter '#{alter}' D=#{database},t=#{table},h=#{master.ip},u=#{'pt-osc'},p=#{password}"
-            
-            print "[#{@name.to_s.red}][#{Time.now.to_s.blue}]---------------------------------------------------------------------------------------\n\n\n"
-            print "[#{@name.to_s.red}][#{Time.now.to_s.blue}] #{command}\n"
-            print "[#{@name.to_s.red}][#{Time.now.to_s.blue}]\n\n---------------------------------------------------------------------------------------\n\n\n"
+            options.unshift "--no-check-alter"
+            options.unshift "--execute"
+
+            command = "pt-online-schema-change #{options.join(' ')}"
+
+            output
+            output "---------------------------------------------------------------------------------------"
+            output "#{command.red}"
+            output "---------------------------------------------------------------------------------------"
+            output
 
             IO.popen command do |io|
               io.each do |line|
-                print "[#{@name.to_s.red}][#{Time.now.to_s.blue}] #{line.gsub("\n","")}\n"
+                output line.gsub("\n","")
               end
-              error = true if $?.to_i > 0
-            end #end execute
-
-          end #end continue
-        
-        end #end if ! dry run
-
-      end #end user grant block
-
-      if Jetpants.plugin_enabled? 'jetpants_collins'
-        clean_up_collins_for_alter
+            end
+            error = true if $?.to_i > 0
+          end
+        end
       end
 
       ! error
+    ensure
+      if Jetpants.plugin_enabled? 'jetpants_collins'
+        clean_up_collins_for_alter
+      end
     end
 
     # drop old table after an alter, this is because
