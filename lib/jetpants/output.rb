@@ -13,7 +13,7 @@ module Jetpants
             end
 
       output = ''
-      output << "[#{self}] " unless self.to_s == 'console'
+      output << "[#{self.to_s.blue}] " unless self.to_s == 'console'
       output << "called from #{caller[0]} " if Jetpants.output_caller_info
       output << table.name << ': ' if table
       output << str
