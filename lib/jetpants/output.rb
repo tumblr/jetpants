@@ -9,8 +9,6 @@ module Jetpants
   # caller file, method and line number if output_caller_info is set.
   module Output
     def output(str = "\s", table = nil, level = :info)
-      @output_lock = @output_lock || Mutex.new
-
       str = if str.nil? or (str.is_a? String and str.length == 0)
               "Completed (no output)"
             else
@@ -25,7 +23,7 @@ module Jetpants
 
       unless Jetpants.log_file.to_s.empty?
         context = self.to_s == 'console' ? 'console' : self.class.name
-        @output_logger = @output_logger || Logger.new(Jetpants.log_file)
+        @output_logger ||= Logger.new(Jetpants.log_file)
         @output_logger.send(level, context) {
           output
             .gsub(/\e\[\d+(;\d+)*m/, '') # remove all coloring from Highline
@@ -35,7 +33,7 @@ module Jetpants
 
       # add the current time for display purposes
       output = [Time.now.strftime("%H:%M:%S"), output].join(' ')
-      @output_lock.synchronize {
+      (@output_lock ||= Mutex.new).synchronize {
         puts output
       }
 
