@@ -6,6 +6,7 @@ module Jetpants
   # useful.  The implementation here is just a stub.
   class Topology
     include CallbackHandler
+    include Output
 
     attr_reader :pools
     
@@ -60,20 +61,20 @@ module Jetpants
     # Plugin should override so that this reads in a configuration and initializes
     # @pools as appropriate.
     def load_pools
-      puts "\nNotice: no plugin has overridden Topology#load_pools, so *no* pools are imported automatically"
+      output "Notice: no plugin has overridden Topology#load_pools, so *no* pools are imported automatically"
     end
 
     synchronized
     # Plugin should override so that this adds the given pool to the current topology (@pools)
     def add_pool(pool)
-      puts "\nNotice: no plugin has overridden Topology#add_pool, so the pool was *not* added to the topology"
+      output "Notice: no plugin has overridden Topology#add_pool, so the pool was *not* added to the topology"
     end
 
     synchronized
     # Plugin should override so that it writes a configuration file or commits a
     # configuration change to a config service.
     def write_config
-      puts "\nNotice: no plugin has overridden Topology#write_config, so configuration data is *not* saved"
+      output "Notice: no plugin has overridden Topology#write_config, so configuration data is *not* saved"
     end
     
     synchronized
