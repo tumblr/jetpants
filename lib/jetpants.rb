@@ -116,8 +116,11 @@ module Jetpants
       super || @config[name] || @topology.respond_to?(name)
     end
 
-    def with_retries(retries = 1, max_retry_backoff = 16)
+    def with_retries(retries = nil, max_retry_backoff = nil)
+      retries = 1 unless retries.is_a?(Integer) and retries >= 0
+      max_retry_backoff = 16 unless max_retry_backoff.is_a?(Integer) and max_retry_backoff >= 0
       backoff ||= 0
+
       yield if block_given?
     rescue SystemExit, Interrupt
       raise
