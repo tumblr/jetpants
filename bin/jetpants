@@ -4,12 +4,11 @@
 # module in a Thor command processor, providing a command-line interface to
 # common Jetpants functionality.
 
-%w[thor pry pry-rescue highline/import colored jetpants/output].each {|g| require g}
+%w[thor pry pry-rescue highline/import colored].each {|g| require g}
 
 module Jetpants
 
   class CommandSuite < Thor
-    include Output
 
     def initialize *args
       super

@@ -17,7 +17,7 @@ Thread.abort_on_exception = true
 
 # Namespace for the Jetpants toolkit.
 module Jetpants
-  
+
   # Establish default configuration values, and then merge in whatever we find globally
   # in /etc/jetpants.yaml and per-user in ~/.jetpants.yaml
   @config = {
@@ -67,6 +67,8 @@ module Jetpants
   end
   
   class << self
+    include Output
+
     # A singleton Jetpants::Topology object is accessible from the global 
     # Jetpants module namespace.
     attr_reader :topology
@@ -112,6 +114,29 @@ module Jetpants
     
     def respond_to?(name, include_private=false)
       super || @config[name] || @topology.respond_to?(name)
+    end
+
+    def with_retries(retries = nil, max_retry_backoff = nil)
+      retries = 1 unless retries.is_a?(Integer) and retries >= 0
+      max_retry_backoff = 16 unless max_retry_backoff.is_a?(Integer) and max_retry_backoff >= 0
+      backoff ||= 0
+
+      yield if block_given?
+    rescue SystemExit, Interrupt
+      raise
+    rescue Exception => e
+      output e
+      if retries.zero?
+        output "Max retries exceeded. Not retrying."
+        raise e
+      else
+        retries -= 1
+        output "Backing off for #{backoff} seconds, then retrying."
+        sleep backoff
+        # increase backoff, taking the path 0, 1, 2, 4, 8, ..., max_retry_backoff
+        backoff = [(backoff == 0) ? 1 : backoff << 1, max_retry_backoff].min
+        retry
+      end
     end
   end
 

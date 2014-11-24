@@ -35,35 +35,16 @@ module Jetpants
       class << self
         include Output
 
-        # Exponential backoff.  Pass idempotent blocks only!
-        def with_retries
-          retries ||= Jetpants.plugins['jetpants_collins']['retries'] || 1
-          backoff ||= 0
-          yield if block_given?
-        rescue SystemExit, Interrupt
-          raise
-        rescue Exception => e
-          output e
-          unless retries.zero?
-            retries -= 1
-            output "Backing off for #{backoff} seconds, then retrying."
-            sleep backoff
-            # increase backoff, taking the path 0, 1, 2, 4, 8, ..., max_retry_backoff
-            backoff = [(backoff == 0) ? 1 : backoff << 1,
-                       Jetpants.plugins['jetpants_collins']['max_retry_backoff'] || 16
-                      ].min
-            retry
-          else
-            output "Max retries exceeded.  Not retrying."
-            raise e
-          end
-        end
-        
         # We delegate missing class (module) methods to the collins API client,
         # if it responds to them.
         def method_missing(name, *args, &block)
           if service.respond_to? name
-            with_retries { service.send name, *args, &block }
+            Jetpants.with_retries(
+                Jetpants.plugins['jetpants_collins']['retries'],
+                Jetpants.plugins['jetpants_collins']['max_retry_backoff']
+            ) {
+              service.send name, *args, &block
+            }
           else
             super
           end
@@ -71,13 +52,16 @@ module Jetpants
 
         def find(selector, retry_request = false)
           if retry_request
-            Jetpants::Plugin::JetCollins.with_retries {
+            Jetpants.with_retries(
+                Jetpants.plugins['jetpants_collins']['retries'],
+                Jetpants.plugins['jetpants_collins']['max_retry_backoff']
+            ) {
               res = service.send 'find', selector
               raise "Unable to find asset for #{selector[:pool]}" if res.empty?
               return res
             }
           else
-            return service.send 'find', selector
+            service.send 'find', selector
           end
         end
         
@@ -90,10 +74,20 @@ module Jetpants
             def self.collins_attr_accessor(*fields)
               fields.each do |field|
                 define_method("collins_#{field}") do
-                  Jetpants::Plugin::JetCollins.with_retries { (collins_get(field) || '').downcase }
+                  Jetpants.with_retries(
+                      Jetpants.plugins['jetpants_collins']['retries'],
+                      Jetpants.plugins['jetpants_collins']['max_retry_backoff']
+                  ) {
+                    (collins_get(field) || '').downcase
+                  }
                 end
                 define_method("collins_#{field}=") do |value|
-                  Jetpants::Plugin::JetCollins.with_retries { collins_set(field, value) }
+                  Jetpants.with_retries(
+                      Jetpants.plugins['jetpants_collins']['retries'],
+                      Jetpants.plugins['jetpants_collins']['max_retry_backoff']
+                  ) {
+                    collins_set(field, value)
+                  }
                 end
               end
             end
