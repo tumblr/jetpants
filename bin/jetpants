@@ -609,12 +609,16 @@ module Jetpants
       end
 
       def error(message)
-        output ['ERROR:'.red, message].join(' '), nil, :error
+        output ['ERROR:'.red, message].join(' '), :error
         abort
       end
 
       def inform(message)
-        output message.blue, nil, :warn
+        output message.blue, :warn
+      end
+
+      def output(str = "\s", level = :info)
+        puts str
       end
 
       def describe(node)
