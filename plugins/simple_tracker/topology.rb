@@ -19,7 +19,7 @@ module Jetpants
     end
 
     def add_pool(pool)
-      @pools << pool
+      @pools << pool unless pools.include? pool
     end
 
     # Generates a database configuration file for a hypothetical web application

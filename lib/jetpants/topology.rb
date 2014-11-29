@@ -8,15 +8,20 @@ module Jetpants
     include CallbackHandler
     include Output
 
-    attr_reader :pools
-    
+    attr_writer :pools
+
     def initialize
       @pools  = [] # array of Pool objects
       # We intentionally don't call load_pools here. The caller must do that.
       # This allows Jetpants module to create Jetpants.topology object, and THEN
       # invoke load_pools, which might then refer back to Jetpants.topology.
     end
-    
+
+    def pools
+      load_pools if @pools.empty?
+      @pools
+    end
+
     ###### Class methods #######################################################
     
     # Metaprogramming hackery to create a "synchronized" method decorator
@@ -56,7 +61,7 @@ module Jetpants
     # Plugins should override these if the behavior is needed. (Note that plugins
     # don't need to repeat the "synchronized" decorator; it automatically
     # applies to overrides.)
-    
+
     synchronized
     # Plugin should override so that this reads in a configuration and initializes
     # @pools as appropriate.
@@ -115,21 +120,21 @@ module Jetpants
     
     # Returns array of this topology's Jetpants::Pool objects of type Jetpants::Shard
     def shards
-      @pools.select {|p| p.is_a? Shard}
+      pools.select {|p| p.is_a? Shard}
     end
     
     # Returns array of this topology's Jetpants::Pool objects that are NOT of type Jetpants::Shard
     def functional_partitions
-      @pools.reject {|p| p.is_a? Shard}
+      pools.reject {|p| p.is_a? Shard}
     end
     
     # Finds and returns a single Jetpants::Pool. Target may be a name (string, case insensitive)
     # or master (DB object).
     def pool(target)
       if target.is_a?(DB)
-        @pools.select {|p| p.master == target}.first
+        pools.select {|p| p.master == target}.first
       else
-        @pools.select {|p| p.name.downcase == target.downcase}.first
+        pools.select {|p| p.name.downcase == target.downcase}.first
       end
     end
     
