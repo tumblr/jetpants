@@ -8,8 +8,6 @@ module Jetpants
     include CallbackHandler
     include Output
 
-    attr_writer :pools
-
     def initialize
       @pools  = [] # array of Pool objects
       # We intentionally don't call load_pools here. The caller must do that.
