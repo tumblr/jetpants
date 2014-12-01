@@ -658,7 +658,7 @@ module Jetpants
       strings.flatten!
       reminder_text = strings.join "\n"
       noun = (strings.count == 1 ? 'REMINDER' : 'REMINDERS')
-      output "\n#{noun}:\n#{reminder_text}\n\n" if strings.count > 0
+      puts "\n#{noun}:\n#{reminder_text}\n\n" if strings.count > 0
     end
   end
 end
