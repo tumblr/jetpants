@@ -25,7 +25,13 @@ module Jetpants
       raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= shards_to_merge.first.slaves_layout[:backup_slave]
 
       # claim the slaves further along in the process
-      aggregate_shard_master = ask_node("Enter the IP address of the new master or press enter to select a spare:") || Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
+      aggregate_shard_master = ask_node("Enter the IP address of the new master or press enter to select a spare:")
+
+      if aggregate_shard_master
+         aggregate_shard_master.claim! if aggregate_shard_master.spare?
+      else
+         aggregate_shard_master = Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
+      end
 
       Shard.set_up_aggregate_node(shards_to_merge, aggregate_node, aggregate_shard_master)
 
