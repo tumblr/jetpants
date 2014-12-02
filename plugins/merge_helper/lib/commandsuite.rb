@@ -28,7 +28,7 @@ module Jetpants
       aggregate_shard_master = ask_node("Enter the IP address of the new master or press enter to select a spare:")
 
       if aggregate_shard_master
-         aggregate_shard_master.claim! if aggregate_shard_master.spare?
+         aggregate_shard_master.claim! if aggregate_shard_master.is_spare?
       else
          aggregate_shard_master = Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
       end
