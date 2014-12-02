@@ -15,8 +15,8 @@ module Jetpants
       # setup pry
       Pry.config.prompt = proc {|object, nest_level, _| "# #{object} > "}
     end
-    
-    # Override Thor.dispatch to allow simple callbacks, which must be before_foo / 
+
+    # Override Thor.dispatch to allow simple callbacks, which must be before_foo /
     # after_foo *class* methods of Jetpants::CommandSuite. 
     # These aren't as full-featured as normal Jetpants::Callback: you can only have
     # ONE before_foo or after_foo method (they override instead of stacking); no arg
@@ -78,7 +78,7 @@ module Jetpants
         if demoted.slaves && demoted.slaves.count > 0
           demoted.slaves.each {|s| s.probe}
         else
-          replicas = ask("Please enter a comma-seperated list of IP addresses of all current replicas of #{demoted}: ").split /\s*,\s*/
+          replicas = ask("Please enter a comma-separated list of IP addresses of all current replicas of #{demoted}: ").split /\s*,\s*/
           error "No replicas entered" unless replicas && replicas.count > 0
           error "User supplied list of replicas appears to be invalid - #{replicas}" unless replicas.all? {|replica| is_ip? replica}
           demoted.instance_eval {@slaves = replicas.map &:to_db}
@@ -88,14 +88,14 @@ module Jetpants
           end
         end
       end
-      
-      puts
+
+      output
       inform "Summary of affected pool"
       inform "Binary log positions and slave lag shown below are just a snapshot taken at the current time." if demoted.running?
-      puts
+      output
       demoted.pool(true).summary(true)
-      puts
-      
+      output
+
       unless promoted
         if demoted.running?
           inform "Recommendation: promote the standby slave with the highest binary log coordinates"
@@ -154,34 +154,34 @@ module Jetpants
         counts[:backup_slave] += p.backup_slaves.count
         counts[:standby_slave] += p.standby_slaves.count
       end
-      
-      puts
-      puts "%4d global pools" % Jetpants.functional_partitions.count
-      puts "%4d shard pools" % Jetpants.shards.count
-      puts "---- --------------"
-      puts "%4d total pools" % Jetpants.pools.count
-      puts
+
+      output
+      output "%4d global pools" % Jetpants.functional_partitions.count
+      output "%4d shard pools" % Jetpants.shards.count
+      output "---- --------------"
+      output "%4d total pools" % Jetpants.pools.count
+      output
       
       total = 0
       counts.each do |role, count|
-        puts "%4d %ss" % [count, role.to_s.tr('_', ' ')]
+        output "%4d %ss" % [count, role.to_s.tr('_', ' ')]
         total += count
       end
-      puts "---- --------------"
-      puts "%4d total nodes" % total
-      puts
+      output "---- --------------"
+      output "%4d total nodes" % total
+      output
     end
 
     desc 'pools_compact', 'display a compact summary (master, name, and size) of every pool in the topology'
     def pools_compact
-      puts
+      output
       Jetpants.shards.each do |s| 
-        puts "[%-15s] %8s to %-11s = %4s GB" % [s.ip, s.min_id, s.max_id, s.data_set_size(true)]
+        output "[%-15s] %8s to %-11s = %4s GB" % [s.ip, s.min_id, s.max_id, s.data_set_size(true)]
       end
       Jetpants.functional_partitions.each do |p| 
-        puts "[%-15s] %-23s = %4s GB" % [p.ip, p.name, p.data_set_size(true)]
+        output "[%-15s] %-23s = %4s GB" % [p.ip, p.name, p.data_set_size(true)]
       end
-      puts
+      output
     end
     
     
@@ -195,7 +195,7 @@ module Jetpants
     method_option :source, :desc => 'IP of node to clone from'
     method_option :target, :desc => 'IP of node(s) to clone to'
     def clone_slave
-      puts "This task clones the data set of a standby slave."
+      output "This task clones the data set of a standby slave."
       source = ask_node('Please enter IP of node to clone from: ', options[:source])
       source.master.probe if source.master # fail early if there are any replication issues in this pool
       describe source
@@ -207,7 +207,7 @@ module Jetpants
       error "source (#{source}) does not have the MySQL process running" unless source.running?
       error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?)
 
-      puts 'You may clone to particular IP address(es), or can type "spare" or "backup_spare" to claim a node from the spare pool.'
+      output 'You may clone to particular IP address(es), or can type "spare" or "backup_spare" to claim a node from the spare pool.'
       begin
         target = options[:target] || ask('Please enter comma-separated list of targets (IPs, "spare" or "backup_spare") to clone to: ')
       end while target.strip == '' || target.split(',').length == 0
@@ -224,7 +224,12 @@ module Jetpants
         t.downcase!
 
         if is_ip? t
-          targets.push t.to_db
+          target_db = t.to_db
+          error "The specified target #{t.blue} is NOT a spare node" unless target_db.is_spare?
+          unless target_db.probe! && target_db.usable_spare?
+            error 'Aborting operation' unless agree "The target (#{t.blue}) is NOT a usable spare, do you want to use it anyway [yes/no]: "
+          end
+          targets.push target_db
         else
           role = t.partition('_spare').first
           role = 'standby' if role == 'spare'
@@ -250,11 +255,18 @@ module Jetpants
         error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
         error "target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0
       end
-      
+
+      # claim all the targets which are currently marked as spare
+      targets.select(&:is_spare?).each(&:claim!)
+
       source.enslave_siblings!(targets)
-      targets.concurrent_each {|t| t.resume_replication; t.catch_up_to_master(21600)}
+      targets.concurrent_each do |t|
+        t.resume_replication
+        t.catch_up_to_master(21600)
+      end
       source.pool.sync_configuration
-      puts "Cloning complete."
+
+      output "Cloning complete."
       Jetpants.topology.write_config
     end
     
@@ -262,7 +274,7 @@ module Jetpants
     desc 'activate_slave', 'turn a standby slave into an active slave'
     method_option :node, :desc => 'IP of standby slave to activate'
     def activate_slave
-      puts "This task turns a standby slave into an active slave, OR alters an active slave's weight."
+      output "This task turns a standby slave into an active slave, OR alters an active slave's weight."
       node = ask_node('Please enter node IP: ', options[:node])
       describe node
 
@@ -283,7 +295,7 @@ module Jetpants
     desc 'pull_slave', 'turn an active slave into a standby slave'
     method_option :node, :desc => 'IP of active slave to pull'
     def pull_slave
-      puts "This task turns an active slave into a standby slave."
+      output "This task turns an active slave into a standby slave."
       node = ask_node('Please enter node IP: ', options[:node])
       describe node
       if node.running?
@@ -302,14 +314,14 @@ module Jetpants
     def destroy_slave
       # Permit slaves with broken replication to be destroyed
       Jetpants.verify_replication = false
-      puts "This task removes a standby/backup slave from its pool entirely. THIS IS PERMANENT, ie, it does a RESET SLAVE on the target."
+      output "This task removes a standby/backup slave from its pool entirely. THIS IS PERMANENT, ie, it does a RESET SLAVE on the target."
       node = ask_node('Please enter node IP: ', options[:node])
       describe node
       if node.running? && node.available?
         raise "Node is not a standby or backup slave" unless (node.is_standby? || node.for_backups?)
       else
-        puts "Please note that we cannot run a RESET SLAVE on the node, because MySQL is not running or is otherwise unreachable."
-        puts "If the node is not permanently dead, you will have to run this manually."
+        output "Please note that we cannot run a RESET SLAVE on the node, because MySQL is not running or is otherwise unreachable."
+        output "If the node is not permanently dead, you will have to run this manually."
       end
       raise "Aborting" unless ask('Please type YES in all capital letters to confirm removing node from its pool: ') == 'YES'
       node.pool.remove_slave!(node)
@@ -320,7 +332,7 @@ module Jetpants
     desc 'defrag_slave', 'export and re-import data set on a standby slave'
     method_option :node, :desc => 'IP of standby slave to defragment'
     def defrag_slave
-      puts "This task exports all data on a standby/backup slave and then re-imports it."
+      output "This task exports all data on a standby/backup slave and then re-imports it."
       node = ask_node('Please enter node IP: ', options[:node])
       describe node
       raise "Node is not a standby or backup slave" unless (node.is_standby? || node.for_backups?)
@@ -540,7 +552,7 @@ module Jetpants
       )
     end
 
-    desc 'rebalance_backup_slaves', 'adds a backup slave for every pool that needs it'
+    desc 'rebalance_backup_slaves', 'Add backup slaves to pools which contain too few (does not destroy existing slaves)'
     def rebalance_backup_slaves
       spares_available = Jetpants.topology.count_spares(role: :backup_slave)
 
@@ -560,7 +572,7 @@ module Jetpants
 
         if spares.count > 0
 
-          output "Looking at adding a backup slave to shard #{shard}"
+          output "Considering shard #{shard}"
 
           source = shard.standby_slaves.last
           source.master.probe if source.master # fail early if there are any replication issues in this pool
@@ -569,39 +581,48 @@ module Jetpants
           targets = [spares.pop]
 
           source.start_mysql if ! source.running?
-          error "source (#{source}) is not a standby slave" unless source.is_standby?
+          error "Source (#{source}) is not a standby slave" unless source.is_standby?
 
           targets.each do |t|
-            error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
-            error "target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0 
-            error "target #{t} already has a pool" if t.pool
+            error "Target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
+            error "Target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0 
+            error "Target #{t} already has a pool!" if t.pool
           end
 
           source.enslave_siblings!(targets)
           targets.concurrent_each {|t| t.resume_replication; t.catch_up_to_master(21600)}
           source.pool.sync_configuration
-          puts "Cloning complete. #{shard}"
+          output "Rebalance complete for #{shard}"
 
         end
 
       end
     end
-    
+
     no_tasks do
-      def is_ip? address
+      def to_s
+        'console'
+      end
+
+      def is_ip?(address)
         address =~ /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/
       end
 
-      def error message
-        abort ['ERROR:'.red, message].join ' '
+      def error(message)
+        output ['ERROR:'.red, message].join(' '), :error
+        abort
       end
 
-      def inform message
-        puts message.blue
+      def inform(message)
+        output message.blue, :warn
       end
-      
-      def describe node
-        puts "Node #{node} (#{node.hostname}:#{node.port}) has role #{node.role} in pool #{node.pool(true)}.".green
+
+      def output(str = "\s", level = :info)
+        puts str
+      end
+
+      def describe(node)
+        output "Node #{node} (#{node.hostname}:#{node.port}) has role #{node.role} in pool #{node.pool(true)}.".green
       end
 
       def ask_node(prompt, supplied_node=false)
@@ -616,12 +637,12 @@ module Jetpants
           raise 'No shards are currently being split. You can only use this task after running "jetpants shard_split".'
         elsif shards_being_split.count == 1
           s = shards_being_split[0]
-          puts "Detected #{s} as the only shard currently involved in a split operation."
+          output "Detected #{s} as the only shard currently involved in a split operation."
           error "Aborting." unless agree "Is this the right shard that you want to perform this action on? [yes/no]: "
         else
-          puts "The following shards are currently involved in a split operation:"
-          shards_being_split.each {|sbs| puts "* #{sbs}"}
-          puts "Which shard would you like to perform this action on?"
+          output "The following shards are currently involved in a split operation:"
+          shards_being_split.each {|sbs| output "* #{sbs}"}
+          output "Which shard would you like to perform this action on?"
           shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
           shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
           s = Jetpants.topology.shard shard_min, shard_max
@@ -637,7 +658,7 @@ module Jetpants
       strings.flatten!
       reminder_text = strings.join "\n"
       noun = (strings.count == 1 ? 'REMINDER' : 'REMINDERS')
-      print "\n#{noun}:\n#{reminder_text}\n\n" if strings.count > 0
+      puts "\n#{noun}:\n#{reminder_text}\n\n" if strings.count > 0
     end
   end
 end

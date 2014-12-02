@@ -100,6 +100,28 @@ module Jetpants
       end
     end
 
+    # Finds duplicate unique keys on two distinct shards
+    #
+    # @shards - an array of two shards
+    # @table - the table object to examine
+    # @key - the (symbol) of the key for which to verify uniqueness
+    # @min_key_val - the minimum value of the key to consider
+    # @max_key_val - the maximum value of the key to consider
+    def self.find_duplicate_keys(shards, table, key, min_key_val = nil, max_key_val = nil)
+      # check_duplicate_keys method will do all the validation of the parameters
+      keys = Shard.check_duplicate_keys(shards, table, key, min_key_val, max_key_val)
+      column = table.indexes[key][:columns].first
+
+      keys.map do |k|
+        count = shards.concurrent_map do |s|
+          query = "select count(*) from #{table} where #{column} = #{k}"
+          s.standby_slaves.last.query_return_first(query).values.first.to_i
+        end.reduce(&:+)
+
+        [k, count]
+      end.select{ |f| f[1] > 1 }
+    end
+
     # Generate a list of filenames for exported data
     def table_export_filenames(full_path = true, tables = false)
       export_filenames = []
@@ -148,6 +170,9 @@ module Jetpants
       export_counts = {}
       slave_coords = {}
 
+      # concurrency controls for export/transfer
+      transfer_lock = Mutex.new
+
       # asynchronously export data on all slaves
       slaves_to_replicate.concurrent_map { |slave|
         # these get cleaned up further down after replication is set up
@@ -162,23 +187,22 @@ module Jetpants
         # retain coords to set up replication hierarchy
         file, pos = slave.binlog_coordinates
         slave_coords[slave] = { :log_file => file, :log_pos => pos }
-      }
 
-      # ship and load data from each slave
-      slaves_to_replicate.map { |slave|
-        # transfer data files, this will output a large list of file names
-        slave.fast_copy_chain(
-          Jetpants.export_location,
-          data_nodes,
-          port: 3307,
-          files: slave.pool.table_export_filenames(full_path = false, tables),
-          overwrite: true
-        )
+        transfer_lock.synchronize do
+          slave.fast_copy_chain(
+            Jetpants.export_location,
+            data_nodes,
+            port: 3307,
+            files: slave.pool.table_export_filenames(full_path = false, tables),
+            overwrite: true
+          )
+        end
         # clean up files on origin slave
         slave.output "Cleaning up export files..."
         slave.pool.table_export_filenames(full_path = true, tables).map { |file|
           slave.ssh_cmd("rm -f #{file}")
         }
+
         # restart origin slave replication
         slave.resume_replication
         slave.catch_up_to_master
@@ -190,8 +214,8 @@ module Jetpants
       # import data in a separate loop, as we want to leave the origin slaves
       # in a non-replicating state for as little time as possible
       data_nodes.concurrent_map { |db|
-        slaves_to_replicate.map { |slave| 
         # load data and inject export counts from earlier for validation
+        slaves_to_replicate.map { |slave| 
           db.inject_counts export_counts[slave]
           db.import_data tables, slave.pool.min_id, slave.pool.max_id
         }

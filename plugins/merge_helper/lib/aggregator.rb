@@ -66,7 +66,7 @@ module Jetpants
     # This method uses the aggregating node's pool as the connection name
     def add_node_to_aggregate(node, option_hash = {})
       raise "Attempting to add a node to aggregate to a non-aggregation node" unless aggregator?
-      raise "Attempting to add an invalide aggregation source" unless node
+      raise "Attempting to add an invalid aggregation source" unless node
       raise "Attempting to add a node that is already being aggregated" if aggregating_for? node
 
       @replication_states ||= {}
@@ -96,7 +96,7 @@ module Jetpants
     end
 
     def remove_aggregate_node!(node)
-      raise "Attempting to remove aggregate replication from an invalide node" unless node
+      raise "Attempting to remove aggregate replication from an invalid node" unless node
       raise "Attempting to remove a node from a non-aggregate node" unless aggregator?
       raise "Attempting to remove a node that is not currently being aggregated" unless aggregating_for? node
 
@@ -277,7 +277,7 @@ module Jetpants
       status_strings = mysql_root_cmd("SHOW ALL SLAVES STATUS")
       return {} if status_strings.nil?
 
-      # split on delimeter eg *************************** 3. row ***************************
+      # split on delimiter eg *************************** 3. row ***************************
       status_strings = status_strings.split(/\*{27} \d\. row \*{27}/)
       # for now we reset & set the slaving user to 'test' when destroying a replication stream, look to clear out later
       status_strings.map { |str| parse_vertical_result str }.select { |slave| !slave[:master_user].nil? && slave[:master_user] != 'test' }
@@ -321,7 +321,7 @@ module Jetpants
     # Performs a validation step of pausing replication and determining row counts
     # on an aggregating server and its data sources
     # WARNING! This will pause replication on the nodes this machine aggregates from
-    # And perform expensive rowcount operations on them
+    # And perform expensive row count operations on them
     def validate_aggregate_row_counts(restart_monitoring = true, tables = false)
       tables = Table.from_config 'sharded_tables' unless tables
       query_nodes = [ slaves, aggregating_nodes ].flatten
@@ -369,7 +369,7 @@ module Jetpants
           end
         end
 
-        # validate rowcounts
+        # validate row counts
         valid = true
         total_node_counts.each do |table,count|
           if total_node_counts[table] != aggregate_counts[table]

@@ -9,15 +9,15 @@ require 'yaml'
 module Jetpants; end
 
 $LOAD_PATH.unshift File.join(File.dirname(__FILE__), 'jetpants'), File.join(File.dirname(__FILE__), '..', 'plugins')
-%w(callback table host db pool topology shard monkeypatch).each {|g| require g}
+%w(output callback table host db pool topology shard monkeypatch commandsuite).each {|g| require g}
 
-# Since Jetpants is extremely multithreaded, we need to force uncaught exceptions to
+# Since Jetpants is extremely multi-threaded, we need to force uncaught exceptions to
 # kill all threads in order to have any kind of sane error handling.
 Thread.abort_on_exception = true
 
 # Namespace for the Jetpants toolkit.
 module Jetpants
-  
+
   # Establish default configuration values, and then merge in whatever we find globally
   # in /etc/jetpants.yaml and per-user in ~/.jetpants.yaml
   @config = {
@@ -44,6 +44,7 @@ module Jetpants
     'output_caller_info'      =>  false,      # includes calling file, line and method in output calls
     'debug_exceptions'        =>  false,      # open a pry session when an uncaught exception is thrown
     'repl_wait_interval'      =>  1,          # default sleep interval currently used in pause_replication_with
+    'log_file'                =>  '/var/log/jetpants.log', # where to log all output from the jetpants commands
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
@@ -67,6 +68,8 @@ module Jetpants
   end
   
   class << self
+    include Output
+
     # A singleton Jetpants::Topology object is accessible from the global 
     # Jetpants module namespace.
     attr_reader :topology
@@ -112,6 +115,29 @@ module Jetpants
     
     def respond_to?(name, include_private=false)
       super || @config[name] || @topology.respond_to?(name)
+    end
+
+    def with_retries(retries = nil, max_retry_backoff = nil)
+      retries = 1 unless retries.is_a?(Integer) and retries >= 0
+      max_retry_backoff = 16 unless max_retry_backoff.is_a?(Integer) and max_retry_backoff >= 0
+      backoff ||= 0
+
+      yield if block_given?
+    rescue SystemExit, Interrupt
+      raise
+    rescue Exception => e
+      output e
+      if retries.zero?
+        output "Max retries exceeded. Not retrying."
+        raise e
+      else
+        retries -= 1
+        output "Backing off for #{backoff} seconds, then retrying."
+        sleep backoff
+        # increase backoff, taking the path 0, 1, 2, 4, 8, ..., max_retry_backoff
+        backoff = [(backoff == 0) ? 1 : backoff << 1, max_retry_backoff].min
+        retry
+      end
     end
   end
 

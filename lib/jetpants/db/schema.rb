@@ -27,7 +27,7 @@ module Jetpants
       Table.new(table_name, params)
     end
 
-    # Deletages check for a table existing by name up to the pool
+    # Delegates check for a table existing by name up to the pool
     def has_table?(table)
       pool.has_table? table
     end

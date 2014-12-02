@@ -149,7 +149,7 @@ module Jetpants
         end
       end
 
-      ## grab the current sizes from actuall data set size including logs (in bytes)
+      ## grab the current sizes from actual data set size including logs (in bytes)
       def current_sizes
         pool_sizes = {}
         Jetpants.pools.each do |p|

@@ -25,7 +25,7 @@ module Jetpants
     attr_accessor :parent
     
     # A symbol representing the shard's state. Possible state values include:
-    #   :ready          --  Normal shard, online / in production, optimal codition, no current operation/maintenance.
+    #   :ready          --  Normal shard, online / in production, optimal condition, no current operation/maintenance.
     #   :read_only      --  Online / in production but not currently writable due to maintenance or emergency.
     #   :offline        --  In production but not current readable or writable due to maintenance or emergency.
     #   :initializing   --  New child shard, being created, not in production.
@@ -104,7 +104,7 @@ module Jetpants
       (mode.to_sym == :write && @parent ? @parent.master : master)
     end
 
-    # Override the probe_tables method to acommodate shard topology -
+    # Override the probe_tables method to accommodate shard topology -
     # delegate everything to the first shard.
     def probe_tables
       if Jetpants.topology.shards.first == self
@@ -114,7 +114,7 @@ module Jetpants
       end
     end
 
-    # Override the tables accessor to acommodate shard topology - delegate
+    # Override the tables accessor to accommodate shard topology - delegate
     # everything to the first shard
     def tables
       if Jetpants.topology.shards.first == self
@@ -244,21 +244,22 @@ module Jetpants
     # a production shard that's been marked as offline.
     def clone_slaves_from_master
       # If shard is already in state :child, it may already have slaves
-      slaves_needed = slaves_layout[:standby_slave]
-      slaves_needed -= standby_slaves.size if @state == :child
-      backup_slaves_needed = slaves_layout[:backup_slave]
+      standby_slaves_needed  = slaves_layout[:standby_slave]
+      standby_slaves_needed -= standby_slaves.size if @state == :child
+      backup_slaves_needed  = slaves_layout[:backup_slave]
       backup_slaves_needed -= backup_slaves.size if @state == :child
-      if slaves_needed < 1 && backup_slaves_needed < 1
+
+      if standby_slaves_needed < 1 && backup_slaves_needed < 1
         output "Shard already has enough standby slaves and backup slaves, skipping step of cloning more"
         return
       end
-      
-      slaves_available = Jetpants.topology.count_spares(role: :standby_slave, like: master)
-      raise "Not enough standby_slave role machines in spare pool!" if slaves_needed > slaves_available
+
+      standby_slaves_available = Jetpants.topology.count_spares(role: :standby_slave, like: master)
+      raise "Not enough standby_slave role machines in spare pool!" if standby_slaves_needed > standby_slaves_available
 
       backup_slaves_available = Jetpants.topology.count_spares(role: :backup_slave)
       raise "Not enough backup_slave role machines in spare pool!" if backup_slaves_needed > backup_slaves_available
-      
+
       # Handle state transitions
       if @state == :child || @state == :importing
         @state = :replicating
@@ -269,11 +270,11 @@ module Jetpants
         raise "Shard #{self} is not in a state compatible with calling clone_slaves_from_master! (current state=#{@state})"
       end
       
-      my_slaves = Jetpants.topology.claim_spares(slaves_needed, role: :standby_slave, like: master)
+      standby_slaves = Jetpants.topology.claim_spares(standby_slaves_needed, role: :standby_slave, like: master)
       backup_slaves = Jetpants.topology.claim_spares(backup_slaves_needed, role: :backup_slave)
-      enslave!([my_slaves, backup_slaves].flatten)
-      [my_slaves, backup_slaves].flatten.each &:resume_replication
-      [self, my_slaves,backup_slaves].flatten.each {|db| db.catch_up_to_master}
+      enslave!([standby_slaves, backup_slaves].flatten)
+      [standby_slaves, backup_slaves].flatten.each &:resume_replication
+      [self, standby_slaves, backup_slaves].flatten.each { |db| db.catch_up_to_master }
       
       @children
     end

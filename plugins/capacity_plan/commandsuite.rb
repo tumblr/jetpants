@@ -3,7 +3,7 @@ require 'thor'
 module Jetpants
   class CommandSuite < Thor
 
-    desc 'capacity_snapshot', 'create a snapshot of the current useage'
+    desc 'capacity_snapshot', 'create a snapshot of the current usage'
     def capacity_snapshot
       Plugin::Capacity.new().snapshot
     end

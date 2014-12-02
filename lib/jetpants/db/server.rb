@@ -119,5 +119,26 @@ module Jetpants
     # Plugins can override and/or implement before/after hooks
     def cancel_downtime
     end
+
+    # Run tcpdump on the MySQL traffic and return the top 30 slowest queries
+    def get_query_runtime(duration)
+      raise 'Percona::Toolkit is not installed on the server' if self.ssh_cmd('which pt-query-digest 2> /dev/null').nil?
+
+      dumpfile = File.join(Dir.tmpdir, 'jetpants_tcpdump.' + (0...8).map { (65 + rand(26)).chr }.join)
+      get_tcpdump_sample duration, dumpfile
+
+      output('Analyzing the tcpdump with pt-query-digest')
+      output(self.ssh_cmd "tcpdump -s 0 -x -n -q -tttt -r #{dumpfile} | pt-query-digest --type tcpdump --limit 30 - 2> /dev/null")
+      self.ssh_cmd "rm -f #{dumpfile}"
+
+      nil
+    end
+
+    def get_tcpdump_sample(duration, dumpfile)
+      raise 'tcpdump is not installed on the server' if self.ssh_cmd('which tcpdump 2> /dev/null').nil?
+
+      output("Running tcpdump for #{duration} seconds and dumping temp data to #{dumpfile}")
+      self.ssh_cmd "tcpdump -i #{Jetpants.private_interface} -G #{duration} -W 1 'port #{@port}' -w #{dumpfile}"
+    end
   end
 end

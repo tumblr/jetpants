@@ -143,7 +143,7 @@ module Jetpants
       drop_user(import_export_user)
     end
     
-    # Imports the data subset previously dumped thorugh export_data.
+    # Imports the data subset previously dumped through export_data.
     # Returns number of rows imported.
     def import_table_data(table, min_id=false, max_id=false)
       unless min_id && max_id && table.chunks > 0
@@ -288,14 +288,18 @@ module Jetpants
       # are on the same scale, so this may be non-ideal, but better than just erroring.
       unless min_id
         tables.each do |t|
-          my_min = query_return_first_value "SELECT MIN(#{t.sharding_keys[0]}) FROM #{t.name}"
+          key = t.sharding_keys[0] || t.primary_key.first
+          my_min = query_return_first_value "SELECT MIN(#{key}) FROM #{t.name}"
+          my_min = my_min.to_i
           min_id = my_min if !min_id || my_min < min_id
         end
       end
       unless max_id
         @found_max_ids = {} # we store the detected maxes in case DB#alter_schemata needs them later
         tables.each do |t|
-          my_max = @found_max_ids[t.name] = query_return_first_value("SELECT MAX(#{t.sharding_keys[0]}) FROM #{t.name}")
+          key = t.sharding_keys[0] || t.primary_key.first
+          my_max = @found_max_ids[t.name] = query_return_first_value("SELECT MAX(#{key}) FROM #{t.name}")
+          my_max = my_max.to_i
           max_id = my_max if !max_id || my_max > max_id
         end
       end
