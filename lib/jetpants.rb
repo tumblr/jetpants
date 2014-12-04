@@ -43,6 +43,7 @@ module Jetpants
     'private_interface'       =>  'bond0',    # network interface corresponding to private IP
     'output_caller_info'      =>  false,      # includes calling file, line and method in output calls
     'debug_exceptions'        =>  false,      # open a pry session when an uncaught exception is thrown
+    'lazy_load_pools'         =>  false,      # whether to populate the topology pools when first accessed
     'log_file'                =>  '/var/log/jetpants.log', # where to log all output from the jetpants commands
   }
 
@@ -69,10 +70,10 @@ module Jetpants
   class << self
     include Output
 
-    # A singleton Jetpants::Topology object is accessible from the global 
+    # A singleton Jetpants::Topology object is accessible from the global
     # Jetpants module namespace.
     attr_reader :topology
-    
+
     # Returns true if the specified plugin is enabled, false otherwise.
     def plugin_enabled?(plugin_name)
       !!@config['plugins'][plugin_name]
@@ -149,8 +150,8 @@ module Jetpants
       require name
     end
   end
-  
+
   # Finally, initialize topology object
   @topology = Topology.new
-  @topology.load_pools
+  @topology.load_pools unless @config['lazy_load_pools']
 end

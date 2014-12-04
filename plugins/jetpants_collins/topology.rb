@@ -5,7 +5,7 @@ require 'json'
 
 module Jetpants
   class Topology
-    
+
     ##### METHODS THAT OTHER PLUGINS CAN OVERRIDE ##############################
     
     # IMPORTANT NOTE
@@ -37,7 +37,7 @@ module Jetpants
     end
     
     ##### METHOD OVERRIDES #####################################################
-    
+
     # Initializes list of pools + shards from Collins
     def load_pools
       # We keep a cache of Collins::Asset objects, organized as pool_name => role => [asset, asset, ...]
@@ -64,7 +64,7 @@ module Jetpants
     def add_pool(pool)
       raise 'Attempt to add a non pool to the pools topology' unless pool.is_a?(Pool)
 
-      unless @pools.include? pool
+      unless pools.include? pool
         @pools << pool
         @pools.sort_by! { |p| sort_pools_callback p }
       end
