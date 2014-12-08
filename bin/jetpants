@@ -26,8 +26,20 @@ module Jetpants
       task_name = task || given_args[0]
       self.send('before_dispatch', task_name) if self.respond_to? 'before_dispatch'
       self.send "before_#{task_name}" if self.respond_to? "before_#{task_name}"
-      super
+
+      begin
+        exception = nil
+        super
+      rescue Exception => e
+        exception = e
+
+        # we want to capture the output when there is an exception
+        stdout = StringIO.new
+        $stdout = stdout
+      end
+
       self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
+      raise exception if exception
     end
     
     
