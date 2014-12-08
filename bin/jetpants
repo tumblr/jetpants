@@ -24,6 +24,7 @@ module Jetpants
     # reminder text before or after a task.
     def self.dispatch(task, given_args, given_ops, config)
       task_name = task || given_args[0]
+      self.send('before_dispatch', task_name) if self.respond_to? 'before_dispatch'
       self.send "before_#{task_name}" if self.respond_to? "before_#{task_name}"
       super
       self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
