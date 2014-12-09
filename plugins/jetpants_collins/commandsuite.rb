@@ -7,11 +7,10 @@ module Jetpants
 
     @enabled_secondary_retries_once = false
 
-    # Override Thor.dispatch to use separate retry settings for potentially long-running
-    # console and Thor command tasks, as well as allowing simple callbacks identically
-    # to those defined in bin/jetpants
-    def self.dispatch(task, given_args, given_ops, config)
-      if !@enabled_secondary_retries_once
+    # Hook into before_dispatch to use separate retry settings for
+    # potentially long-running console and Thor command tasks
+    def self.before_dispatch(task)
+      unless @enabled_secondary_retries_once
         Jetpants.plugins['jetpants_collins']['retries'] =
           Jetpants.plugins['jetpants_collins']['retries_interactive'] ||
           Jetpants.plugins['jetpants_collins']['retries']             ||
@@ -24,11 +23,6 @@ module Jetpants
 
         @enabled_secondary_retries_once = true
       end
-
-      task_name = task || given_args[0]
-      self.send "before_#{task_name}" if self.respond_to? "before_#{task_name}"
-      super
-      self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
     end
 
     desc 'create_pool', 'create a new database pool'
