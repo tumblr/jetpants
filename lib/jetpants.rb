@@ -76,7 +76,7 @@ module Jetpants
 
     # Returns true if the specified plugin is enabled, false otherwise.
     def plugin_enabled?(plugin_name)
-      !!@config['plugins'][plugin_name]
+      @config['plugins'].has_key? plugin_name
     end
     
     # Returns a hash containing :user => username string, :pass => password string
