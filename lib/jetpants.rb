@@ -143,7 +143,7 @@ module Jetpants
 
   # Load plugins at this point, to allow them to override any of the previously-defined methods
   # in any of the loaded classes
-  (@config['plugins'] || {}).each do |name, attributes|
+  (@config['plugins'] || {}).keys.each do |name|
     begin
       require "#{name}/#{name}"
     rescue LoadError

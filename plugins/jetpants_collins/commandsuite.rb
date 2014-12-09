@@ -9,7 +9,7 @@ module Jetpants
 
     # Hook into before_dispatch to use separate retry settings for
     # potentially long-running console and Thor command tasks
-    def self.before_dispatch(task)
+    def self.jetpants_collins_before_dispatch(task)
       unless @enabled_secondary_retries_once
         Jetpants.plugins['jetpants_collins']['retries'] =
           Jetpants.plugins['jetpants_collins']['retries_interactive'] ||
