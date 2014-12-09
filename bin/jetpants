@@ -25,20 +25,18 @@ module Jetpants
     def self.dispatch(task, given_args, given_ops, config)
       task_name = task || given_args[0]
       self.send('before_dispatch', task_name) if self.respond_to? 'before_dispatch'
-      self.send "before_#{task_name}" if self.respond_to? "before_#{task_name}"
+      self.send("audit_before_#{task_name}", task_name, 'before') if self.respond_to? "audit_before_#{task_name}"
 
       begin
         exception = nil
+        self.send "before_#{task_name}" if self.respond_to? "before_#{task_name}"
         super
+        self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
       rescue Exception => e
         exception = e
-
-        # we want to capture the output when there is an exception
-        stdout = StringIO.new
-        $stdout = stdout
       end
 
-      self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
+      self.send("audit_after_#{task_name}", task_name, 'after') if self.respond_to? "audit_after_#{task_name}"
       raise exception if exception
     end
     
