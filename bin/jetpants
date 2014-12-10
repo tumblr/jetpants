@@ -30,23 +30,16 @@ module Jetpants
         self.send("#{plugin}_before_#{task_name}", task_name, 'before') if self.respond_to? "#{plugin}_before_#{task_name}"
       end
 
-      begin
-        exception = nil
-        self.send "before_#{task_name}" if self.respond_to? "before_#{task_name}"
-        super
-        self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
-      rescue Exception => e
-        exception = e
-      end
-
+      self.send "before_#{task_name}" if self.respond_to? "before_#{task_name}"
+      super
+      self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
+    ensure if success
       Jetpants.plugins.keys.each do |plugin|
         self.send("#{plugin}_after_dispatch", task_name) if self.respond_to? "#{plugin}_after_dispatch"
         self.send("#{plugin}_after_#{task_name}", task_name, 'after') if self.respond_to? "#{plugin}_after_#{task_name}"
       end
-
-      raise exception if exception
     end
-    
+
     
     desc 'console', 'Jetpants interactive console'
     def console
