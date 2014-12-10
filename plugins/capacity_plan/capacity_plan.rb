@@ -173,7 +173,7 @@ module Jetpants
 
           all_mount_stats[p.name] ||= mount_stats
         end
-        mount_stats
+        all_mount_stats
       end
 
       ## loop through data and enter it in mysql
