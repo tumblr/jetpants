@@ -33,7 +33,7 @@ module Jetpants
       self.send "before_#{task_name}" if self.respond_to? "before_#{task_name}"
       super
       self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
-    ensure if success
+    ensure
       Jetpants.plugins.keys.each do |plugin|
         self.send("#{plugin}_after_dispatch", task_name) if self.respond_to? "#{plugin}_after_dispatch"
         self.send("#{plugin}_after_#{task_name}", task_name, 'after') if self.respond_to? "#{plugin}_after_#{task_name}"
