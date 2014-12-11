@@ -24,11 +24,22 @@ module Jetpants
     # reminder text before or after a task.
     def self.dispatch(task, given_args, given_ops, config)
       task_name = task || given_args[0]
+
+      Jetpants.plugins.keys.each do |plugin|
+        self.send("#{plugin}_before_dispatch", task_name) if self.respond_to? "#{plugin}_before_dispatch"
+        self.send("#{plugin}_before_#{task_name}", task_name, 'before') if self.respond_to? "#{plugin}_before_#{task_name}"
+      end
+
       self.send "before_#{task_name}" if self.respond_to? "before_#{task_name}"
       super
       self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
+    ensure
+      Jetpants.plugins.keys.each do |plugin|
+        self.send("#{plugin}_after_dispatch", task_name) if self.respond_to? "#{plugin}_after_dispatch"
+        self.send("#{plugin}_after_#{task_name}", task_name, 'after') if self.respond_to? "#{plugin}_after_#{task_name}"
+      end
     end
-    
+
     
     desc 'console', 'Jetpants interactive console'
     def console

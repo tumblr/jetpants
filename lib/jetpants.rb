@@ -76,7 +76,7 @@ module Jetpants
 
     # Returns true if the specified plugin is enabled, false otherwise.
     def plugin_enabled?(plugin_name)
-      !!@config['plugins'][plugin_name]
+      @config['plugins'].has_key? plugin_name
     end
     
     # Returns a hash containing :user => username string, :pass => password string
@@ -143,7 +143,7 @@ module Jetpants
 
   # Load plugins at this point, to allow them to override any of the previously-defined methods
   # in any of the loaded classes
-  (@config['plugins'] || {}).each do |name, attributes|
+  (@config['plugins'] || {}).keys.each do |name|
     begin
       require "#{name}/#{name}"
     rescue LoadError
