@@ -155,7 +155,7 @@ module Jetpants
       slaves_to_replicate.concurrent_map { |slave|
         # these get cleaned up further down after replication is set up
         slave.disable_monitoring
-        slave.set_downtime 6
+        slave.set_downtime 12
         slave.stop_query_killer
         slave.pause_replication
 
