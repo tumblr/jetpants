@@ -43,6 +43,7 @@ module Jetpants
     'private_interface'       =>  'bond0',    # network interface corresponding to private IP
     'output_caller_info'      =>  false,      # includes calling file, line and method in output calls
     'debug_exceptions'        =>  false,      # open a pry session when an uncaught exception is thrown
+    'repl_wait_interval'      =>  1,          # default sleep interval currently used in pause_replication_with
     'lazy_load_pools'         =>  false,      # whether to populate the topology pools when first accessed
     'log_file'                =>  '/var/log/jetpants.log', # where to log all output from the jetpants commands
   }

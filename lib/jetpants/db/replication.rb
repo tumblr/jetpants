@@ -69,23 +69,41 @@ module Jetpants
       @repl_paused = false
     end
     alias start_replication resume_replication
-    
-    # Stops replication at the same coordinates on two nodes
-    def pause_replication_with(sibling)
-      [self, sibling].each &:pause_replication
-      
-      # self and sibling at same coordinates: all done
-      return true if repl_binlog_coordinates == sibling.repl_binlog_coordinates
-      
-      # self ahead of sibling: handle via recursion with roles swapped
-      return sibling.pause_replication_with(self) if ahead_of? sibling
-      
-      # sibling ahead of self: catch up to sibling
-      sibling_coords = sibling.repl_binlog_coordinates
-      output "Resuming replication from #{@master} until (#{sibling_coords[0]}, #{sibling_coords[1]})."
-      output(mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{sibling_coords[0]}', MASTER_LOG_POS = #{sibling_coords[1]}")
-      sleep 1 while repl_binlog_coordinates != sibling_coords
-      true
+
+    # Stops replication at the same coordinates on many nodes
+    # First argument is the sleep interval, all arguments after
+    # are dbs
+    def pause_replication_with(*db_list)
+      raise 'not all replicas share the same master!' unless db_list.all? {|db| db.master == self.master}
+      db_list.unshift self unless db_list.include? self
+      db_list.concurrent_each &:pause_replication
+
+      catchup_slow_dbs(db_list)
+    end
+
+    def catchup_slow_dbs(db_list, binlog_coord=nil)
+
+      farthest_replica = db_list.inject{|result, db| db.ahead_of?(result) ? db : result}
+
+      # finds the coordinates of the furthest db if they're not given
+      binlog_coord ||= farthest_replica.repl_binlog_coordinates
+
+      # if the farthest db is greater than the coord passed in, there's a problem
+      if farthest_replica.ahead_of_coordinates?(binlog_coord)
+        raise "replication has been resumed on at least one replica #{farthest_replica} during this operation, unable to synchronize replicas #{db_list.join(', ')} at binlog coordinates #{binlog_coord.join("\s")}"
+      end
+      # gets all dbs that aren't caught up
+      dbs = db_list.reject{ |db| db.repl_binlog_coordinates == binlog_coord }
+
+      return true if dbs.empty?
+
+      # restarts the dbs that are still behind
+      output "Resuming replication from #{dbs.join(', ')} until (#{binlog_coord[0]}, #{binlog_coord[1]})."
+      output dbs.concurrent_each{ |db| db.mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{binlog_coord[0]}', MASTER_LOG_POS = #{binlog_coord[1]}" }
+
+      # continue while there are still slow dbs
+      sleep Jetpants.repl_wait_interval
+      catchup_slow_dbs(dbs, binlog_coord)
     end
     
     # Permanently disables replication. Clears out the SHOW SLAVE STATUS output
@@ -288,24 +306,31 @@ module Jetpants
       my_pool = pool(true)
       raise "Node #{node} is not in the same pool as #{self}" unless node.pool(true) == my_pool
       
-      my_coords   = (my_pool.master == self ? binlog_coordinates      : repl_binlog_coordinates)
+      # Checks if the master in the pool is self or another node in the pool
       node_coords = (my_pool.master == node ? node.binlog_coordinates : node.repl_binlog_coordinates)
       
+      self.ahead_of_coordinates?(node_coords)
+    end
+
+    def ahead_of_coordinates?(binlog_coord)
+      my_pool = pool(true)
+      my_coords = (my_pool.master == self ? binlog_coordinates : repl_binlog_coordinates)
+
       # Same coordinates
-      if my_coords == node_coords
+      if my_coords == binlog_coord
         false
       
       # Same logfile: simply compare position
-      elsif my_coords[0] == node_coords[0]
-        my_coords[1] > node_coords[1]
+      elsif my_coords[0] == binlog_coord[0]
+        my_coords[1] > binlog_coord[1]
         
       # Different logfile
       else
         my_logfile_num = my_coords[0].match(/^[a-zA-Z.0]+(\d+)$/)[1].to_i
-        node_logfile_num = node_coords[0].match(/^[a-zA-Z.0]+(\d+)$/)[1].to_i
-        my_logfile_num > node_logfile_num
+        binlog_coord_logfile_num = binlog_coord[0].match(/^[a-zA-Z.0]+(\d+)$/)[1].to_i
+        my_logfile_num > binlog_coord_logfile_num
       end
     end
-    
+
   end
 end
