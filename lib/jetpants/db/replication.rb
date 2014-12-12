@@ -79,6 +79,10 @@ module Jetpants
       db_list.concurrent_each &:pause_replication
 
       catchup_slow_dbs(db_list)
+
+      # stop all replication threads on all slaves, as START SLAVE UNTIL
+      # will leave the slave io thread running, and we prefer to stop both
+      db_list.concurrent_each(&:pause_replication)
     end
 
     def catchup_slow_dbs(db_list, binlog_coord=nil)
