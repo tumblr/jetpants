@@ -44,6 +44,7 @@ module Jetpants
     'output_caller_info'      =>  false,      # includes calling file, line and method in output calls
     'debug_exceptions'        =>  false,      # open a pry session when an uncaught exception is thrown
     'repl_wait_interval'      =>  1,          # default sleep interval currently used in pause_replication_with
+    'lazy_load_pools'         =>  false,      # whether to populate the topology pools when first accessed
     'log_file'                =>  '/var/log/jetpants.log', # where to log all output from the jetpants commands
   }
 
@@ -70,13 +71,13 @@ module Jetpants
   class << self
     include Output
 
-    # A singleton Jetpants::Topology object is accessible from the global 
+    # A singleton Jetpants::Topology object is accessible from the global
     # Jetpants module namespace.
     attr_reader :topology
-    
+
     # Returns true if the specified plugin is enabled, false otherwise.
     def plugin_enabled?(plugin_name)
-      !!@config['plugins'][plugin_name]
+      @config['plugins'].has_key? plugin_name
     end
     
     # Returns a hash containing :user => username string, :pass => password string
@@ -143,15 +144,15 @@ module Jetpants
 
   # Load plugins at this point, to allow them to override any of the previously-defined methods
   # in any of the loaded classes
-  (@config['plugins'] || {}).each do |name, attributes|
+  (@config['plugins'] || {}).keys.each do |name|
     begin
       require "#{name}/#{name}"
     rescue LoadError
       require name
     end
   end
-  
+
   # Finally, initialize topology object
   @topology = Topology.new
-  @topology.load_pools
+  @topology.load_pools unless @config['lazy_load_pools']
 end

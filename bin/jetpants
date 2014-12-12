@@ -24,11 +24,22 @@ module Jetpants
     # reminder text before or after a task.
     def self.dispatch(task, given_args, given_ops, config)
       task_name = task || given_args[0]
+
+      Jetpants.plugins.keys.each do |plugin|
+        self.send("#{plugin}_before_dispatch", task_name) if self.respond_to? "#{plugin}_before_dispatch"
+        self.send("#{plugin}_before_#{task_name}", task_name, 'before') if self.respond_to? "#{plugin}_before_#{task_name}"
+      end
+
       self.send "before_#{task_name}" if self.respond_to? "before_#{task_name}"
       super
       self.send "after_#{task_name}" if self.respond_to? "after_#{task_name}"
+    ensure
+      Jetpants.plugins.keys.each do |plugin|
+        self.send("#{plugin}_after_dispatch", task_name) if self.respond_to? "#{plugin}_after_dispatch"
+        self.send("#{plugin}_after_#{task_name}", task_name, 'after') if self.respond_to? "#{plugin}_after_#{task_name}"
+      end
     end
-    
+
     
     desc 'console', 'Jetpants interactive console'
     def console
@@ -199,6 +210,12 @@ module Jetpants
       source = ask_node('Please enter IP of node to clone from: ', options[:source])
       source.master.probe if source.master # fail early if there are any replication issues in this pool
       describe source
+      # compare against pool master if available to ensure capacity matching
+      if source.for_backups? && source.pool
+        compare = source.master
+      else
+        compare = source
+      end
 
       unless source.running?
         error "Aborting operation" unless agree "MySQL is not running on (#{source}), do you want to start it [yes/no]: "
@@ -241,13 +258,13 @@ module Jetpants
 
       spares_needed.map do |role, needed|
         next if needed == 0
-        available = Jetpants.topology.count_spares(role:  "#{role}_slave".to_sym, like: source)
+        available = Jetpants.topology.count_spares(role:  "#{role}_slave".to_sym, like: compare)
         raise "Not enough spare machines with role of #{role} slave! Requested #{needed} but only have #{available} available." if needed > available
       end
 
       spares_needed.map do |role, needed|
         next if needed == 0
-        targets.concat Jetpants.topology.claim_spares(needed, role: "#{role}_slave".to_sym, like: source)
+        targets.concat Jetpants.topology.claim_spares(needed, role: "#{role}_slave".to_sym, like: compare)
       end
 
       targets.each do |t|

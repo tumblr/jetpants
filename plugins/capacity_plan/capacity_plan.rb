@@ -161,11 +161,19 @@ module Jetpants
 
       ## get all mount's data in kilobytes
       def all_mounts
-        mount_stats = {}
+        all_mount_stats = {}
         Jetpants.pools.each do |p|
-          mount_stats[p.name] ||= p.mount_stats
+          mount_stats = p.mount_stats
+
+          # check if any of the slaves has less total capacity than the master
+          p.slaves.each do |s|
+            slave_mount_stats = s.mount_stats
+            mount_stats = slave_mount_stats if slave_mount_stats['total'] < mount_stats['total']
+          end
+
+          all_mount_stats[p.name] ||= mount_stats
         end
-        mount_stats
+        all_mount_stats
       end
 
       ## loop through data and enter it in mysql
