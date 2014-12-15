@@ -121,14 +121,21 @@ module Jetpants
     end
 
     # Run tcpdump on the MySQL traffic and return the top 30 slowest queries
-    def get_query_runtime(duration)
+    def get_query_runtime(duration, database = nil)
       raise 'Percona::Toolkit is not installed on the server' if self.ssh_cmd('which pt-query-digest 2> /dev/null').nil?
 
       dumpfile = File.join(Dir.tmpdir, 'jetpants_tcpdump.' + (0...8).map { (65 + rand(26)).chr }.join)
       get_tcpdump_sample duration, dumpfile
 
-      output('Analyzing the tcpdump with pt-query-digest')
-      output(self.ssh_cmd "tcpdump -s 0 -x -n -q -tttt -r #{dumpfile} | pt-query-digest --type tcpdump --limit 30 - 2> /dev/null")
+      if database
+        output("Analyzing the tcpdump with pt-query-digest for database '#{database}'")
+        pt_query_digest = "pt-query-digest --filter '$event->{db} && $event->{db} eq \"#{database}\"' --type tcpdump --limit 30 - 2> /dev/null"
+      else
+        output('Analyzing the tcpdump with pt-query-digest')
+        pt_query_digest = 'pt-query-digest --type tcpdump --limit 30 - 2> /dev/null'
+      end
+
+      output(self.ssh_cmd "tcpdump -s 0 -x -n -q -tttt -r #{dumpfile} | #{pt_query_digest}")
       self.ssh_cmd "rm -f #{dumpfile}"
 
       nil
