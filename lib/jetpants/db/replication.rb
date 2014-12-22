@@ -103,14 +103,17 @@ module Jetpants
 
       # restarts the dbs that are still behind
       output "Resuming replication from #{dbs.join(', ')} until (#{binlog_coord[0]}, #{binlog_coord[1]})."
-      dbs.concurrent_each{ |db|
-        output db.mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{binlog_coord[0]}', MASTER_LOG_POS = #{binlog_coord[1]}"
-        @repl_paused = false
-      }
+      dbs.concurrent_each{ |db| db.resume_replication_until(binlog_coord) }
 
       # continue while there are still slow dbs
       sleep Jetpants.repl_wait_interval
       catchup_slow_dbs(dbs, binlog_coord)
+    end
+
+    def resume_replication_until(binlog_coord)
+      output mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{binlog_coord[0]}', MASTER_LOG_POS = #{binlog_coord[1]}"
+      # START SLAVE UNTIL will leave the slave io thread running, so we consider replication as not paused
+      @repl_paused = false
     end
     
     # Permanently disables replication. Clears out the SHOW SLAVE STATUS output
