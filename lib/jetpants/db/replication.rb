@@ -79,10 +79,6 @@ module Jetpants
       db_list.concurrent_each &:pause_replication
 
       catchup_slow_dbs(db_list)
-
-      # stop all replication threads on all slaves, as START SLAVE UNTIL
-      # will leave the slave io thread running, and we prefer to stop both
-      db_list.concurrent_each(&:pause_replication)
     end
 
     def catchup_slow_dbs(db_list, binlog_coord=nil)
@@ -112,10 +108,11 @@ module Jetpants
 
     def resume_replication_until(binlog_coord)
       output mysql_root_cmd "START SLAVE UNTIL MASTER_LOG_FILE = '#{binlog_coord[0]}', MASTER_LOG_POS = #{binlog_coord[1]}"
-      # START SLAVE UNTIL will leave the slave io thread running, so we consider replication as not paused
-      @repl_paused = false
+      # START SLAVE UNTIL will leave the slave io thread running, so we explicitly stop it
+      output mysql_root_cmd "STOP SLAVE IO_THREAD"
+      @repl_paused = true
     end
-    
+
     # Permanently disables replication. Clears out the SHOW SLAVE STATUS output
     # entirely in MySQL versions that permit this.
     def disable_replication!
