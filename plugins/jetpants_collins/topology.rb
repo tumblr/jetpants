@@ -144,7 +144,8 @@ module Jetpants
       # Query Collins one or more times, until we've seen all the results
       until done do
         selector[:page] = page
-        # find apparently alters the selector object now, so we dup it
+        # find() apparently alters the selector object now, so we dup it
+        # also force JetCollins to retry requests to the Collins server
         results = Plugin::JetCollins.find selector.dup, true
         done = results.count < per_page
         page += 1
@@ -200,6 +201,7 @@ module Jetpants
       until done do
         selector[:page] = page
         # find() apparently alters the selector object now, so we dup it
+        # also force JetCollins to retry requests to the Collins server
         page_of_results = Plugin::JetCollins.find selector.dup, true
         assets += page_of_results
         done = page_of_results.count < per_page
