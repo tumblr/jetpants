@@ -177,7 +177,7 @@ module Jetpants
     # Returns an array of configuration assets with the supplied primary role(s)
     def configuration_assets(*primary_roles)
       raise "Must supply at least one primary_role" if primary_roles.count < 1
-      per_page = 200
+      per_page = 100
       
       selector = {
         operation:    'and',
