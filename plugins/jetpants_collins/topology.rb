@@ -121,7 +121,7 @@ module Jetpants
         end
       end
       
-      per_page = 200
+      per_page = 100
       selector = {
         operation:    'and',
         details:      true,
