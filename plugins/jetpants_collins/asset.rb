@@ -24,9 +24,16 @@ module Collins
       raise "Unknown primary role #{primary_role} for configuration asset #{self}" unless ['MYSQL_POOL', 'MYSQL_SHARD'].include?(primary_role.upcase)
       raise "No pool attribute set on asset #{self}" unless pool && pool.length > 0
       
-      # Find the master(s) for this pool. If we got back multiple masters, first
-      # try ignoring the remote datacenter ones
-      master_assets = Jetpants.topology.server_node_assets(pool.downcase, :master)
+      # if this node is iniitalizing we know there will be no server assets
+      # associated with it
+      if !shard_state.nil? and shard_state.upcase == "INITIALIZING"
+        master_assets = []
+      else
+        # Find the master(s) for this pool. If we got back multiple masters, first
+        # try ignoring the remote datacenter ones
+        master_assets = Jetpants.topology.server_node_assets(pool.downcase, :master)
+      end
+
       if master_assets.count > 1
         results = master_assets.select {|a| a.location.nil? || a.location.upcase == Plugin::JetCollins.datacenter}
         master_assets = results if results.count > 0
