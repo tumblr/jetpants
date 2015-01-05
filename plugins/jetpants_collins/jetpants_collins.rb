@@ -57,7 +57,7 @@ module Jetpants
                 Jetpants.plugins['jetpants_collins']['max_retry_backoff']
             ) {
               res = service.send 'find', selector
-              raise "Unable to find asset for #{selector[:pool]}" if res.empty?
+              raise "Unable to find asset for #{selector}" if res.empty?
               return res
             }
           else
