@@ -175,7 +175,7 @@ module Jetpants
       # due to issues with warning 1592 causing a huge amount of difficult-to-parse output.
       output "Running pt-upgrade with slowlog #{slowlog_path}"
       output "Comparing nodes #{node_text}..."
-      stdout, exit_code = `pt-upgrade --set-vars wait_timeout=10000 --compare query_times,results #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+      stdout, exit_code = `pt-upgrade --report=hosts,stats --set-vars wait_timeout=10000 --compare query_times,results #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
       output stdout
       puts
       output "pt-upgrade completed with exit code #{exit_code}"
