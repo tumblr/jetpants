@@ -15,8 +15,11 @@ module Jetpants
       answer = ask "Detected shards to merge as #{shard_str}, proceed (enter YES in all caps if so)?:"
       raise "Aborting on user input" unless answer == "YES"
 
-      duplicates_found = Shard.identify_merge_duplicates(shards_to_merge, 58000000000, 59000000000)
-      raise "Fix the duplicates manually before proceeding for the merge" unless duplicates_found == false
+      unless Jetpants.min_post_id_dup_check && Jetpants.max_post_id_dup_check && Jetpants.table_dup_check
+        duplicates_found = Shard.identify_merge_duplicates(shards_to_merge, Jetpants.min_post_id_dup_check,
+                                                           Jetpants.max_post_id_dup_check, Jetpants.table_dup_check)
+        raise "Fix the duplicates manually before proceeding for the merge" unless duplicates_found == false
+      end
 
       aggregate_node_ip = ask "Please supply the IP of an aggregator node:"
       aggregate_node = Aggregator.new(aggregate_node_ip)

@@ -46,6 +46,9 @@ module Jetpants
     'repl_wait_interval'      =>  1,          # default sleep interval currently used in pause_replication_with
     'lazy_load_pools'         =>  false,      # whether to populate the topology pools when first accessed
     'log_file'                =>  '/var/log/jetpants.log', # where to log all output from the jetpants commands
+    'min_post_id_dup_check'   => 58000000000, # Min Post ID to use for duplicate detection before merge
+    'max_post_id_dup_check'   => 59000000000, # Max Post ID to use for duplicate detection before merge
+    'table_dup_check'         => 'posts'      # Table name to check duplicate post IDs in
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
