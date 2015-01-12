@@ -123,7 +123,7 @@ module Jetpants
     end
 
     # Check for duplicates in each pair of shards being merged
-    def self.identify_merge_duplicates(shards_to_merge)
+    def self.identify_merge_duplicates(shards_to_merge, min_key, max_key)
       duplicates_found = false
 
       for source_shard_index in 0 ... shards_to_merge.length - 1
@@ -135,8 +135,8 @@ module Jetpants
           table = source_shard.tables.select { |t| t.name == 'posts' }
           table = table.first
           key = :id
-          min_key_val = 58000000000
-          max_key_val = 59000000000
+          min_key_val = min_key
+          max_key_val = max_key
           ids = Shard.check_duplicate_keys(shard_pair, table, key, min_key_val, max_key_val)
 
           if ids.length > 0
