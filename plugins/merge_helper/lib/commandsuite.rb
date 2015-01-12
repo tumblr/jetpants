@@ -15,6 +15,9 @@ module Jetpants
       answer = ask "Detected shards to merge as #{shard_str}, proceed (enter YES in all caps if so)?:"
       raise "Aborting on user input" unless answer == "YES"
 
+      duplicates_found = Shard.identify_merge_duplicates(shards_to_merge)
+      raise "Fix the duplicates manually before proceeding for the merge" unless duplicates_found == false
+
       aggregate_node_ip = ask "Please supply the IP of an aggregator node:"
       aggregate_node = Aggregator.new(aggregate_node_ip)
       raise "Invalid aggregate node!" unless aggregate_node.aggregator?

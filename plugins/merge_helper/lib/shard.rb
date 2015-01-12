@@ -122,6 +122,39 @@ module Jetpants
       end.select{ |f| f[1] > 1 }
     end
 
+    # Check for duplicates in each pair of shards being merged
+    def self.identify_merge_duplicates(shards_to_merge)
+      duplicates_found = false
+
+      for source_shard_index in 0 ... shards_to_merge.length - 1
+        source_shard = shards_to_merge[source_shard_index]
+        source_db = source_shard.standby_slaves.last
+        for comparison_shard_index in source_shard_index + 1 ... shards_to_merge.length
+          comparison_shard = shards_to_merge[comparison_shard_index]
+          shard_pair = [source_shard, comparison_shard]
+          table = source_shard.tables.select { |t| t.name == 'posts' }
+          table = table.first
+          key = :id
+          min_key_val = 58000000000
+          max_key_val = 59000000000
+          ids = Shard.check_duplicate_keys(shard_pair, table, key, min_key_val, max_key_val)
+
+          if ids.length > 0
+            duplicates_found = true
+            pools = [shard1, shard2]
+            source_db.output "Duplicate post IDs and their states for pair: #{source_shard} and #{comparison_shard}"
+            ids.concurrent_map { |id|
+              pools.concurrent_map { |pool|
+                shard_pair.standby_slaves.last.query_return_array("SELECT id, tumblelog_id, state, type FROM posts WHERE id = #{id}")
+              }
+            }
+          end
+        end
+      end
+
+      duplicates_found
+    end
+
     # Generate a list of filenames for exported data
     def table_export_filenames(full_path = true, tables = false)
       export_filenames = []
