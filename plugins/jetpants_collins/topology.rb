@@ -232,6 +232,8 @@ module Jetpants
         end
         assets = final_assets
       end
+
+      assets
     end
     
     
