@@ -126,7 +126,7 @@ module Jetpants
         operation:    'and',
         details:      true,
         size:         per_page,
-        query:        'primary_role = ^DATABASE$ AND type = ^SERVER_NODE$'
+        query:        'primary_role = ^DATABASE$ AND type = ^SERVER_NODE$ AND status != ^DECOMMISSIONED$'
       }
       selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
       selector[:query] += " AND pool = ^#{pool_name}$" if pool_name
@@ -183,6 +183,7 @@ module Jetpants
         operation:    'and',
         details:      true,
         size:         per_page,
+        query:        'status != ^DECOMMISSIONED$',
       }
 
       if primary_roles.count == 1
@@ -190,7 +191,7 @@ module Jetpants
         selector[:primary_role] = primary_roles.first
       else
         values = primary_roles.map {|r| "primary_role = ^#{r}$"}
-        selector[:query] = 'type = ^CONFIGURATION$ AND (' + values.join(' OR ') + ')'
+        selector[:query] += ' AND type = ^CONFIGURATION$ AND (' + values.join(' OR ') + ')'
       end
       
       selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
@@ -231,9 +232,6 @@ module Jetpants
         end
         assets = final_assets
       end
-      
-      # Remove decommissioned nodes
-      assets.reject {|a| a.status == 'Decommissioned'}
     end
     
     
