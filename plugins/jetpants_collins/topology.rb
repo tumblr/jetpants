@@ -75,6 +75,7 @@ module Jetpants
     # and converts them to the Allocated status.
     # You can pass in :role to request spares with a particular secondary_role
     def claim_spares(count, options={})
+      return [] if count == 0
       assets = query_spare_assets(count, options)
       raise "Not enough spare machines available! Found #{assets.count}, needed #{count}" if assets.count < count
       assets.map do |asset|
