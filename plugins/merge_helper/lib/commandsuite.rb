@@ -15,9 +15,9 @@ module Jetpants
       answer = ask "Detected shards to merge as #{shard_str}, proceed (enter YES in all caps if so)?:"
       raise "Aborting on user input" unless answer == "YES"
 
-      unless Jetpants.min_post_id_dup_check && Jetpants.max_post_id_dup_check && Jetpants.table_dup_check
-        duplicates_found = Shard.identify_merge_duplicates(shards_to_merge, Jetpants.min_post_id_dup_check,
-                                                           Jetpants.max_post_id_dup_check, Jetpants.table_dup_check)
+      unless Jetpants.min_id_dup_check.nil || Jetpants.max_id_dup_check.nil || Jetpants.table_dup_check.nil
+        duplicates_found = Shard.identify_merge_duplicates(shards_to_merge, Jetpants.min_id_dup_check,
+                                                           Jetpants.max_id_dup_check, Jetpants.table_dup_check)
         raise "Fix the duplicates manually before proceeding for the merge" unless duplicates_found == false
       end
 
