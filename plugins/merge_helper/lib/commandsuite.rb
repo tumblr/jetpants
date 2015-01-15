@@ -16,11 +16,13 @@ module Jetpants
       raise "Aborting on user input" unless answer == "YES"
 
       raise "No table name specified to perform duplicate check" unless !Jetpants.plugins['merge_helper']['table_dup_check'].nil?
+      raise "No column name specified to perform duplicate check" unless !Jetpants.plugins['merge_helper']['column_name_dup_check'].nil?
 
       # If the IDs for duplicate check are null, check_duplicate_keys method queries the min and max IDs. So no need to verify.
       duplicates_found = Shard.identify_merge_duplicates(shards_to_merge, Jetpants.plugins['merge_helper']['min_id_dup_check'],
                                                          Jetpants.plugins['merge_helper']['max_id_dup_check'],
-                                                         Jetpants.plugins['merge_helper']['table_dup_check'])
+                                                         Jetpants.plugins['merge_helper']['table_dup_check'],
+                                                         Jetpants.plugins['merge_helper']['column_name_dup_check'])
       raise "Fix the duplicates manually before proceeding for the merge" unless duplicates_found == false
     end
     def self.before_merge_shards_duplicate_check
@@ -45,8 +47,6 @@ module Jetpants
       shard_str = shards_to_merge.join(', ')
       answer = ask "Detected shards to merge as #{shard_str}, proceed (enter YES in all caps if so)?:"
       raise "Aborting on user input" unless answer == "YES"
-
-      Plugin::MergeHelper.perform_duplicate_check_if_necessary
 
       aggregate_node_ip = ask "Please supply the IP of an aggregator node:"
       aggregate_node = Aggregator.new(aggregate_node_ip)

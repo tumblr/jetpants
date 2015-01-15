@@ -123,7 +123,7 @@ module Jetpants
     end
 
     # Check for duplicates in each pair of shards being merged
-    def self.identify_merge_duplicates(shards_to_merge, min_key, max_key, table_name)
+    def self.identify_merge_duplicates(shards_to_merge, min_key, max_key, table_name, column_name)
       duplicates_found = false
 
       # Obtain all shard pairs for duplicate identification.
@@ -134,7 +134,7 @@ module Jetpants
         comparison_shard = shard_pair[1]
         table = source_shard.tables.select { |t| t.name == table_name }
         table = table.first
-        key = :id
+        key = column_name
         min_key_val = min_key
         max_key_val = max_key
         ids = Shard.check_duplicate_keys(shard_pair, table, key, min_key_val, max_key_val)
