@@ -18,12 +18,41 @@ module Jetpants
       raise "No table name specified to perform duplicate check" unless !Jetpants.plugins['merge_helper']['table_dup_check'].nil?
       raise "No column name specified to perform duplicate check" unless !Jetpants.plugins['merge_helper']['column_name_dup_check'].nil?
 
-      # If the IDs for duplicate check are null, check_duplicate_keys method queries the min and max IDs. So no need to verify.
-      duplicates_found = Shard.identify_merge_duplicates(shards_to_merge, Jetpants.plugins['merge_helper']['min_id_dup_check'],
-                                                         Jetpants.plugins['merge_helper']['max_id_dup_check'],
-                                                         Jetpants.plugins['merge_helper']['table_dup_check'],
-                                                         Jetpants.plugins['merge_helper']['column_name_dup_check'])
-      raise "Fix the duplicates manually before proceeding for the merge" unless duplicates_found == false
+      min_key = Jetpants.plugins['merge_helper']['min_id_dup_check']
+      max_key = Jetpants.plugins['merge_helper']['max_id_dup_check']
+
+      table_name = Jetpants.plugins['merge_helper']['table_dup_check']
+      column_name = Jetpants.plugins['merge_helper']['column_name_dup_check']
+
+      duplicates_found = false
+
+      # Obtain all shard pairs for duplicate identification.
+      shard_pairs = shards_to_merge.inject([[]]){|c,y|r=[];c.each{|i|r<<i;r<<i+[y]};r}.reject{|p| p.count != 2}
+
+      shard_pairs.each { |shard_pair|
+        source_shard = shard_pair[0]
+        comparison_shard = shard_pair[1]
+        source_db = source_shard.standby_slaves.last
+        table = source_shard.tables.select { |t| t.name == table_name }
+        table = table.first
+        key = column_name
+        min_key_val = min_key
+        max_key_val = max_key
+        ids = Shard.check_duplicate_keys(shard_pair, table, key, min_key_val, max_key_val)
+
+        if ids.length > 0
+          duplicates_found = true
+          pools = [source_shard, comparison_shard]
+          source_db.output "Duplicate post IDs and their states for pair: #{source_shard} and #{comparison_shard}"
+          pools.concurrent_map { |pool|
+            db = pool.standby_slaves.last || pool.backup_slaves.last
+
+            # Query will output the results we need to fix.
+            db.query_return_array("SELECT id, tumblelog_id, state, type FROM posts WHERE id IN ( #{ids.join(',')} )")
+          }
+        end
+      }
+      output "Fix the duplicates manually before proceeding for the merge" unless duplicates_found == false
     end
     def self.before_merge_shards_duplicate_check
       reminders(
