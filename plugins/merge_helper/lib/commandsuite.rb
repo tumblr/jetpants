@@ -32,7 +32,7 @@ module Jetpants
       shard_pairs.each { |shard_pair|
         source_shard = shard_pair[0]
         comparison_shard = shard_pair[1]
-        source_db = source_shard.standby_slaves.last
+        source_db = source_shard.slaves.last
         table = source_shard.tables.select { |t| t.name == table_name }
         table = table.first
         key = column_name
