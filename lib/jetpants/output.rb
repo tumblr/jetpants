@@ -1,5 +1,6 @@
 require 'logger'
 require 'colored'
+require "i18n"
 
 module Jetpants
 
@@ -29,6 +30,7 @@ module Jetpants
         context = self.to_s == 'console' ? 'console' : self.class.name
         @@output_logger ||= Logger.new(Jetpants.log_file)
         @@output_logger.send(level, context) {
+          output = I18n.transliterate(output)
           output
             .gsub(/\e\[\d+(;\d+)*m/, '') # remove all coloring from Highline
             .gsub(/^#{level}: /i, '')    # remove repetition of the logging level
