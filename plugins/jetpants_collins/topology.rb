@@ -122,7 +122,7 @@ module Jetpants
         end
       end
       
-      per_page = 100
+      per_page = Jetpants.plugins['jetpants_collins']['selector_page_size'] || 50
       selector = {
         operation:    'and',
         details:      true,
@@ -178,7 +178,7 @@ module Jetpants
     # Returns an array of configuration assets with the supplied primary role(s)
     def configuration_assets(*primary_roles)
       raise "Must supply at least one primary_role" if primary_roles.count < 1
-      per_page = 100
+      per_page = Jetpants.plugins['jetpants_collins']['selector_page_size'] || 50
       
       selector = {
         operation:    'and',
