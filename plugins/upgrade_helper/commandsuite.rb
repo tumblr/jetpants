@@ -180,13 +180,13 @@ module Jetpants
       pool_name = options[:pool] || ask('Please enter name of pool to checksum: ')
       dump_time = options[:dumptime].to_i if options[:dumptime]
       dump_time ||= 300
-      machines = options[:machines].split(',').map{&:to_db} if options[:machines]
+      machines = options[:machines].split(',').map(&:to_db) if options[:machines]
       machines ||= []
       gather_machine = options[:gather_machine].to_db if options[:gather_machine]
       gather_machine ||= nil
       
       pool = Jetpants.topology.pool(pool_name) or raise "Pool #{pool_name} does not exist"
-      pool.collect_and_compare_queries!(dump_time, machines, gather_machine)
+      pool.collect_and_compare_queries!(dump_time)
     end
     
     no_tasks do
