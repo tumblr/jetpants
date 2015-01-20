@@ -15,8 +15,8 @@ module Jetpants
       answer = ask "Detected shards to merge as #{shard_str}, proceed (enter YES in all caps if so)?:"
       raise "Aborting on user input" unless answer == "YES"
 
-      raise "No table name specified to perform duplicate check" unless !Jetpants.plugins['merge_helper']['table_dup_check'].nil?
-      raise "No column name specified to perform duplicate check" unless !Jetpants.plugins['merge_helper']['column_name_dup_check'].nil?
+      raise "No table name specified to perform duplicate check" if Jetpants.plugins['merge_helper']['table_dup_check'].nil?
+      raise "No column name specified to perform duplicate check" if Jetpants.plugins['merge_helper']['column_name_dup_check'].nil?
 
       min_key = Jetpants.plugins['merge_helper']['min_id_dup_check']
       max_key = Jetpants.plugins['merge_helper']['max_id_dup_check']
