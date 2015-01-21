@@ -146,7 +146,7 @@ module Jetpants
           Jetpants.plugins['jetpants_collins']['url']
         end
         
-        # private
+        private
         
         # Returns a Collins::Client object
         def service
