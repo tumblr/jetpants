@@ -107,6 +107,11 @@ module Jetpants
       true
     end
 
+    # checks the physical location of a database compared to another
+    def is_near?(db)
+      false
+    end
+
     # Returns the Jetpants::Pool that this instance belongs to, if any.
     # Can optionally create an anonymous pool if no pool was found. This anonymous
     # pool intentionally has a blank sync_configuration implementation.  Rely on
