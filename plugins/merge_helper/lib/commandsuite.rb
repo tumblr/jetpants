@@ -5,15 +5,70 @@ require 'thor'
 module Jetpants
   class CommandSuite < Thor
 
+    desc 'merge_shards_duplicate_check', 'Merge Step #0 of 5: Perform the duplicate check on the shards being merged.'
+    def merge_shards_duplicate_check
+      # make sure we have a valid settings hash
+      settings = Jetpants.plugins['merge_helper'] || {}
+
+      raise "No table name specified to perform duplicate check" unless settings.has_key? 'table_dup_check'
+      raise "No column name specified to perform duplicate check" unless settings.has_key? 'column_name_dup_check'
+
+      # ask the user for the shards to merge
+      shards_to_merge = ask_merge_shard_ranges
+
+      min_key = settings['min_id_dup_check']
+      max_key = settings['max_id_dup_check']
+
+      table_name = settings['table_dup_check']
+      column_name = settings['column_name_dup_check']
+
+      duplicates_found = false
+
+      # Obtain all shard pairs for duplicate identification.
+      shard_pairs = shards_to_merge.inject([[]]){|c,y|r=[];c.each{|i|r<<i;r<<i+[y]};r}.reject{|p| p.count != 2}
+
+      shard_pairs.each { |shard_pair|
+        source_shard = shard_pair[0]
+        comparison_shard = shard_pair[1]
+        source_db = source_shard.slaves.last
+        table = source_shard.tables.select { |t| t.name == table_name }
+        table = table.first
+        key = column_name
+        min_key_val = min_key
+        max_key_val = max_key
+        ids = Shard.check_duplicate_keys(shard_pair, table, key, min_key_val, max_key_val)
+
+        if ids.length > 0
+          duplicates_found = true
+          pools = [source_shard, comparison_shard]
+          source_db.output "Duplicate post IDs and their states for pair: #{source_shard} and #{comparison_shard}"
+          pools.concurrent_map { |pool|
+            db = pool.standby_slaves.last || pool.backup_slaves.last
+
+            # Query will output the results we need to fix.
+            db.query_return_array("SELECT id, tumblelog_id, state, type FROM posts WHERE id IN ( #{ids.join(',')} )")
+          }
+        end
+      }
+      output "Fix the duplicates manually before proceeding for the merge" if duplicates_found
+    end
+    def self.before_merge_shards_duplicate_check
+      reminders(
+        'This process may take several hours. You probably want to run this from a screen session.',
+        'Be especially careful if you are relying on SSH Agent Forwarding for your root key, since this is not screen-friendly.'
+      )
+    end
+    def self.after_merge_shards_duplicate_check
+      reminders(
+        'If the duplicates have been found, fix them first. Otherwise merge is going to fail.',
+        'If no duplicates found, proceed to next step: jetpants merge_shards'
+      )
+    end
+
     desc 'merge_shards', 'Share merge step #1 of 5: Merge two or more shards using an aggregator instance'
     def merge_shards
-      min_id = ask("Please provide the min ID of the shard range to merge:")
-      max_id = ask("Please provide the max ID of the shard range to merge:")
-      # for now we assume we'll never merge the shard at the head of the list
-      shards_to_merge = Jetpants.shards.select{ |shard| (shard.min_id.to_i >= min_id.to_i && shard.max_id.to_i <= max_id.to_i && shard.max_id != 'INFINITY') }
-      shard_str = shards_to_merge.join(', ')
-      answer = ask "Detected shards to merge as #{shard_str}, proceed (enter YES in all caps if so)?:"
-      raise "Aborting on user input" unless answer == "YES"
+      # ask the user for the shards to merge
+      shards_to_merge = ask_merge_shard_ranges
 
       aggregate_node_ip = ask "Please supply the IP of an aggregator node:"
       aggregate_node = Aggregator.new(aggregate_node_ip)
@@ -218,6 +273,24 @@ module Jetpants
         shards_to_merge = Jetpants.shards.select{ |shard| !shard.combined_shard.nil? }
         shards_str = shards_to_merge.join(', ')
         answer = ask "Detected shards to merge as #{shards_str}, proceed (enter YES in all caps if so)?"
+        raise "Aborting on user input" unless answer == "YES"
+
+        shards_to_merge
+      end
+
+      def ask_merge_shard_ranges
+        min_id = ask("Please provide the min ID of the shard range to merge:")
+        max_id = ask("Please provide the max ID of the shard range to merge:")
+
+        # for now we assume we'll never merge the shard at the head of the list
+        shards_to_merge = Jetpants.shards.select do |shard|
+          shard.min_id.to_i >= min_id.to_i &&
+          shard.max_id.to_i <= max_id.to_i &&
+          shard.max_id != 'INFINITY'
+        end
+
+        shard_str = shards_to_merge.join(', ')
+        answer = ask "Detected shards to merge as #{shard_str}, proceed (enter YES in all caps if so)?:"
         raise "Aborting on user input" unless answer == "YES"
 
         shards_to_merge
