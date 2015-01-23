@@ -148,16 +148,11 @@ module Jetpants
 
       data_nodes = [ new_shard_master, aggregate_node ]
 
-      # settings to improve import speed
-      data_nodes.concurrent_each do |db|
-        db.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--innodb_flush_log_at_trx_commit=2', '--innodb-doublewrite=0'
-      end
-
-      # create and ship schema
+      # create and ship schema.  Mysql is stopped so that we can use buffer pool memory during network copy on destinations
       slave = shards_to_merge.last.standby_slaves.last
       data_nodes.each do |db|
+        db.stop_mysql
         slave.ship_schema_to db
-        db.import_schemata!
       end
 
       # grab slave list to export data
@@ -210,6 +205,12 @@ module Jetpants
         slave.start_query_killer
         slave.cancel_downtime rescue nil
       }
+
+      # settings to improve import speed
+      data_nodes.each do |db|
+        db.start_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--innodb_flush_log_at_trx_commit=2', '--innodb-doublewrite=0'
+        db.import_schemata!
+      end
 
       # import data in a separate loop, as we want to leave the origin slaves
       # in a non-replicating state for as little time as possible
