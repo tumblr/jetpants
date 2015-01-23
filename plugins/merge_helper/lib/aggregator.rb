@@ -319,8 +319,10 @@ module Jetpants
     end
 
     def cleanup!
-      output "Cleaning up the Aggregator: #{Jetpants.export_location}/*"
-      ssh_cmd "rm -rf #{Jetpants.export_location}/*"
+      unless Jetpants.export_location.nil?
+        output "Cleaning up the Aggregator: #{Jetpants.export_location}/*"
+        ssh_cmd "test -d #{Jetpants.export_location} && rm -rf #{Jetpants.export_location}/*"
+      end
       drop_user 'jetpants'
     end
 
