@@ -148,8 +148,8 @@ module Jetpants
 
       data_nodes = [ new_shard_master, aggregate_node ]
 
-      import_export_user = 'jetpants'
-      aggregate_node.cleanup! import_export_user
+      # Perform cleanup on aggregator in case of any earlier unsuccessful merge
+      aggregate_node.cleanup!
 
       # settings to improve import speed
       data_nodes.concurrent_each do |db|

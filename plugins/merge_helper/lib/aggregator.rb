@@ -321,7 +321,7 @@ module Jetpants
     def cleanup!(username=false)
       output "Cleaning up the Aggregator: /db-binlogs/*"
       ssh_cmd "rm -rf /db-binlog/*"
-      drop_user username
+      drop_user 'jetpants'
     end
 
     # Performs a validation step of pausing replication and determining row counts
