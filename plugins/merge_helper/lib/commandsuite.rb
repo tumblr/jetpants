@@ -5,7 +5,7 @@ require 'thor'
 module Jetpants
   class CommandSuite < Thor
 
-    desc 'merge_shards_duplicate_check', 'Merge Step #0 of 5: Perform the duplicate check on the shards being merged.'
+    desc 'merge_shards_duplicate_check', 'Share merge Step #0 of 5: Perform the duplicate check on the shards being merged.'
     def merge_shards_duplicate_check
       # make sure we have a valid settings hash
       settings = Jetpants.plugins['merge_helper'] || {}

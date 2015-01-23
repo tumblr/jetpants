@@ -148,6 +148,9 @@ module Jetpants
 
       data_nodes = [ new_shard_master, aggregate_node ]
 
+      import_export_user = 'jetpants'
+      aggregate_node.cleanup! import_export_user
+
       # settings to improve import speed
       data_nodes.concurrent_each do |db|
         db.restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--innodb_flush_log_at_trx_commit=2', '--innodb-doublewrite=0'

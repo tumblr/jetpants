@@ -318,6 +318,12 @@ module Jetpants
       @repl_paused = !any_replication_running?
     end
 
+    def cleanup!(username=false)
+      output "Cleaning up the Aggregator: /db-binlogs/*"
+      ssh_cmd "rm -rf /db-binlog/*"
+      drop_user username
+    end
+
     # Performs a validation step of pausing replication and determining row counts
     # on an aggregating server and its data sources
     # WARNING! This will pause replication on the nodes this machine aggregates from
