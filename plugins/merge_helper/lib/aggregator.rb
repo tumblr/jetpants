@@ -318,9 +318,9 @@ module Jetpants
       @repl_paused = !any_replication_running?
     end
 
-    def cleanup!(username=false)
-      output "Cleaning up the Aggregator: /db-binlogs/*"
-      ssh_cmd "rm -rf /db-binlog/*"
+    def cleanup!
+      output "Cleaning up the Aggregator: #{Jetpants.export_location}/*"
+      ssh_cmd "rm -rf #{Jetpants.export_location}/*"
       drop_user 'jetpants'
     end
 
