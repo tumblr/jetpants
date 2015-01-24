@@ -150,7 +150,7 @@ module Jetpants
 
       # Perform cleanup on aggregator in case of any earlier unsuccessful merge
       if aggregator_node.needs_cleanup?
-        answer = ask "Aggregator needs a cleanup.  #{Jetpants.export_location}/*.out files need to be deleted and/or 'jetpants' user needs to be removed.  Do you want to cleanup the aggregator? (enter YES in all caps if so)?:"
+        answer = ask "Aggregator needs a cleanup.  Do you want to cleanup the aggregator? (enter YES in all caps if so)?:"
         if answer == "YES"
           aggregate_node.cleanup!
         else
