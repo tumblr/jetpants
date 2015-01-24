@@ -154,6 +154,9 @@ module Jetpants
         if answer == "YES"
           aggregate_node.cleanup!
         else
+          data_nodes.each do |db|
+            db.return_to_spare!     # Change state to Allocated:Spare again
+          end
           raise "Perform the aggregator cleanup manually and then restart the merge."
         end
       end
