@@ -88,6 +88,17 @@ module Jetpants
          aggregate_shard_master = Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
       end
 
+      # Perform cleanup on aggregator in case of any earlier unsuccessful merge
+      if aggregator_node.needs_cleanup?
+        answer = ask "Aggregator needs a cleanup.  Do you want to cleanup the aggregator? (enter YES in all caps if so)?:"
+        if answer == "YES"
+          aggregate_node.cleanup!
+        else # Change state to Allocated:Spare again
+          data_nodes.each(&:return_to_spare!)
+          raise "Perform the aggregator cleanup manually and then restart the merge."
+        end
+      end
+
       Shard.set_up_aggregate_node(shards_to_merge, aggregate_node, aggregate_shard_master)
 
       aggregate_node.resume_all_replication
