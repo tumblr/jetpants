@@ -318,6 +318,20 @@ module Jetpants
       @repl_paused = !any_replication_running?
     end
 
+    def needs_cleanup?
+      unless Jetpants.export_location.to_s.empty?
+        num_out_files = ssh_cmd "ls -lh #{Jetpants.export_location}/*.out 2> /dev/null | wc -l"
+        output "Exported files seem to be present under #{Jetpants.export_location}"
+        return true if num_out_files.to_i > 0
+      end
+
+      result = mysql_root_cmd("SELECT 1 FROM information_schema.user_privileges WHERE grantee LIKE '%jetpants%'")
+      return false if result.nil?
+
+      output "'jetpants' user exists on the db."
+      true
+    end
+
     def cleanup!
       unless Jetpants.export_location.to_s.empty?
         output "Cleaning up the Aggregator: #{Jetpants.export_location}/*"
