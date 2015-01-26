@@ -5,7 +5,7 @@ require 'thor'
 module Jetpants
   class CommandSuite < Thor
 
-    desc 'merge_shards_duplicate_check', 'Merge Step #0 of 5: Perform the duplicate check on the shards being merged.'
+    desc 'merge_shards_duplicate_check', 'Shard merge Step #0 of 5: Perform the duplicate check on the shards being merged.'
     def merge_shards_duplicate_check
       # make sure we have a valid settings hash
       settings = Jetpants.plugins['merge_helper'] || {}
@@ -65,7 +65,7 @@ module Jetpants
       )
     end
 
-    desc 'merge_shards', 'Share merge step #1 of 5: Merge two or more shards using an aggregator instance'
+    desc 'merge_shards', 'Shard merge step #1 of 5: Merge two or more shards using an aggregator instance'
     def merge_shards
       # ask the user for the shards to merge
       shards_to_merge = ask_merge_shard_ranges
@@ -86,6 +86,17 @@ module Jetpants
          aggregate_shard_master.claim! if aggregate_shard_master.is_spare?
       else
          aggregate_shard_master = Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
+      end
+
+      # Perform cleanup on aggregator in case of any earlier unsuccessful merge
+      if aggregator_node.needs_cleanup?
+        answer = ask "Aggregator needs a cleanup.  Do you want to cleanup the aggregator? (enter YES in all caps if so)?:"
+        if answer == "YES"
+          aggregate_node.cleanup!
+        else # Change state to Allocated:Spare again
+          data_nodes.each(&:return_to_spare!)
+          raise "Perform the aggregator cleanup manually and then restart the merge."
+        end
       end
 
       Shard.set_up_aggregate_node(shards_to_merge, aggregate_node, aggregate_shard_master)
@@ -137,7 +148,7 @@ module Jetpants
 
     # Performs a validation step of pausing replication and determining row counts
     # on the aggregating server and its data sources
-    desc 'merge_shards_validate', 'Share merge step #2 of 5: Validate aggregating server row counts'
+    desc 'merge_shards_validate', 'Shard merge step #2 of 5: Validate aggregating server row counts'
     def merge_shards_validate
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -174,7 +185,7 @@ module Jetpants
     end
 
     # regenerate config and switch reads to new shard's master
-    desc 'merge_shards_reads', 'Share merge step #3 of 5: Switch reads to the new merged master'
+    desc 'merge_shards_reads', 'Shard merge step #3 of 5: Switch reads to the new merged master'
     def merge_shards_reads
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -202,7 +213,7 @@ module Jetpants
 
 
     # regenerate config and switch writes to new shard's master
-    desc 'merge_shards_writes', 'Share merge step #4 of 5: Switch writes to the new merged master'
+    desc 'merge_shards_writes', 'Shard merge step #4 of 5: Switch writes to the new merged master'
     def merge_shards_writes
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -231,7 +242,7 @@ module Jetpants
     end
 
     # clean up aggregator node and old shards
-    desc 'merge_shards_cleanup', 'Share merge step #5 of 5: Clean up the old shards and aggregator node'
+    desc 'merge_shards_cleanup', 'Shard merge step #5 of 5: Clean up the old shards and aggregator node'
     def merge_shards_cleanup
       # obtain relevant shards
       shards_to_merge = ask_merge_shards

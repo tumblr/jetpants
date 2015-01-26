@@ -41,6 +41,10 @@ module Jetpants
       self
     end
 
+    def return_to_spare!
+      self.collins_status = 'Allocated:Spare'
+    end
+
     ##### CALLBACKS ############################################################
     
     # Determine master from Collins if machine is unreachable or MySQL isn't running.
