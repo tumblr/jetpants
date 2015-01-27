@@ -52,7 +52,11 @@ module Jetpants
     def count_spares(options={})
       @tracker.spares.count
     end
-    
+
+    def spares(options={})
+      @tracker.spares.map(&:to_db)
+    end
+
     
     ##### NEW METHODS ##########################################################
     

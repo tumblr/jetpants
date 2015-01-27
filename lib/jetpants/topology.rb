@@ -103,7 +103,15 @@ module Jetpants
     def count_spares(options={})
       raise "Plugin must override Topology#count_spares"
     end
-    
+
+    synchronized
+    # Plugin should override so that this returns a list of spare machines
+    # matching the selected options. options hash follows same format as for
+    # Topology#claim_spares.
+    def spares(options={})
+      raise "Plugin must override Topology#spares"
+    end
+
     # Returns a list of valid role symbols in use in Jetpants.
     def valid_roles
       [:master, :active_slave, :standby_slave, :backup_slave]
