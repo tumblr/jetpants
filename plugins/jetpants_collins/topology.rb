@@ -75,6 +75,7 @@ module Jetpants
     # and converts them to the Allocated status.
     # You can pass in :role to request spares with a particular secondary_role
     def claim_spares(count, options={})
+      return [] if count == 0
       assets = query_spare_assets(count, options)
       raise "Not enough spare machines available! Found #{assets.count}, needed #{count}" if assets.count < count
       assets.map do |asset|
@@ -121,12 +122,12 @@ module Jetpants
         end
       end
       
-      per_page = 200
+      per_page = Jetpants.plugins['jetpants_collins']['selector_page_size'] || 50
       selector = {
         operation:    'and',
         details:      true,
         size:         per_page,
-        query:        'primary_role = ^DATABASE$ AND type = ^SERVER_NODE$'
+        query:        'primary_role = ^DATABASE$ AND type = ^SERVER_NODE$ AND status != ^DECOMMISSIONED$'
       }
       selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
       selector[:query] += " AND pool = ^#{pool_name}$" if pool_name
@@ -144,7 +145,9 @@ module Jetpants
       # Query Collins one or more times, until we've seen all the results
       until done do
         selector[:page] = page
-        results = Plugin::JetCollins.find selector.dup # find apparently alters the selector object now, so we dup it
+        # find() apparently alters the selector object now, so we dup it
+        # also force JetCollins to retry requests to the Collins server
+        results = Plugin::JetCollins.find selector.dup, true
         done = results.count < per_page
         page += 1
         assets.concat(results.select {|a| a.pool}) # filter out any spare nodes, which will have no pool set
@@ -175,12 +178,13 @@ module Jetpants
     # Returns an array of configuration assets with the supplied primary role(s)
     def configuration_assets(*primary_roles)
       raise "Must supply at least one primary_role" if primary_roles.count < 1
-      per_page = 200
+      per_page = Jetpants.plugins['jetpants_collins']['selector_page_size'] || 50
       
       selector = {
         operation:    'and',
         details:      true,
         size:         per_page,
+        query:        'status != ^DECOMMISSIONED$',
       }
 
       if primary_roles.count == 1
@@ -188,7 +192,7 @@ module Jetpants
         selector[:primary_role] = primary_roles.first
       else
         values = primary_roles.map {|r| "primary_role = ^#{r}$"}
-        selector[:query] = 'type = ^CONFIGURATION$ AND (' + values.join(' OR ') + ')'
+        selector[:query] += ' AND type = ^CONFIGURATION$ AND (' + values.join(' OR ') + ')'
       end
       
       selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
@@ -198,7 +202,9 @@ module Jetpants
       assets = []
       until done do
         selector[:page] = page
-        page_of_results = Plugin::JetCollins.find selector.dup # find apparently alters the selector object now, so we dup it
+        # find() apparently alters the selector object now, so we dup it
+        # also force JetCollins to retry requests to the Collins server
+        page_of_results = Plugin::JetCollins.find selector.dup, true
         assets += page_of_results
         done = page_of_results.count < per_page
         page += 1
@@ -227,9 +233,8 @@ module Jetpants
         end
         assets = final_assets
       end
-      
-      # Remove decommissioned nodes
-      assets.reject {|a| a.status == 'Decommissioned'}
+
+      assets
     end
     
     

@@ -7,7 +7,7 @@ module Jetpants
     
     include Plugin::JetCollins
     
-    collins_attr_accessor :slave_weight, :nodeclass
+    collins_attr_accessor :slave_weight, :nodeclass, :nobackup
     
     # Because we only support 1 mysql instance per machine for now, we can just
     # delegate this over to the host
@@ -39,6 +39,10 @@ module Jetpants
       self.collins_slave_weight = ''
       self.collins_status = 'Allocated:CLAIMED'
       self
+    end
+
+    def return_to_spare!
+      self.collins_status = 'Allocated:Spare'
     end
 
     ##### CALLBACKS ############################################################
@@ -105,6 +109,11 @@ module Jetpants
     # checks ot see if a db is usable within a pool
     def usable_in?(pool)
       true
+    end
+
+    # checks the physical location of a database compared to another
+    def is_near?(db)
+      false
     end
 
     # Returns the Jetpants::Pool that this instance belongs to, if any.

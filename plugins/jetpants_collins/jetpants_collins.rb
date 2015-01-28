@@ -57,14 +57,29 @@ module Jetpants
                 Jetpants.plugins['jetpants_collins']['max_retry_backoff']
             ) {
               res = service.send 'find', selector
-              raise "Unable to find asset for #{selector[:pool]}" if res.empty?
+              raise "Unable to find asset(s) for #{selector}" if res.empty?
               return res
             }
           else
             service.send 'find', selector
           end
         end
-        
+
+        def count(selector, retry_request = false)
+          if retry_request
+            Jetpants.with_retries(
+              Jetpants.plugins['jetpants_collins']['retries'],
+              Jetpants.plugins['jetpants_collins']['max_retry_backoff']
+            ) {
+              res = service.send 'count', selector
+              raise "Unable to find asset(s) for #{selector}" if res.nil?
+              return res
+            }
+          else
+            service.send 'count', selector
+          end
+        end
+
         # Eigenclass mix-in for collins_attr_accessor
         # Calling "collins_attr_accessor :foo" in your class body will create
         # methods collins_foo and collins_foo= which automatically get/set
