@@ -26,7 +26,7 @@ module Jetpants
         Jetpants.topology.alter_table_shards(database, table, alter, options[:dry_run], options[:no_check_plan])
       else
         unless pool.alter_table(database, table, alter, options[:dry_run], false, options[:no_check_plan])
-          output "Check for errors during online schema change".red, nil, :error
+          output "Check for errors during online schema change".red, :error
         end
       end
     end
