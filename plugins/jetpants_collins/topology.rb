@@ -46,22 +46,11 @@ module Jetpants
       # Populate the cache for all master and active_slave nodes. (We restrict to these types
       # because this is sufficient for creating Pool objects and generating app config files.)
       Jetpants.topology.server_node_assets(false, :master, :active_slave)
-      
-      functional_partition_assets = []
-      shard_assets = []
-      configuration_assets('MYSQL_POOL', 'MYSQL_SHARD').each do |asset|
-        if asset.primary_role.upcase == 'MYSQL_SHARD'
-          shard_assets << asset
-        else
-          functional_partition_assets << asset
-        end
-      end
-      
-      functional_partition_assets.sort_by! {|a| (a.config_sort_order || 0).to_i}
-      shard_assets.sort_by! {|a| a.shard_min_id.to_i}
-      @pools = functional_partition_assets.map(&:to_pool) + shard_assets.map(&:to_pool)
+
+      @pools = configuration_assets('MYSQL_POOL', 'MYSQL_SHARD').map(&:to_pool)
       @pools.compact! # remove nils from pools that had no master
-      
+      @pools.sort_by! { |p| sort_pools_callback p }
+
       # Set up parent/child relationships between shards currently being split.
       # We do this in a separate step afterwards so that Topology#pool can find the parent
       # by name, regardless of ordering in Collins
@@ -71,8 +60,17 @@ module Jetpants
       end
       true
     end
-    
-    
+
+    def add_pool(pool)
+      raise 'Attempt to add a non pool to the pools topology' unless pool.is_a?(Pool)
+
+      unless @pools.include? pool
+        @pools << pool
+        @pools.sort_by! { |p| sort_pools_callback p }
+      end
+      true
+    end
+
     # Returns (count) DB objects.  Pulls from machines in the spare state
     # and converts them to the Allocated status.
     # You can pass in :role to request spares with a particular secondary_role
@@ -80,16 +78,10 @@ module Jetpants
       assets = query_spare_assets(count, options)
       raise "Not enough spare machines available! Found #{assets.count}, needed #{count}" if assets.count < count
       assets.map do |asset|
-        db = asset.to_db
-        db.collins_pool = ''
-        db.collins_secondary_role = ''
-        db.collins_slave_weight = ''
-        db.collins_status = 'Allocated:CLAIMED'
-        db
+        asset.to_db.claim!
       end
     end
-    
-    
+
     # This method won't ever return a number higher than 100, but that's
     # not a problem, since no single operation requires that many spares
     def count_spares(options={})
@@ -266,6 +258,7 @@ module Jetpants
         size:             100,
       }
       selector = process_spare_selector_options(selector, options)
+      source = options[:like]
       
       nodes = Plugin::JetCollins.find(selector)
       keep_nodes = []
@@ -276,13 +269,29 @@ module Jetpants
       # Now iterate in a single-threaded way for simplicity
       nodes.each do |node|
         db = node.to_db
-        if db.usable_spare?
+        if(db.usable_spare? && (!source || db.usable_with?(source)))
           keep_nodes << node
           break if keep_nodes.size >= count
         end
       end
       keep_nodes.slice(0,count)
     end
-    
+
+    def sort_pools_callback(pool)
+      asset = pool.collins_asset
+      role = asset.primary_role.upcase
+
+      case role
+        when 'MYSQL_POOL'
+          position = (asset.config_sort_order || 0).to_i
+        when 'MYSQL_SHARD'
+          position = asset.shard_min_id.to_i
+        else
+          position = 0
+      end
+
+      [role, position]
+    end
+
   end
 end

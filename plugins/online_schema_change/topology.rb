@@ -15,7 +15,6 @@ module Jetpants
         return
       end
 
-      continue = 'no'
       continue = ask('First shard complete would you like to continue with the rest of the shards?: (YES/no) - YES has to be in all caps and fully typed')
       if continue == 'YES'
         errors = []
@@ -42,7 +41,6 @@ module Jetpants
       print "[#{Time.now.to_s.blue}] #{first_shard.pool.to_s}\n"
       first_shard.drop_old_alter_table(database, table)
 
-      continue = 'no'
       continue = ask('First shard complete would you like to continue with the rest of the shards?: (YES/no) - YES has to be in all caps and fully typed')
       if continue == 'YES'
         my_shards.each do |shard|

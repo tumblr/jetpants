@@ -58,6 +58,7 @@ module Jetpants
       @master_read_weight = 0
       @active_slave_weights = {}
       @tables = nil
+      @probe_lock = Mutex.new
     end
     
     # Returns all slaves, or pass in :active, :standby, or :backup to receive slaves
@@ -104,19 +105,24 @@ module Jetpants
     # tables, detecting their schema
     def probe_tables
       master.probe
-      db = standby_slaves.last || active_slaves.last || master
-      if db && db.running?
-        output "Probing tables via #{db}"
-      else
-        output "Warning: unable to probe tables"
-        return
-      end
+
+      @probe_lock.synchronize do
+        return unless @tables.nil?
+
+        db = standby_slaves.last || active_slaves.last || master
+        if db && db.running?
+          output "Probing tables via #{db}"
+        else
+          output "Warning: unable to probe tables"
+          return
+        end
       
-      @tables = []
-      sql = "SHOW TABLES"
-      db.query_return_array(sql).each do |tbl|
-        table_name = tbl.values.first
-        @tables << db.detect_table_schema(table_name)
+        @tables = []
+        sql = "SHOW TABLES"
+        db.query_return_array(sql).each do |tbl|
+          table_name = tbl.values.first
+          @tables << db.detect_table_schema(table_name)
+        end
       end
     end
     
@@ -340,7 +346,7 @@ module Jetpants
     # Callback to ensure that a sync'ed pool is already in Topology.pools
     def before_sync_configuration
       unless Jetpants.topology.pools.include? self
-        Jetpants.topology.pools << self
+        Jetpants.topology.add_pool self
       end
     end
     

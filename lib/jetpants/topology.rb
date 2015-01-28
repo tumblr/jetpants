@@ -5,6 +5,8 @@ module Jetpants
   # Much of this behavior needs to be overridden by a plugin to actually be
   # useful.  The implementation here is just a stub.
   class Topology
+    include CallbackHandler
+
     attr_reader :pools
     
     def initialize
@@ -49,7 +51,7 @@ module Jetpants
     end
     
     
-    ###### Overrideable methods ################################################
+    ###### Overridable methods ################################################
     # Plugins should override these if the behavior is needed. (Note that plugins
     # don't need to repeat the "synchronized" decorator; it automatically
     # applies to overrides.)
@@ -58,14 +60,20 @@ module Jetpants
     # Plugin should override so that this reads in a configuration and initializes
     # @pools as appropriate.
     def load_pools
-      puts "\nNotice: no plugin has overridden Topology#load_pools, so no pools are imported automatically"
+      puts "\nNotice: no plugin has overridden Topology#load_pools, so *no* pools are imported automatically"
     end
-    
+
+    synchronized
+    # Plugin should override so that this adds the given pool to the current topology (@pools)
+    def add_pool(pool)
+      puts "\nNotice: no plugin has overridden Topology#add_pool, so the pool was *not* added to the topology"
+    end
+
     synchronized
     # Plugin should override so that it writes a configuration file or commits a
     # configuration change to a config service.
     def write_config
-      puts "\nNotice: no plugin has overridden Topology#write_config, so configuration data is not saved"
+      puts "\nNotice: no plugin has overridden Topology#write_config, so configuration data is *not* saved"
     end
     
     synchronized

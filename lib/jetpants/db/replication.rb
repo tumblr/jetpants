@@ -189,12 +189,12 @@ module Jetpants
     # progress on a slave!
     def binlog_coordinates(display_info=true)
       hash = mysql_root_cmd('SHOW MASTER STATUS', :parse=>true)
-      raise "Cannot obtain binlog coordinates of this master becaues binary logging is not enabled" unless hash[:file]
+      raise "Cannot obtain binlog coordinates of this master because binary logging is not enabled" unless hash[:file]
       output "Own binlog coordinates are (#{hash[:file]}, #{hash[:position].to_i})." if display_info
       [hash[:file], hash[:position].to_i]
     end
     
-    # Returns the number of seconds beind the master the replication execution is,
+    # Returns the number of seconds behind the master the replication execution is,
     # as reported by SHOW SLAVE STATUS.
     def seconds_behind_master
       raise "This instance is not a slave" unless master

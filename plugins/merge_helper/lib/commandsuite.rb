@@ -5,7 +5,7 @@ require 'thor'
 module Jetpants
   class CommandSuite < Thor
 
-    desc 'merge_shards', 'Share merge step #1 of 4: Merge two or more shards using an aggregator instance'
+    desc 'merge_shards', 'Share merge step #1 of 5: Merge two or more shards using an aggregator instance'
     def merge_shards
       min_id = ask("Please provide the min ID of the shard range to merge:")
       max_id = ask("Please provide the max ID of the shard range to merge:")
@@ -17,7 +17,7 @@ module Jetpants
 
       aggregate_node_ip = ask "Please supply the IP of an aggregator node:"
       aggregate_node = Aggregator.new(aggregate_node_ip)
-      raise "Invalide aggregate node!" unless aggregate_node.aggregator?
+      raise "Invalid aggregate node!" unless aggregate_node.aggregator?
 
       # claim node for the new shard master
       spare_count = shards_to_merge.first.slaves_layout[:standby_slave] + 1;
@@ -25,7 +25,7 @@ module Jetpants
       raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= shards_to_merge.first.slaves_layout[:backup_slave]
 
       # claim the slaves further along in the process
-      aggregate_shard_master = Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
+      aggregate_shard_master = ask_node("Enter the IP address of the new master or press enter to select a spare:") || Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
 
       Shard.set_up_aggregate_node(shards_to_merge, aggregate_node, aggregate_shard_master)
 
@@ -44,12 +44,12 @@ module Jetpants
       aggregate_shard_master.catch_up_to_master
 
       aggregate_shard = Shard.new(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_shard_master, :initializing)
-      Jetpants.topology.pools << aggregate_shard 
       # ensure a record is present in collins
       aggregate_shard.sync_configuration
+      Jetpants.topology.add_pool aggregate_shard
 
       # build up the rest of the new shard
-      spares_for_aggregate_shard = Jetpants.topology.claim_spares(shards_to_merge.first.slaves_layout[:standby_slave], role: :standby_slave, like: aggregate_node.aggregating_nodes.first)
+      spares_for_aggregate_shard = Jetpants.topology.claim_spares(shards_to_merge.first.slaves_layout[:standby_slave], role: :standby_slave, like: aggregate_shard_master)
       if shards_to_merge.first.slaves_layout[:backup_slave] > 0
         backup_spares = Jetpants.topology.claim_spares(shards_to_merge.first.slaves_layout[:backup_slave], role: :backup_slave)
       else
@@ -73,13 +73,49 @@ module Jetpants
     end
     def self.after_merge_shards
       reminders(
-        'Proceed to next step: jetpants merge_shards_reads'
+        'Proceed to next step: jetpants merge_shards_validate'
       )
     end
 
+    # Performs a validation step of pausing replication and determining row counts
+    # on the aggregating server and its data sources
+    desc 'merge_shards_validate', 'Share merge step #2 of 5: Validate aggregating server row counts'
+    def merge_shards_validate
+      # obtain relevant shards
+      shards_to_merge = ask_merge_shards
+      combined_shard = shards_to_merge.first.combined_shard
+
+      # validate topology and state
+      raise "Combined shard #{combined_shard} in unexpected state #{combined_shard.state}, should be 'initialized'" unless combined_shard.state == :initialized
+      shards_to_merge.each do |shard|
+        raise "Shard to merge #{shard} in unexpected state #{shard.state}, should be 'ready'" unless shard.state == :ready
+      end
+      validate_replication_stream shards_to_merge
+
+      # we need to refresh Jetpants because of side effects with Aggregator
+      Jetpants.refresh
+
+      aggregator_host = combined_shard.master.master
+      aggregator_instance = Aggregator.new(aggregator_host.ip)
+
+      unless aggregator_instance.validate_aggregate_row_counts
+        raise "Aggregating node's row count does not add up to the sum from the source shards"
+      end
+    end
+    def self.before_merge_shards_validate
+      reminders(
+          'This process may take some time. You probably want to run this from a screen session.',
+          'Be especially careful if you are relying on SSH Agent Forwarding for your root key, since this is not screen-friendly.'
+      )
+    end
+    def self.after_merge_shards_validate
+      reminders(
+          'Proceed to next step: jetpants merge_shards_reads'
+      )
+    end
 
     # regenerate config and switch reads to new shard's master
-    desc 'merge_shards_reads', 'Share merge step #2 of 4: Switch reads to the new merged master'
+    desc 'merge_shards_reads', 'Share merge step #3 of 5: Switch reads to the new merged master'
     def merge_shards_reads
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -107,7 +143,7 @@ module Jetpants
 
 
     # regenerate config and switch writes to new shard's master
-    desc 'merge_shards_writes', 'Share merge step #3 of 4: Switch writes to the new merged master'
+    desc 'merge_shards_writes', 'Share merge step #4 of 5: Switch writes to the new merged master'
     def merge_shards_writes
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -136,7 +172,7 @@ module Jetpants
     end
 
     # clean up aggregator node and old shards
-    desc 'merge_shards_cleanup', 'Share merge step #4 of 4: Clean up the old shards and aggregator node'
+    desc 'merge_shards_cleanup', 'Share merge step #5 of 5: Clean up the old shards and aggregator node'
     def merge_shards_cleanup
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -200,7 +236,7 @@ module Jetpants
         combined_shard.master.output "Replication running for #{combined_shard} master"
         aggregator_host = combined_shard.master.master
         aggregator_instance = Aggregator.new(aggregator_host.ip)
-        raise "Unexpected replication toplogy! Cannot find aggregator instance!" unless aggregator_host.aggregator?
+        raise "Unexpected replication topology! Cannot find aggregator instance!" unless aggregator_host.aggregator?
         raise "Aggregator instance not replicating all data sources!" unless aggregator_instance.all_replication_running?
         aggregator_instance.aggregating_nodes.each do |shard_slave|
           raise "Aggregate data source #{shard_slave} not currently replicating!" unless shard_slave.replicating?
@@ -211,4 +247,3 @@ module Jetpants
     end
   end
 end
-

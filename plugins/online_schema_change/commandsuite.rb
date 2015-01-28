@@ -6,7 +6,7 @@ module Jetpants
     desc 'alter_table', 'perform an alter table'
     method_option :pool, :desc => 'Name of pool to run the alter table on'
     method_option :dry_run, :desc => 'Dry run of the alter table', :type => :boolean
-    method_option :alter, :desc => 'The alter statment (eg ADD COLUMN c1 INT)'
+    method_option :alter, :desc => 'The alter statement (eg ADD COLUMN c1 INT)'
     method_option :database, :desc => 'Database to run the alter table on'
     method_option :table, :desc => 'Table to run the alter table on'
     method_option :all_shards, :desc => 'To run on all the shards', :type => :boolean
@@ -20,7 +20,7 @@ module Jetpants
 
       database = options[:database] || false
       table = options[:table] || ask('Please enter a name of a table: ')
-      alter = options[:alter] || ask('Please enter a alter table statment (eg ADD COLUMN c1 INT): ')
+      alter = options[:alter] || ask('Please enter a alter table statement (eg ADD COLUMN c1 INT): ')
 
       if options[:all_shards]
         Jetpants.topology.alter_table_shards(database, table, alter, options[:dry_run], options[:no_check_plan])
