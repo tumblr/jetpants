@@ -162,7 +162,6 @@ module Jetpants
       validate_replication_stream shards_to_merge
 
       # we need to refresh Jetpants because of side effects with Aggregator
-      # https://jira.ewr01.tumblr.net/browse/DATASRE-714
       Jetpants.refresh
 
       aggregator_host = combined_shard.master.master
