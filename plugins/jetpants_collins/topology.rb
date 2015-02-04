@@ -88,8 +88,13 @@ module Jetpants
     def count_spares(options={})
       query_spare_assets(100, options).count
     end
-    
-    
+
+    # This method won't ever return more than than 100 nodes, but that's
+    # not a problem, since no single operation requires that many spares
+    def spares(options={})
+      query_spare_assets(100, options).map(&:to_db)
+    end
+
     ##### NEW METHODS ##########################################################
 
     def db_location_report(shards_only = false)
