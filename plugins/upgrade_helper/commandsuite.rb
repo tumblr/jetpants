@@ -44,7 +44,7 @@ module Jetpants
       end
      
       # Claim all the targets from the pool
-      targets.each { |t| t.claim! }
+      targets.each(&:claim!)
 
       # Disable fast shutdown on the source
       source.mysql_root_cmd 'SET GLOBAL innodb_fast_shutdown = 0'
