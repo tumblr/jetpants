@@ -570,14 +570,11 @@ module Jetpants
     method_option :max_id, :desc => 'Maximum ID of shard involved in master promotion'
     method_option :new_master, :desc => 'New node to become master of the shard'
     def shard_promote_master
-      if options[:max_id] and options[:max_id]
-        s = shard(options[:min_id], options[:max_id]);
-      else
-        s = ask_shard_being_promoted
-      end
+      # find the shard we are going to do master promotion on
+      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id])
 
       new_master = ask_node "Please enter the IP of the new master for #{s}: ", options[:new_master]
-      raise "New master node #{new_master} is not currently a slave in shard #{self}" unless s.slaves.include? new_master
+      raise "New master node #{new_master} is not currently a slave in shard #{s}" unless s.slaves && s.slaves.include?(new_master)
 
       targets = s.slaves.reject { |slave| slave == new_master }
       targets.each do |slave|
@@ -599,17 +596,14 @@ module Jetpants
     method_option :min_id, :desc => 'Minimum ID of shard involved in master promotion'
     method_option :max_id, :desc => 'Maximum ID of shard involved in master promotion'
     def shard_promote_master_reads
-      if options[:max_id] and options[:max_id]
-        s = shard(options[:min_id], options[:max_id]);
-      else
-        s = ask_shard_being_promoted :reads
-      end
+      # find the shard we are going to do master promotion on
+      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id])
 
       # at this point we only have one slave, which is the new master
       new_master = s.master.slaves.last
 
-      raise "Shard #{self} in wrong state to perform this action! Expected :ready, found #{s.state}" unless s.state == :ready
-      raise "New master node #{new_master} is not currently a slave in shard #{self}" unless s.slaves.include? new_master
+      raise "Shard #{s} is in wrong state to perform this action! Expected :ready, found #{s.state}" unless s.state == :ready
+      raise "New master node #{new_master} is not currently a slave in shard #{s}" unless s.slaves.include? new_master
       raise "New master node #{new_master} does not have any slaves" unless new_master.slaves
 
       s.master = new_master
@@ -628,16 +622,11 @@ module Jetpants
     end
 
     desc 'shard_promote_master_writes', 'Lockless shard master promotion (step 3 of 4): move writes to new master'
-    method_option :min_id, :desc => 'Minimum ID of shard involved in master promotion'
-    method_option :max_id, :desc => 'Maximum ID of shard involved in master promotion'
     def shard_promote_master_writes
-      if options[:max_id] and options[:max_id]
-        s = shard(options[:min_id], options[:max_id]);
-      else
-        s = ask_shard_being_promoted :reads
+      s = ask_shard_being_promoted :writes
+      if s.state != :child
+        raise "Shard #{s} is in wrong state to perform this action! Expected :child, found #{s.state}"
       end
-
-      raise "Shard #{self} in wrong state to perform this action! expected :child, found #{s.state}" unless s.state == :child
 
       s.master.disable_read_only!
       s.state = :needs_cleanup
@@ -656,10 +645,9 @@ module Jetpants
 
     desc 'shard_promote_master_cleanup', 'Lockless shard master promotion (step 4 of 4): clean up shard and eject old master'
     def shard_promote_master_cleanup
-      if options[:max_id] and options[:max_id]
-        s = shard(options[:min_id], options[:max_id]);
-      else
-        s = ask_shard_being_promoted :reads
+      s = ask_shard_being_promoted :cleanup
+      if s.state != :needs_cleanup
+        raise "Shard #{s} is in wrong state to perform this action! Expected :needs_cleanup, found #{s.state}"
       end
 
       s.cleanup!
@@ -770,11 +758,12 @@ module Jetpants
         s
       end
 
-      def ask_shard_being_promoted(stage = :prep)
-        shards_being_promoted = Jetpants.shards.select do |s|
-          [:reads, :child, :needs_cleanup].include?(s.state) && !s.parent && s.master.master
-        end
+      def ask_shard_being_promoted(stage = :prep, min_id = nil, max_id = nil)
         if stage == :writes || stage == :cleanup
+          shards_being_promoted = Jetpants.shards.select do |s|
+            [:reads, :child, :needs_cleanup].include?(s.state) && !s.parent && s.master.master
+          end
+
           if shards_being_promoted.size == 0
             raise 'No shards are currently involved in a master promotion. You can only use this task after running "jetpants shard_promote_master".'
           elsif shards_being_promoted.size == 1
@@ -784,6 +773,8 @@ module Jetpants
           else
             s = ask_shard(shards_being_promoted, "The following shards are already involved in a master promotion:")
           end
+        elsif min_id and max_id
+          s = Jetpants.topology.shard(min_id, max_id)
         else
           min_id = ask("Enter min id of shard to perform mater promotion: ").to_i
           max_id = ask("Enter max id of shard to perform master promotion: ")
