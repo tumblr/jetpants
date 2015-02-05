@@ -769,33 +769,34 @@ module Jetpants
         raise "Shard does not have children" if (s.children.nil? or s.children.count ==0)
         s
       end
-    end
 
-    def ask_shard_being_promoted(stage = :prep)
-      shards_being_promoted = Jetpants.shards.select { |s| [:reads, :child, :needs_cleanup].include?(s.state) && !s.parent && s.master.master }
-      if stage == :writes || stage == :cleanup
-        if shards_being_promoted.size == 0
-          raise 'No shards are currently involved in a master promotion. You can only use this task after running "jetpants shard_promote_master".'
-        elsif shards_being_promoted.size == 1
-          s = shards_being_promoted.first
-          puts "Detected #{s} as the only shard currently involved in a master promotion."
-          error "Aborting." unless agree "Is this the right shard that you want to perform this action on? [yes/no]: "
-        else
-          s = ask_shard(shards_being_promoted, "The following shards are already involved in a master promotion:")
+      def ask_shard_being_promoted(stage = :prep)
+        shards_being_promoted = Jetpants.shards.select do |s|
+          [:reads, :child, :needs_cleanup].include?(s.state) && !s.parent && s.master.master
         end
-      else
-        min_id = ask("Enter min id of shard to perform mater promotion: ").to_i
-        max_id = ask("Enter max id of shard to perform master promotion: ")
-        max_id = Integer(max_id) rescue max_id.upcase
+        if stage == :writes || stage == :cleanup
+          if shards_being_promoted.size == 0
+            raise 'No shards are currently involved in a master promotion. You can only use this task after running "jetpants shard_promote_master".'
+          elsif shards_being_promoted.size == 1
+            s = shards_being_promoted.first
+            puts "Detected #{s} as the only shard currently involved in a master promotion."
+            error 'Aborting.' unless agree "Is this the right shard that you want to perform this action on? [yes/no]: "
+          else
+            s = ask_shard(shards_being_promoted, "The following shards are already involved in a master promotion:")
+          end
+        else
+          min_id = ask("Enter min id of shard to perform mater promotion: ").to_i
+          max_id = ask("Enter max id of shard to perform master promotion: ")
+          max_id = Integer(max_id) rescue max_id.upcase
 
-        s = Jetpants.topology.shard(min_id, max_id)
+          s = Jetpants.topology.shard(min_id, max_id)
+        end
+        raise "Invalid shard selected!" unless s.is_a? Shard
+
+        s
       end
-      raise "Invalid shard selected!" unless s.is_a? Shard
-      output "Picked #{s}"
-
-      s
     end
-    
+
     def self.reminders(*strings)
       strings.map! {|s| "  - #{s}"}
       strings.flatten!
