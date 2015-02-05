@@ -25,8 +25,8 @@ module Jetpants
     attr_reader   :name
     
     # Jetpants::DB object that is the pool's master
-    attr_reader   :master
-    
+    attr_accessor :master
+
     # Array of strings containing other equivalent names for this pool
     attr_reader   :aliases
     
