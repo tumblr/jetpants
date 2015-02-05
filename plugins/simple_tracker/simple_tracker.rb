@@ -39,9 +39,10 @@ module Jetpants
         File.open(@tracker_data_file_path, 'w') do |f|
           data = {'pools' => @global_pools, 'shards' => @shards, 'spares' => @spares}
           f.puts JSON.pretty_generate(data)
+          f.close
         end
       end
-      
+
       def determine_pool_and_role(ip, port=3306)
         ip += ":#{port}"
         (@global_pools + @shards).each do |h|
