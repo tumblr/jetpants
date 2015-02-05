@@ -89,7 +89,7 @@ module Jetpants
       end
 
       # Perform cleanup on aggregator in case of any earlier unsuccessful merge
-      if aggregator_node.needs_cleanup?
+      if aggregate_node.needs_cleanup?
         answer = ask "Aggregator needs a cleanup.  Do you want to cleanup the aggregator? (enter YES in all caps if so)?:"
         if answer == "YES"
           aggregate_node.cleanup!
