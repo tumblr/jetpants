@@ -9,7 +9,7 @@ module Jetpants
     end
     
     def after_cleanup!
-      output 'This shard has now been fully split.'
+      output 'This shard has now been fully cleaned.'
       nodes.each do |n|
         n.output 'This node is no longer in use; please recycle or cancel it.'
       end
