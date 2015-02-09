@@ -577,14 +577,17 @@ module Jetpants
       raise "New master node #{new_master} is not currently a slave in shard #{s}" unless s.slaves && s.slaves.include?(new_master)
 
       targets = s.slaves.reject { |slave| slave == new_master }
-      targets.each do |slave|
-        new_master.pause_replication_with slave
+      new_master.pause_replication_with *targets
+      targets.concurrent_each do |slave|
         slave.change_master_to new_master
-        [new_master, slave].concurrent_each do |db|
-          db.resume_replication
-          db.catch_up_to_master
-        end
+        slave.resume_replication
+        slave.catch_up_to_master
       end
+      new_master.resume_replication
+      new_master.catch_up_to_master
+
+      # sync the shard configuration
+      s.sync_configuration
     end
     def self.after_shard_promote_master
       reminders(
