@@ -71,4 +71,4 @@ module Jetpants
 end
 
 # load all the monkeypatches for other Jetpants classes
-%w(pool shard topology db commandsuite).each {|mod| require "simple_tracker/#{mod}"}
+%w(pool shard topology db commandsuite).each { |mod| require "simple_tracker/lib/#{mod}" }
