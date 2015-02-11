@@ -296,8 +296,8 @@ module Jetpants
         if(db.usable_spare? &&
           (
             !source ||
-            db.usable_with?(source)) ||
-            (source.pool && db.usable_in?(source.pool)
+            db.usable_with?(source) ||
+            (source.pool && db.usable_in?(source.pool))
           )
         )
           keep_nodes << node
