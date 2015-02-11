@@ -294,7 +294,8 @@ module Jetpants
       nodes.each do |node|
         db = node.to_db
         if(db.usable_spare? &&
-          (!source ||
+          (
+            !source ||
             db.usable_with?(source)) ||
             (source.pool && db.usable_in?(source.pool)
           )
