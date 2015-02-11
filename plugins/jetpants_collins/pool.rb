@@ -86,11 +86,17 @@ module Jetpants
     end
     
     # Return the count of Allocated:RUNNING slaves
-    def db_running_slaves(secondary_role)
+    def running_slaves(secondary_role=false)
       running_slaves = []
       slaves.each { |slave|
-        if slave.secondary_role == secondary_role && slave.collins_status == 'Allocated:RUNNING'
-          running_slaves << slave
+        if slave.collins_status == 'Allocated:RUNNING'
+          if secondary_role
+            if slave.secondary_role == secondary_role
+              running_slaves << slave
+            end
+          else
+            running_slaves << slave
+          end
         end
       }
       running_slaves

@@ -73,6 +73,15 @@ module Jetpants
       end
     end
     
+    def running_slaves(secondary_role=false)
+      case secondary_role
+      when 'STANDBY_SLAVE' then standby_slaves
+      when 'BACKUP_SLAVE'  then backup_slaves
+      when 'ACTIVE_SLAVE'  then active_slaves
+      when false           then @master.slaves
+      end
+    end
+
     # Returns an array of Jetpants::DB objects.
     # Active slaves are ones that receive read queries from your application.
     def active_slaves
