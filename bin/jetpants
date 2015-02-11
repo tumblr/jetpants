@@ -250,11 +250,13 @@ module Jetpants
         else
           role = t.partition('_spare').first
           if role == 'auto'
-            if source.pool.slaves_layout[:standby_slave] > source.pool.standby_slaves.count
-              spares_needed['standby'] = source.pool.slaves_layout[:standby_slave] - source.pool.standby_slaves.count
+            running_standby_slaves = source.pool.db_running_slaves('STANDBY_SLAVE').length
+            if source.pool.slaves_layout[:standby_slave] > running_standby_slaves
+              spares_needed['standby'] = source.pool.slaves_layout[:standby_slave] - running_standby_slaves
             end
-            if source.pool.slaves_layout[:backup_slave] > source.pool.backup_slaves.count
-              spares_needed['backup'] = source.pool.slaves_layout[:backup_slave] - source.pool.backup_slaves.count
+            running_backup_slaves = source.pool.db_running_slaves('BACKUP_SLAVE').length
+            if source.pool.slaves_layout[:backup_slave] > running_backup_slaves
+              spares_needed['backup'] = source.pool.slaves_layout[:backup_slave] - running_backup_slaves
             end
             output "Number of standby slaves needed: #{spares_needed['standby']}" if spares_needed['standby'] > 0
             output "Number of backup slaves needed: #{spares_needed['backup']}" if spares_needed['backup'] > 0

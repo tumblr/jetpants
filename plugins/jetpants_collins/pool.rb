@@ -85,6 +85,17 @@ module Jetpants
       true
     end
     
+    # Return the count of Allocated:RUNNING slaves
+    def db_running_slaves(secondary_role)
+      running_slaves = []
+      slaves.each { |slave|
+        if slave.secondary_role == secondary_role && slave.collins_status == 'Allocated:RUNNING'
+          running_slaves << slave
+        end
+      }
+      running_slaves
+    end
+
     # If the pool's master hasn't been probed yet, return active_slaves list
     # based strictly on what we found in Collins. This is a major speed-up at
     # start-up time, especially for tasks that need to iterate over all pools.
