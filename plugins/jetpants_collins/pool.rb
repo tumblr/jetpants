@@ -87,19 +87,9 @@ module Jetpants
     
     # Return the count of Allocated:RUNNING slaves
     def running_slaves(secondary_role=false)
-      running_slaves = []
-      slaves.each { |slave|
-        if slave.collins_status == 'Allocated:RUNNING'
-          if secondary_role
-            if slave.secondary_role == secondary_role
-              running_slaves << slave
-            end
-          else
-            running_slaves << slave
-          end
-        end
+      slaves.select { |slave|
+        (slave.collins_status == 'Allocated:RUNNING') && (secondary_role ? slave.secondary_role == secondary_role : true)
       }
-      running_slaves
     end
 
     # If the pool's master hasn't been probed yet, return active_slaves list

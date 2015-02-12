@@ -79,6 +79,7 @@ module Jetpants
       when 'BACKUP_SLAVE'  then backup_slaves
       when 'ACTIVE_SLAVE'  then active_slaves
       when false           then @master.slaves
+      else []
       end
     end
 
