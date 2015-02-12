@@ -22,6 +22,8 @@ module Jetpants
       table_name = settings['table_dup_check']
       column_name = settings['column_name_dup_check'].to_sym
 
+      select_fields = [ settings['table_dup_check'], settings['column_name_dup_check'] ].compact.flatten
+
       duplicates_found = false
 
       # Obtain all shard pairs for duplicate identification.
@@ -41,12 +43,12 @@ module Jetpants
         if ids.length > 0
           duplicates_found = true
           pools = [source_shard, comparison_shard]
-          source_db.output "Duplicate post IDs and their states for pair: #{source_shard} and #{comparison_shard}"
+          source_db.output "Duplicate records and their data for pair: #{source_shard} and #{comparison_shard}"
           pools.concurrent_map { |pool|
             db = pool.standby_slaves.last || pool.backup_slaves.last
 
             # Query will output the results we need to fix.
-            duplicates = db.query_return_array("SELECT id, tumblelog_id, state, type FROM posts WHERE id IN ( #{ids.join(',')} ) ORDER BY id")
+            duplicates = db.query_return_array("SELECT #{select_fields.join(',')} FROM #{table_name} WHERE #{key} IN ( #{ids.join(',')} ) ORDER BY id")
             output duplicates
           }
         end
