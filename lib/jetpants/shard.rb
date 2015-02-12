@@ -262,7 +262,7 @@ module Jetpants
         if standby_slaves_available > backup_slaves_needed + standby_slaves_needed &&
           agree("Not enough backup_slave role machines in spare pool, would you like to use standby_slaves? [yes/no]: ")
 
-          standby_slaves_needed = standby_slaves_needed + backup_slaves_available
+          standby_slaves_needed = standby_slaves_needed + backup_slaves_needed
           backup_slaves_needed = 0
         else
           raise "Not enough backup_slave role machines in spare pool!" if backup_slaves_needed > backup_slaves_available
