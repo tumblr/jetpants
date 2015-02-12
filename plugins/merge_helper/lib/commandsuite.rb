@@ -46,7 +46,8 @@ module Jetpants
             db = pool.standby_slaves.last || pool.backup_slaves.last
 
             # Query will output the results we need to fix.
-            db.query_return_array("SELECT id, tumblelog_id, state, type FROM posts WHERE id IN ( #{ids.join(',')} )")
+            duplicates = db.query_return_array("SELECT id, tumblelog_id, state, type FROM posts WHERE id IN ( #{ids.join(',')} ) ORDER BY id")
+            output duplicates
           }
         end
       }
