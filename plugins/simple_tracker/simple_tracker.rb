@@ -39,9 +39,10 @@ module Jetpants
         File.open(@tracker_data_file_path, 'w') do |f|
           data = {'pools' => @global_pools, 'shards' => @shards, 'spares' => @spares}
           f.puts JSON.pretty_generate(data)
+          f.close
         end
       end
-      
+
       def determine_pool_and_role(ip, port=3306)
         ip += ":#{port}"
         (@global_pools + @shards).each do |h|
@@ -70,4 +71,4 @@ module Jetpants
 end
 
 # load all the monkeypatches for other Jetpants classes
-%w(pool shard topology db commandsuite).each {|mod| require "simple_tracker/#{mod}"}
+%w(pool shard topology db commandsuite).each { |mod| require "simple_tracker/lib/#{mod}" }
