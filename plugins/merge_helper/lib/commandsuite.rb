@@ -22,7 +22,7 @@ module Jetpants
       table_name = settings['table_dup_check']
       column_name = settings['column_name_dup_check'].to_sym
 
-      select_fields = [ settings['table_dup_check'], settings['column_name_dup_check'] ].compact.flatten
+      select_fields = [ settings['dup_check_fields'], settings['column_name_dup_check'] ].compact.flatten
 
       duplicates_found = false
 
