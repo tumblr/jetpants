@@ -20,7 +20,7 @@ module Jetpants
       max_key = settings['max_id_dup_check']
 
       table_name = settings['table_dup_check']
-      column_name = settings['column_name_dup_check']
+      column_name = settings['column_name_dup_check'].to_sym
 
       duplicates_found = false
 
