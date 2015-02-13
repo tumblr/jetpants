@@ -9,6 +9,9 @@ module Jetpants
     include Output
 
     def initialize
+      # initialize @pools to an empty state
+      @pools  = nil
+
       # We intentionally don't call load_pools here. The caller must do that.
       # This allows Jetpants module to create Jetpants.topology object, and THEN
       # invoke load_pools, which might then refer back to Jetpants.topology.
