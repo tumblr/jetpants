@@ -147,8 +147,9 @@ module Jetpants
       raise "Nothing is listening on #{@ip}:#{port} after #{timeout} seconds" unless checker_th.join(timeout)
       true
     end
-   
+
     def manage_free_mem(free_mem_limit_mb)
+      return unless free_mem_limit_mb
       loop do
         current_free_mem = ssh_cmd("free -m | grep Mem | awk {'print $4'}").rstrip.to_i
         ssh_cmd("echo 1 > /proc/sys/vm/drop_caches") if current_free_mem < free_mem_limit_mb
@@ -156,7 +157,7 @@ module Jetpants
       end
     end
 
-    def watch_free_mem(free_mem_limit_mb=1024)
+    def watch_free_mem(free_mem_limit_mb)
       Thread.new{ manage_free_mem(free_mem_limit_mb) }
     end
 
@@ -252,7 +253,7 @@ module Jetpants
           t.confirm_listening_on_port port
           t.output "Listening with netcat, and chaining to #{tt}."
         end
-        free_mem_managers << t.watch_free_mem
+        free_mem_managers << t.watch_free_mem(Jetpants.free_mem_min_mb)
       end
       
       # Start the copy chain.
@@ -262,9 +263,7 @@ module Jetpants
       workers.each {|th| th.join}
       output "File copy complete."
 
-      free_mem_managers.each do |mem_watcher|
-        mem_watcher.exit
-      end
+      free_mem_managers.each(&:exit)
 
       # Verify
       output "Verifying file sizes and types on all destinations."
