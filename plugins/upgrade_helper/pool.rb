@@ -270,7 +270,6 @@ module Jetpants
         compare_nodes.concurrent_each do |n| 
           n.resume_replication
           n.catch_up_to_master
-          sleep 10
           n.enable_monitoring
         end
       end
