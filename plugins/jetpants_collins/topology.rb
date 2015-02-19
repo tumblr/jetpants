@@ -88,8 +88,13 @@ module Jetpants
     def count_spares(options={})
       query_spare_assets(100, options).count
     end
-    
-    
+
+    # This method won't ever return more than than 100 nodes, but that's
+    # not a problem, since no single operation requires that many spares
+    def spares(options={})
+      query_spare_assets(100, options).map(&:to_db)
+    end
+
     ##### NEW METHODS ##########################################################
 
     def db_location_report(shards_only = false)
@@ -251,6 +256,8 @@ module Jetpants
     
     # Helper method to query Collins for spare DBs.
     def query_spare_assets(count, options={})
+      per_page = Jetpants.plugins['jetpants_collins']['selector_page_size'] || 50
+
       # Intentionally no remoteLookup=true here.  We only want to grab spare nodes
       # from the datacenter that Jetpants is running in.
       selector = {
@@ -260,12 +267,24 @@ module Jetpants
         status:           'Allocated',
         state:            'SPARE',
         primary_role:     'DATABASE',
-        size:             100,
+        size:             per_page,
       }
       selector = process_spare_selector_options(selector, options)
       source = options[:like]
+
+      done = false
+      page = 0
+      nodes = []
+      until done do
+        selector[:page] = page
+        # find() apparently alters the selector object now, so we dup it
+        # also force JetCollins to retry requests to the Collins server
+        page_of_results = Plugin::JetCollins.find selector.dup, true
+        nodes += page_of_results
+        done = page_of_results.count < per_page
+        page += 1
+      end
       
-      nodes = Plugin::JetCollins.find(selector)
       keep_nodes = []
       
       # Probe concurrently for speed reasons
@@ -274,7 +293,13 @@ module Jetpants
       # Now iterate in a single-threaded way for simplicity
       nodes.each do |node|
         db = node.to_db
-        if(db.usable_spare? && (!source || db.usable_with?(source)))
+        if(db.usable_spare? &&
+          (
+            !source ||
+            (!source.pool && db.usable_with?(source)) ||
+            (source.pool && db.usable_in?(source.pool))
+          )
+        )
           keep_nodes << node
           break if keep_nodes.size >= count
         end

@@ -188,8 +188,8 @@ module Jetpants
                             password: replication_credentials[:pass]  )
         t.enable_read_only!
       end
-      resume_replication # should already have happened from the clone_to! restart anyway, but just to be explicit
-      catch_up_to_master 21600
+      [ self, targets ].flatten.each(&:resume_replication) # should already have happened from the clone_to! restart anyway, but just to be explicit
+      [ self, targets ].flatten.concurrent_each{|n| n.catch_up_to_master 21600 }
       enable_monitoring
     end
     

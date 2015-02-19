@@ -277,10 +277,6 @@ module Jetpants
       targets.select(&:is_spare?).each(&:claim!)
 
       source.enslave_siblings!(targets)
-      targets.concurrent_each do |t|
-        t.resume_replication
-        t.catch_up_to_master(21600)
-      end
       source.pool.sync_configuration
 
       output "Cloning complete."

@@ -20,7 +20,9 @@ module Jetpants
       max_key = settings['max_id_dup_check']
 
       table_name = settings['table_dup_check']
-      column_name = settings['column_name_dup_check']
+      column_name = settings['column_name_dup_check'].to_sym
+
+      select_fields = [ settings['dup_check_fields'], settings['column_name_dup_check'] ].compact.flatten
 
       duplicates_found = false
 
@@ -41,12 +43,13 @@ module Jetpants
         if ids.length > 0
           duplicates_found = true
           pools = [source_shard, comparison_shard]
-          source_db.output "Duplicate post IDs and their states for pair: #{source_shard} and #{comparison_shard}"
+          source_db.output "Duplicate records and their data for pair: #{source_shard} and #{comparison_shard}"
           pools.concurrent_map { |pool|
             db = pool.standby_slaves.last || pool.backup_slaves.last
 
             # Query will output the results we need to fix.
-            db.query_return_array("SELECT id, tumblelog_id, state, type FROM posts WHERE id IN ( #{ids.join(',')} )")
+            duplicates = db.query_return_array("SELECT #{select_fields.join(',')} FROM #{table_name} WHERE #{key} IN ( #{ids.join(',')} ) ORDER BY #{key}")
+            output duplicates
           }
         end
       }
@@ -89,7 +92,7 @@ module Jetpants
       end
 
       # Perform cleanup on aggregator in case of any earlier unsuccessful merge
-      if aggregator_node.needs_cleanup?
+      if aggregate_node.needs_cleanup?
         answer = ask "Aggregator needs a cleanup.  Do you want to cleanup the aggregator? (enter YES in all caps if so)?:"
         if answer == "YES"
           aggregate_node.cleanup!

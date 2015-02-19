@@ -42,7 +42,10 @@ module Jetpants
       targets.each do |t|
         error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
       end
-      
+     
+      # Claim all the targets from the pool
+      targets.each(&:claim!)
+
       # Disable fast shutdown on the source
       source.mysql_root_cmd 'SET GLOBAL innodb_fast_shutdown = 0'
       

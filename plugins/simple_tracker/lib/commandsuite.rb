@@ -41,7 +41,7 @@ module Jetpants
       raise "Spare pool nodes must not be slaving from other nodes!" if node.master
       raise "Spare pool nodes should not have slaves!" if node.slaves.count > 0
       raise "Spare pool nodes should not already be in a pool!" if node.pool
-      raise "Spare pool nodes should not have any data yet!" if node.data_set_size > 10000000 # 10 megs
+      raise "Spare pool nodes should not have any data yet!" if node.data_set_size > 20000000 # 20 megs
       table_count = node.query_return_array('show tables').count rescue -1
       raise "Spare pool nodes should not have any tables yet!" if table_count >= 1
       raise "Spare pool nodes need to already have users/grants!" if table_count < 0
