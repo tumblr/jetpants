@@ -253,7 +253,7 @@ module Jetpants
           t.confirm_listening_on_port port
           t.output "Listening with netcat, and chaining to #{tt}."
         end
-        free_mem_managers << t.watch_free_mem(Jetpants.free_mem_min_mb)
+        free_mem_managers << t.watch_free_mem(Jetpants.free_mem_min_mb || 0)
       end
       
       # Start the copy chain.
