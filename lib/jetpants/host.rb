@@ -149,7 +149,7 @@ module Jetpants
     end
 
     def manage_free_mem(free_mem_limit_mb)
-      return unless free_mem_limit_mb
+      return if free_mem_limit_mb == 0
       loop do
         current_free_mem = ssh_cmd("free -m | grep Mem | awk {'print $4'}").rstrip.to_i
         ssh_cmd("echo 1 > /proc/sys/vm/drop_caches") if current_free_mem < free_mem_limit_mb
