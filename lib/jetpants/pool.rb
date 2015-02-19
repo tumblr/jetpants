@@ -63,26 +63,17 @@ module Jetpants
     
     # Returns all slaves, or pass in :active, :standby, or :backup to receive slaves
     # just of a particular type
+    alias :running_slaves :slaves
     def slaves(type=false)
       case type
-      when :active  then active_slaves
-      when :standby then standby_slaves
-      when :backup  then backup_slaves
-      when false    then @master.slaves
+      when :active_slave,  :active  then active_slaves
+      when :standby_slave, :standby then standby_slaves
+      when :backup_slave,  :backup  then backup_slaves
+      when false                    then @master.slaves
       else []
       end
     end
     
-    def running_slaves(secondary_role=false)
-      case secondary_role
-      when :standby_slave then standby_slaves
-      when :backup_slave  then backup_slaves
-      when :active_slave  then active_slaves
-      when false          then slaves
-      else []
-      end
-    end
-
     # Returns an array of Jetpants::DB objects.
     # Active slaves are ones that receive read queries from your application.
     def active_slaves
