@@ -609,7 +609,7 @@ module Jetpants
       raise "New master node #{new_master} is not currently a slave in shard #{s}" unless s.slaves.include? new_master
       raise "New master node #{new_master} does not have any slaves" unless new_master.slaves
 
-      s.master = new_master
+      s.change_master_to! new_master
       s.state = :child
       s.sync_configuration
 

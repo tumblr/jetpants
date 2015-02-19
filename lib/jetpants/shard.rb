@@ -349,7 +349,7 @@ module Jetpants
       
       sync_configuration
     end
-    
+
     # Displays information about the shard
     def summary(extended_info=false, with_children=false)
       super(extended_info)
