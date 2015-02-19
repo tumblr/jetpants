@@ -293,7 +293,13 @@ module Jetpants
       # Now iterate in a single-threaded way for simplicity
       nodes.each do |node|
         db = node.to_db
-        if(db.usable_spare? && (!source || db.usable_with?(source)))
+        if(db.usable_spare? &&
+          (
+            !source ||
+            (!source.pool && db.usable_with?(source)) ||
+            (source.pool && db.usable_in?(source.pool))
+          )
+        )
           keep_nodes << node
           break if keep_nodes.size >= count
         end

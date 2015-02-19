@@ -1,6 +1,19 @@
 module Jetpants
   class DB
-    
+
+    def is_spare?
+      Jetpants.topology.spares.include? self
+    end
+
+    def claim!
+      spares = Jetpants.topology.spares.reject do |sp|
+        self == (sp.is_a?(Hash) && sp['node'] ? sp['node'].to_db : sp.to_db)
+      end
+
+      Jetpants.topology.tracker.spares = spares
+      Jetpants.topology.update_tracker_data
+    end
+
     ##### CALLBACKS ############################################################
     
     # Determine master from asset tracker if machine is unreachable or MySQL isn't running.

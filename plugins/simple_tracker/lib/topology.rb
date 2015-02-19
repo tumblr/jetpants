@@ -8,12 +8,12 @@ module Jetpants
     # Populates @pools by reading asset tracker data
     def load_pools
       @tracker = Jetpants::Plugin::SimpleTracker.new
-      
+
       # Create Pool and Shard objects
-      @pools.concat(@tracker.global_pools.map {|h| Pool.from_hash(h)}.compact)
+      @pools = @tracker.global_pools.map {|h| Pool.from_hash(h)}.compact
       all_shards = @tracker.shards.map {|h| Shard.from_hash(h)}.reject {|s| s.state == :recycle}
       @pools.concat all_shards
-      
+
       # Now that all shards exist, we can safely assign parent/child relationships
       @tracker.shards.each {|h| Shard.assign_relationships(h, all_shards)}
     end
@@ -25,7 +25,7 @@ module Jetpants
     # Generates a database configuration file for a hypothetical web application
     def write_config
       config_file_path = @tracker.app_config_file_path
-      
+
       # Convert the pool list into a hash
       db_data = {
         'database' => {
@@ -33,14 +33,15 @@ module Jetpants
           'shards' => shards.select {|s| s.in_config?}.map {|s| s.to_hash(true)},
         }
       }
-      
+
       # Convert that hash to YAML and write it to a file
-      File.open(config_file_path, 'w') do |f| 
+      File.open(config_file_path, 'w') do |f|
         f.write db_data.to_yaml
+        f.close
       end
       puts "Regenerated #{config_file_path}"
     end
-    
+
     # simple_tracker completely ignores any options like :role or :like
     def claim_spares(count, options={})
       raise "Not enough spare machines -- requested #{count}, only have #{@tracker.spares.count}" if @tracker.spares.count < count
@@ -70,7 +71,6 @@ module Jetpants
       @tracker.shards = shards.reject {|s| s.state == :recycle}.map &:to_hash
       @tracker.save
     end
-    
-    
+
   end
 end
