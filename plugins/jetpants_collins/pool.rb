@@ -88,7 +88,8 @@ module Jetpants
     # Return the count of Allocated:RUNNING slaves
     def running_slaves(secondary_role=false)
       slaves.select { |slave|
-        (slave.collins_status == 'Allocated:RUNNING') && (secondary_role ? Jetpants.topology.normalize_roles(slave.collins_secondary_role).first == secondary_role : true)
+        collins_secondary_role = Jetpants.topology.normalize_roles(slave.collins_secondary_role).first rescue false
+        (slave.collins_status == 'Allocated:RUNNING') && (secondary_role ? collins_secondary_role == secondary_role : true)
       }
     end
 
