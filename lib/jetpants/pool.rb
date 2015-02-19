@@ -78,7 +78,7 @@ module Jetpants
       when :standby_slave then standby_slaves
       when :backup_slave  then backup_slaves
       when :active_slave  then active_slaves
-      when false          then @master.slaves
+      when false          then slaves
       else []
       end
     end
