@@ -75,10 +75,10 @@ module Jetpants
     
     def running_slaves(secondary_role=false)
       case secondary_role
-      when 'STANDBY_SLAVE' then standby_slaves
-      when 'BACKUP_SLAVE'  then backup_slaves
-      when 'ACTIVE_SLAVE'  then active_slaves
-      when false           then @master.slaves
+      when :standby_slave then standby_slaves
+      when :backup_slave  then backup_slaves
+      when :active_slave  then active_slaves
+      when false          then @master.slaves
       else []
       end
     end
