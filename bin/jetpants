@@ -224,9 +224,9 @@ module Jetpants
       error "source (#{source}) does not have the MySQL process running" unless source.running?
       error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?)
 
-      output 'You may clone to particular IP address(es), or can type "spare", "auto_spare" or "backup_spare" to claim a node from the spare pool.'
+      output 'You may clone to particular IP address(es), or can type "spare", "auto" or "backup_spare" to claim a node from the spare pool.'
       begin
-        target = options[:target] || ask('Please enter comma-separated list of targets (IPs, "spare", "auto_spare" or "backup_spare") to clone to: ')
+        target = options[:target] || ask('Please enter comma-separated list of targets (IPs, "spare", "auto" or "backup_spare") to clone to: ')
       end while target.strip == '' || target.split(',').length == 0
 
       # Array to hold all the target nodes
