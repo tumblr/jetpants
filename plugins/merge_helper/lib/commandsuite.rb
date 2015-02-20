@@ -77,11 +77,6 @@ module Jetpants
       aggregate_node = Aggregator.new(aggregate_node_ip)
       raise "Invalid aggregate node!" unless aggregate_node.aggregator?
 
-      # claim node for the new shard master
-      spare_count = shards_to_merge.first.slaves_layout[:standby_slave] + 1;
-      raise "Not enough spares available!" unless Jetpants.count_spares(like: shards_to_merge.first.master) >= spare_count
-      raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= shards_to_merge.first.slaves_layout[:backup_slave]
-
       # claim the slaves further along in the process
       aggregate_shard_master = ask_node("Enter the IP address of the new master or press enter to select a spare:")
 
@@ -90,6 +85,11 @@ module Jetpants
       else
          aggregate_shard_master = Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
       end
+
+      # claim node for the new shard master
+      spare_count = shards_to_merge.first.slaves_layout[:standby_slave] + 1;
+      raise "Not enough spares available!" unless Jetpants.count_spares(like: aggregate_shard_master) >= spare_count
+      raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= shards_to_merge.first.slaves_layout[:backup_slave]
 
       # Perform cleanup on aggregator in case of any earlier unsuccessful merge
       if aggregate_node.needs_cleanup?
