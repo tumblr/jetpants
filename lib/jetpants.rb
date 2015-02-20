@@ -46,7 +46,7 @@ module Jetpants
     'repl_wait_interval'      =>  1,          # default sleep interval currently used in pause_replication_with
     'lazy_load_pools'         =>  false,      # whether to populate the topology pools when first accessed
     'log_file'                =>  '/var/log/jetpants.log', # where to log all output from the jetpants commands
-    'local_ip_address'        =>  nil,        # local ip address of the machine jetpants is running on
+    'local_private_interface' =>  nil,        # local network interface corresponding to private IP of the machine jetpants is running on
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
