@@ -138,6 +138,9 @@ module Jetpants
         compare_nodes.flatten!
         raise "Supplied nodes must all be in this pool" unless compare_nodes.all? {|n| n == master || n.master == master}
       end
+
+      pt_upgrade_version = `pt-upgrade --version`.to_s.split(' ').last.chomp rescue '0.0.0'
+      raise "pt-upgrade executable is not available on the host" unless $?.exitstatus == 1
       
       # We need to create a temporary SUPER user on the nodes to compare
       # Also attempt to silence warning 1592 about unsafe-for-replication statements if
@@ -149,6 +152,11 @@ module Jetpants
         node.create_user username, password
         node.grant_privileges username, '*', 'SUPER'
         node.grant_privileges username, node.app_schema, 'ALL PRIVILEGES'
+        if pt_upgrade_version.to_f >= 2.2
+          node.mysql_root_cmd "CREATE DATABASE IF NOT EXISTS percona_schema;"
+          node.grant_privileges username, 'percona_schema', 'ALL PRIVILEGES'
+          node.mysql_root_cmd "USE percona_schema;CREATE TABLE IF NOT EXISTS pt_upgrade ( id INT NOT NULL PRIMARY KEY );"
+        end
         
         # We only want to try this if (a) the node supports log_warnings_suppress,
         # and (b) the node isn't already suppressing warning 1592
@@ -165,7 +173,11 @@ module Jetpants
       if silent_run_first
         output "Doing a silent run of pt-upgrade with slowlog #{slowlog_path} to populate buffer pool."
         output "Comparing nodes #{node_text}..."
-        stdout, exit_code = `pt-upgrade --set-vars wait_timeout=10000 #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+        if pt_upgrade_version.to_f >= 2.2
+          stdout, exit_code = `pt-upgrade --set-vars wait_timeout=10000 #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+        else
+          stdout, exit_code = `pt-upgrade --report=hosts,stats --set-vars wait_timeout=10000 --compare query_times,results #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+        end
         output "pt-upgrade silent run completed with exit code #{exit_code}"
         puts
         puts
@@ -175,13 +187,21 @@ module Jetpants
       # due to issues with warning 1592 causing a huge amount of difficult-to-parse output.
       output "Running pt-upgrade with slowlog #{slowlog_path}"
       output "Comparing nodes #{node_text}..."
-      stdout, exit_code = `pt-upgrade --set-vars wait_timeout=10000 --compare query_times,results #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+      if pt_upgrade_version.to_f >= 2.2
+        stdout, exit_code = `pt-upgrade --set-vars wait_timeout=10000 #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+      else
+        stdout, exit_code = `pt-upgrade --report=hosts,stats --set-vars wait_timeout=10000 --compare query_times,results #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+      end
       output stdout
       puts
       output "pt-upgrade completed with exit code #{exit_code}"
       
       # Drop the SUPER user and re-enable logging of warning 1592
-      compare_nodes.each {|node| node.drop_user username}
+      compare_nodes.each do |node|
+        node.mysql_root_cmd "DROP DATABASE IF EXISTS percona_schema;" if pt_upgrade_version.to_f >= 2.2
+
+        node.drop_user username
+      end
       remove_suppress_1592.each {|node| node.mysql_root_cmd "SET GLOBAL log_warnings_suppress = ''"}
     end
     
