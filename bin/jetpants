@@ -224,9 +224,9 @@ module Jetpants
       error "source (#{source}) does not have the MySQL process running" unless source.running?
       error "source (#{source}) is not a standby or backup slave" unless (source.is_standby? || source.for_backups?)
 
-      output 'You may clone to particular IP address(es), or can type "spare" or "backup_spare" to claim a node from the spare pool.'
+      output 'You may clone to particular IP address(es), or can type "spare", "auto" or "backup_spare" to claim a node from the spare pool.'
       begin
-        target = options[:target] || ask('Please enter comma-separated list of targets (IPs, "spare" or "backup_spare") to clone to: ')
+        target = options[:target] || ask('Please enter comma-separated list of targets (IPs, "spare", "auto" or "backup_spare") to clone to: ')
       end while target.strip == '' || target.split(',').length == 0
 
       # Array to hold all the target nodes
@@ -249,10 +249,22 @@ module Jetpants
           targets.push target_db
         else
           role = t.partition('_spare').first
-          role = 'standby' if role == 'spare'
-
-          error "Invalid target #{t.blue} specified" if spares_needed[role].nil?
-          spares_needed[role] += 1
+          if role == 'auto'
+            running_standby_slaves = source.pool.running_slaves(:standby_slave).count
+            if source.pool.slaves_layout[:standby_slave] > running_standby_slaves
+              spares_needed['standby'] = source.pool.slaves_layout[:standby_slave] - running_standby_slaves
+            end
+            running_backup_slaves = source.pool.running_slaves(:backup_slave).count
+            if source.pool.slaves_layout[:backup_slave] > running_backup_slaves
+              spares_needed['backup'] = source.pool.slaves_layout[:backup_slave] - running_backup_slaves
+            end
+            output "Number of standby slaves needed: #{spares_needed['standby']}" if spares_needed['standby'] > 0
+            output "Number of backup slaves needed: #{spares_needed['backup']}" if spares_needed['backup'] > 0
+          else
+            role = 'standby' if role == 'spare'
+            error "Invalid target #{t.blue} specified" if spares_needed[role].nil?
+            spares_needed[role] += 1
+          end
         end
       end
 
