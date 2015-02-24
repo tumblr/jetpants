@@ -31,5 +31,4 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'collins_client', '~> 0.2.7'
   s.add_runtime_dependency 'bloom-filter', '~> 0.2.0'
   s.add_runtime_dependency 'pony', '~> 1.11'
-  s.add_runtime_dependency 'i18n', '~> 0.6.9'
 end
