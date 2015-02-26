@@ -47,6 +47,7 @@ module Jetpants
     'lazy_load_pools'         =>  false,      # whether to populate the topology pools when first accessed
     'log_file'                =>  '/var/log/jetpants.log', # where to log all output from the jetpants commands
     'local_private_interface' =>  nil,        # local network interface corresponding to private IP of the machine jetpants is running on
+    'free_mem_min_mb'         =>  1024,
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
