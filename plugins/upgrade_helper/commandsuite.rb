@@ -177,10 +177,16 @@ module Jetpants
     desc 'check_pool_queries', 'Runs pt-upgrade on a pool to verify query performance and results between different MySQL versions'
     method_option :pool, :desc => 'name of pool'
     method_option :dumptime, :desc => 'number of seconds of tcpdump data to consider'
+    method_option :machines, :desc => 'machines to compare typically a new and old version of mysql'
+    method_option :gather_machine, :desc => 'machine to gather queries from'
     def check_pool_queries
       pool_name = options[:pool] || ask('Please enter name of pool to checksum: ')
       dump_time = options[:dumptime].to_i if options[:dumptime]
-      dump_time ||= 30
+      dump_time ||= 300
+      machines = options[:machines].split(',').map(&:to_db) if options[:machines]
+      machines ||= []
+      gather_machine = options[:gather_machine].to_db if options[:gather_machine]
+      gather_machine ||= nil
       
       pool = Jetpants.topology.pool(pool_name) or raise "Pool #{pool_name} does not exist"
       pool.collect_and_compare_queries!(dump_time)

@@ -69,13 +69,14 @@ module Jetpants
     # just of a particular type
     def slaves(type=false)
       case type
-      when :active  then active_slaves
-      when :standby then standby_slaves
-      when :backup  then backup_slaves
-      when false    then @master.slaves
+      when :active_slave,  :active  then active_slaves
+      when :standby_slave, :standby then standby_slaves
+      when :backup_slave,  :backup  then backup_slaves
+      when false                    then @master.slaves
       else []
       end
     end
+    alias :running_slaves :slaves
     
     # Returns an array of Jetpants::DB objects.
     # Active slaves are ones that receive read queries from your application.
