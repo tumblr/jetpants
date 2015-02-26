@@ -16,14 +16,18 @@ module Jetpants
 
       slowlog_file_path = tcpdump_output_file_path.sub('.dumpfile', '') + '.slowlog'
       if pt_query_digest_version.to_f >= 2.2
-        ssh_cmd "pt-query-digest #{tcpdump_output_file_path} --type tcpdump --no-report --output slowlog | sed -e 's/use tumblr3[[:cntrl:]]mysql_native_password/use tumblr3/g' >#{slowlog_file_path}"
+        ssh_cmd "pt-query-digest #{tcpdump_output_file_path} --type tcpdump --no-report --output slowlog >#{slowlog_file_path}"
       else
-        ssh_cmd "pt-query-digest #{tcpdump_output_file_path} --type tcpdump --no-report --print | sed -e 's/use tumblr3[[:cntrl:]]mysql_native_password/use tumblr3/g' >#{slowlog_file_path}"
+        ssh_cmd "pt-query-digest #{tcpdump_output_file_path} --type tcpdump --no-report --print >#{slowlog_file_path}"
       end
       ssh_cmd "rm #{tcpdump_output_file_path}" if delete_tcpdumpfile
+      slowlog_file_path = filter_slowlog(slowlog_file_path)
       slowlog_file_path
     end
-    
-    
+   
+    # Perform any slowlog filtering eg. removing SELECT UNIX_TIMESTAMP() like queries
+    def filter_slowlog(slowlog_file_path)
+      slowlog_file_path
+    end
   end
 end
