@@ -323,14 +323,18 @@ module Jetpants
           child_shard.sync_configuration
         end
         @state = :recycle
-      
-      # situation B - clean up after a two-step shard master promotion
+
+      # situation B - clean up after a two-step (lockless) shard master promotion
       elsif @state == :needs_cleanup && @master.master && !@parent
         eject_master = @master.master
-        eject_slaves = @master.slaves.reject {|s| s == @master}
-        eject_master.revoke_all_access!
+        eject_slaves = eject_master.slaves.reject { |s| s == @master } rescue []
+
+        # stop the new master from replicating from the old master (we are about to eject)
         @master.disable_replication!
-        
+
+        eject_slaves.each(&:revoke_all_access!)
+        eject_master.revoke_all_access!
+
         # We need to update the asset tracker to no longer consider the ejected
         # nodes as part of this pool. This includes ejecting the old master, which
         # might be handled by Pool#after_master_promotion! instead 
@@ -338,14 +342,14 @@ module Jetpants
         after_master_promotion!(@master, false) if respond_to? :after_master_promotion!
         
         @state = :ready
-        
+
       else
         raise "Shard #{self} is not in a state compatible with calling cleanup! (state=#{state}, child count=#{@children.size}"
       end
       
       sync_configuration
     end
-    
+
     # Displays information about the shard
     def summary(extended_info=false, with_children=false)
       super(extended_info)

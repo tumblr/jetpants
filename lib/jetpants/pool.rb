@@ -26,7 +26,7 @@ module Jetpants
     
     # Jetpants::DB object that is the pool's master
     attr_reader   :master
-    
+
     # Array of strings containing other equivalent names for this pool
     attr_reader   :aliases
     
@@ -60,7 +60,11 @@ module Jetpants
       @tables = nil
       @probe_lock = Mutex.new
     end
-    
+
+    def change_master_to! new_master
+      @master = new_master
+    end
+
     # Returns all slaves, or pass in :active, :standby, or :backup to receive slaves
     # just of a particular type
     def slaves(type=false)
