@@ -89,7 +89,7 @@ module Jetpants
     def running_slaves(secondary_role=false)
       slaves.select { |slave|
         collins_secondary_role = Jetpants.topology.normalize_roles(slave.collins_secondary_role).first rescue false
-        (slave.collins_status == 'Allocated:RUNNING') && (secondary_role ? collins_secondary_role == secondary_role : true)
+        (slave.collins_status_state.downcase == 'allocated:running') && (secondary_role ? collins_secondary_role == secondary_role : true)
       }
     end
 
