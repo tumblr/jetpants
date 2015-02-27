@@ -21,9 +21,13 @@ module Jetpants
         ssh_cmd "pt-query-digest #{tcpdump_output_file_path} --type tcpdump --no-report --print >#{slowlog_file_path}"
       end
       ssh_cmd "rm #{tcpdump_output_file_path}" if delete_tcpdumpfile
+      slowlog_file_path = filter_slowlog(slowlog_file_path)
       slowlog_file_path
     end
-    
-    
+   
+    # Perform any slowlog filtering eg. removing SELECT UNIX_TIMESTAMP() like queries
+    def filter_slowlog(slowlog_file_path)
+      slowlog_file_path
+    end
   end
 end
