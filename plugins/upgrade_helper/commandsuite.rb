@@ -167,7 +167,7 @@ module Jetpants
     
     desc 'checksum_pool', 'Run pt-table-checksum on a pool to verify data consistency after an upgrade of one slave'
     method_option :pool,  :desc => 'name of pool'
-    method_option :no_check_plan, :desc => 'sets --nocheck_plan option in pt-table-checksum'
+    method_option :no_check_plan, :desc => 'sets --nocheck_plan option in pt-table-checksum', :type => :boolean
     method_option :tables, :desc => 'comma seperated list of tables to checksum'
     def checksum_pool
       pool_name = options[:pool] || ask('Please enter name of pool to checksum: ')
