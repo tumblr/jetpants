@@ -28,7 +28,7 @@ module Jetpants
       # Determine what to pass to --max-load
       master.output "Polling for normal max threads_running, please wait"
       max_threads_running = master.max_threads_running
-      limit_threads_running = [(max_threads_running * 1.2).ceil, 50].max
+      limit_threads_running = [(max_threads_running * 1.2).ceil, 20].max
       master.output "Found max threads_running=#{max_threads_running}, will use limit of #{limit_threads_running}"
       
       # Operate with a temporary user that has elevated permissions
@@ -46,6 +46,8 @@ module Jetpants
           "--password #{password}"
         ]
         command_line.unshift('--nocheck-plan') if options[:no_check_plan]
+        command_line.unshift("--chunk-time #{options[:chunk_time]}") if options[:chunk_time]
+        command_line.unshift("--chunk-size-limit #{options[:chunk_size_limit]}") if options[:chunk_size_limit]
         command_line.unshift(['--tables',options[:tables].join(',')].join(' ')) unless options[:tables].empty?
         command_line.unshift('--resume') if previous_run
 
