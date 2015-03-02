@@ -8,7 +8,7 @@ module Jetpants
     # Returns true if no problems found, false otherwise.
     # If problems were found, the 'checksums' table will be
     # left in the pool - the user must review and manually delete.
-    def checksum_tables
+    def checksum_tables options={}
       schema = master.app_schema
       success = false
       output_lines = []
@@ -44,8 +44,12 @@ module Jetpants
           "--replicate-database #{schema}",
           "--user #{username}",
           "--password #{password}"
-        ].join ' '
-        command_line += ' --resume' if previous_run
+        ]
+        command_line.unshift('--nocheck-plan') if options[:no_check_plan]
+        command_line.unshift(['--tables',options[:tables].join(',')].join(' ')) unless options[:tables].empty?
+        command_line.unshift('--resume') if previous_run
+
+        command_line = command_line.join ' '
         
         # Spawn the process
         Open3.popen3(command_line) do |stdin, stdout, stderr, wait_thread|

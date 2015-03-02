@@ -167,10 +167,20 @@ module Jetpants
     
     desc 'checksum_pool', 'Run pt-table-checksum on a pool to verify data consistency after an upgrade of one slave'
     method_option :pool,  :desc => 'name of pool'
+    method_option :no_check_plan, :desc => 'sets --nocheck_plan option in pt-table-checksum'
+    method_option :tables, :desc => 'comma seperated list of tables to checksum'
     def checksum_pool
       pool_name = options[:pool] || ask('Please enter name of pool to checksum: ')
       pool = Jetpants.topology.pool(pool_name) or raise "Pool #{pool_name} does not exist"
-      pool.checksum_tables
+      checksum_options[:no_check_plan] = options[:no_check_plan]
+      if options[:tables]
+        checksum_options[:tables] = options[:tables].split(',').map do |table|
+          raise "Pool #{pool_name} does not contain a table named #{table}}" unless pool.has_table? table
+          table
+        end
+      end
+
+      pool.checksum_tables checksum_options
     end
     
     
