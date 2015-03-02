@@ -168,8 +168,8 @@ module Jetpants
     desc 'checksum_pool', 'Run pt-table-checksum on a pool to verify data consistency after an upgrade of one slave'
     method_option :pool,  :desc => 'name of pool'
     method_option :no_check_plan, :desc => 'sets --nocheck_plan option in pt-table-checksum', :type => :boolean
-    method_option :chunk_time, :desc => 'adjust the chunk size dynamically so each checksum query takes this long to execute' # http://www.percona.com/doc/percona-toolkit/2.2/pt-table-checksum.html#cmdoption-pt-table-checksum--chunk-time
-    method_option :chunk_size_limit :desc => 'safty valve - do not checksum chunks this much larger than the desired chunk size' # http://www.percona.com/doc/percona-toolkit/2.2/pt-table-checksum.html#cmdoption-pt-table-checksum--chunk-size-limit
+    method_option :chunk_time, :desc => 'adjust the chunk size dynamically so each checksum query takes this long to execute - if unsure about table sizes start at 0.05' # http://www.percona.com/doc/percona-toolkit/2.2/pt-table-checksum.html#cmdoption-pt-table-checksum--chunk-time
+    method_option :chunk_size_limit, :desc => 'safty valve - do not checksum chunks this much larger than the desired chunk size' # http://www.percona.com/doc/percona-toolkit/2.2/pt-table-checksum.html#cmdoption-pt-table-checksum--chunk-size-limit
     method_option :tables, :desc => 'comma seperated list of tables to checksum'
     def checksum_pool
       pool_name = options[:pool] || ask('Please enter name of pool to checksum: ')
