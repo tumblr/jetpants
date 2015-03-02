@@ -167,10 +167,24 @@ module Jetpants
     
     desc 'checksum_pool', 'Run pt-table-checksum on a pool to verify data consistency after an upgrade of one slave'
     method_option :pool,  :desc => 'name of pool'
+    method_option :no_check_plan, :desc => 'sets --nocheck_plan option in pt-table-checksum', :type => :boolean
+    method_option :chunk_time, :desc => 'adjust the chunk size dynamically so each checksum query takes this long to execute - if unsure about table sizes start at 0.05' # http://www.percona.com/doc/percona-toolkit/2.2/pt-table-checksum.html#cmdoption-pt-table-checksum--chunk-time
+    method_option :chunk_size_limit, :desc => 'safty valve - do not checksum chunks this much larger than the desired chunk size' # http://www.percona.com/doc/percona-toolkit/2.2/pt-table-checksum.html#cmdoption-pt-table-checksum--chunk-size-limit
+    method_option :tables, :desc => 'comma seperated list of tables to checksum'
     def checksum_pool
       pool_name = options[:pool] || ask('Please enter name of pool to checksum: ')
       pool = Jetpants.topology.pool(pool_name) or raise "Pool #{pool_name} does not exist"
-      pool.checksum_tables
+      checksum_options[:no_check_plan] = options[:no_check_plan]
+      checksum_options[:chunk_time] = options[:chunk_time] || 0.1
+      checksum_options[:chunk_size_limit] = options[:chunk_size_limit] if options[:chunk_size_limit]
+      if options[:tables]
+        checksum_options[:tables] = options[:tables].split(',').map do |table|
+          raise "Pool #{pool_name} does not contain a table named #{table}}" unless pool.has_table? table
+          table
+        end
+      end
+
+      pool.checksum_tables checksum_options
     end
     
     
