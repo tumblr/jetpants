@@ -304,9 +304,9 @@ module Jetpants
         end
       end
 
-      if source.pool
+      if source && source.pool
         nodes.sort! do |lhs, rhs|
-          (lhs.proximity_score(pool) * -1) <=> (rhs.proximity_score(pool) * -1)
+          lhs.proximity_score(pool) <=> rhs.proximity_score(pool)
         end
       end
 
