@@ -141,7 +141,7 @@ module Jetpants
       assets = Jetpants.topology.server_node_assets(@name, :slave)
       assets.reject! {|a| a.location && a.location.upcase != Plugin::JetCollins.datacenter}
       assets.map(&:to_db).each do |db|
-        if !db.running? || db.pool != self
+        if db.master != @master || !db.running? || db.pool != self
           db.output "Not replicating from new master, removing from pool #{self}"
           db.collins_pool = ''
           db.collins_secondary_role = ''
