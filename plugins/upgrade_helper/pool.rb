@@ -279,8 +279,8 @@ module Jetpants
         compare_nodes.concurrent_each do |n| 
           n.resume_replication
           n.catch_up_to_master
-          n.enable_monitoring
           n.start_query_killer
+          n.enable_monitoring
         end
       end
     end
