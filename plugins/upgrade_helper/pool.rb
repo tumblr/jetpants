@@ -256,7 +256,10 @@ module Jetpants
       # at the same position. We only proceed with this if we're comparing
       # exactly two nodes; this may be improved in a future release.
       if compare_nodes.size == 2
-        compare_nodes.each {|n| n.disable_monitoring}
+        compare_nodes.each { |n|
+          n.disable_monitoring
+          n.stop_query_killer
+        }
         compare_nodes.first.pause_replication_with(compare_nodes.last)
       end
       
@@ -276,6 +279,7 @@ module Jetpants
         compare_nodes.concurrent_each do |n| 
           n.resume_replication
           n.catch_up_to_master
+          n.start_query_killer
           n.enable_monitoring
         end
       end
