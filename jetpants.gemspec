@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
   s.required_ruby_version = '>= 1.9.2'
   s.authors = ["Evan Elias", "Dallas Marlow", "Bob Patterson Jr.", "Tom Christ", "Kiril Angov", "Amar Mudrankit", "Tyler Neely", "Duan Wang"]
   s.date  = Date.today.to_s
-  s.email = ["me@evanelias.com", "dallasmarlow@gmail.com", "bob@bobpattersonjr.com", "tbchrist@gmail.com"]
+  s.email = ["me@evanelias.com", "dallasmarlow@gmail.com", "bob@bobpattersonjr.com", "tbchrist@gmail.com", "t@jujit.su", "kiril.angov@gmail.com", "amar.mudrankit@gmail.com"]
   s.files = Dir['Gemfile', 'README.rdoc', 'doc/*.rdoc', 'lib/**/*.rb', 'bin/**', 'scripts/*.rb', 'plugins/**/*.rb', 'etc/jetpants.yaml.sample'].to_a
   s.require_paths = ["lib"]
   s.executables = ["jetpants"]
