@@ -5,7 +5,7 @@ require 'thor'
 module Jetpants
   class CommandSuite < Thor
 
-    desc 'merge_shards_duplicate_check', 'Shard merge Step #0 of 5: Perform the duplicate check on the shards being merged.'
+    desc 'merge_shards_duplicate_check', 'Shard merge (step 0 of 5): perform the duplicate check on the shards being merged.'
     def merge_shards_duplicate_check
       # make sure we have a valid settings hash
       settings = Jetpants.plugins['merge_helper'] || {}
@@ -68,7 +68,7 @@ module Jetpants
       )
     end
 
-    desc 'merge_shards', 'Shard merge step #1 of 5: Merge two or more shards using an aggregator instance'
+    desc 'merge_shards', 'Shard merge (step 1 of 5): merge two or more shards using an aggregator instance'
     def merge_shards
       # ask the user for the shards to merge
       shards_to_merge = ask_merge_shard_ranges
@@ -151,7 +151,7 @@ module Jetpants
 
     # Performs a validation step of pausing replication and determining row counts
     # on the aggregating server and its data sources
-    desc 'merge_shards_validate', 'Shard merge step #2 of 5: Validate aggregating server row counts'
+    desc 'merge_shards_validate', 'Shard merge (step 2 of 5): validate aggregating server row counts'
     def merge_shards_validate
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -187,7 +187,7 @@ module Jetpants
     end
 
     # regenerate config and switch reads to new shard's master
-    desc 'merge_shards_reads', 'Shard merge step #3 of 5: Switch reads to the new merged master'
+    desc 'merge_shards_reads', 'Shard merge (step 3 of 5): switch reads to the new merged master'
     def merge_shards_reads
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -209,13 +209,13 @@ module Jetpants
         'Commit/push the configuration in version control.',
         'Deploy the configuration to all machines.',
         'Wait for reads to stop on the old parent masters.',
-        'Proceed to next step: jetpants merge_shards_writes',
+        'Proceed to next step: jetpants merge_shards_writes'
       )
     end
 
 
     # regenerate config and switch writes to new shard's master
-    desc 'merge_shards_writes', 'Shard merge step #4 of 5: Switch writes to the new merged master'
+    desc 'merge_shards_writes', 'Shard merge (step 4 of 5): switch writes to the new merged master'
     def merge_shards_writes
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -239,12 +239,12 @@ module Jetpants
         'Commit/push the configuration in version control.',
         'Deploy the configuration to all machines.',
         'Wait for writes to stop on the old parent masters.',
-        'Proceed to next step: jetpants merge_shards_cleanup',
+        'Proceed to next step: jetpants merge_shards_cleanup'
       )
     end
 
     # clean up aggregator node and old shards
-    desc 'merge_shards_cleanup', 'Shard merge step #5 of 5: Clean up the old shards and aggregator node'
+    desc 'merge_shards_cleanup', 'Shard merge (step 5 of 5): clean up the old shards and aggregator node'
     def merge_shards_cleanup
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -271,7 +271,7 @@ module Jetpants
     end
     def self.after_merge_shards_cleanup
       reminders(
-        'Review old nodes for hardware issues before re-using, or simply cancel them.',
+        'Review old nodes for hardware issues before re-using, or simply cancel them.'
       )
     end
 
