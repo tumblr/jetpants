@@ -76,6 +76,9 @@ If you have a question that isn't covered here, please feel free to email the au
 * <b>Bob Patterson Jr</b>: Developer
 * <b>Tom Christ</b>: Developer
 * <b>Tyler Neely</b>: Developer
+* <b>Kiril Angov</b>: Developer
+* <b>Amar Mudrankit</b>: Developer
+* <b>Duan Wang</b>: Developer
 
 Special thanks to <b>Tim Ellis</b> for testing and bug reports.
 
