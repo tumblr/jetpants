@@ -127,7 +127,7 @@ module Jetpants
     def self.after_promotion
       reminders(
         'Commit/push the configuration in version control.',
-        'Deploy the configuration to all machines.',
+        'Deploy the configuration to all machines.'
       )
     end
     
@@ -402,7 +402,7 @@ module Jetpants
     end
     
     
-    desc 'shard_split', 'shard split step 1 of 4: spin up child pools with different portions of data set'
+    desc 'shard_split', 'Shard split (step 1 of 4): spin up child pools with different portions of data set'
     method_option :min_id, :desc => 'Minimum ID of parent shard to split'
     method_option :max_id, :desc => 'Maximum ID of parent shard to split'
     method_option :ranges, :desc => 'Optional comma-separated list of ranges per child ie "1000-1999,2000-2499" (default if omitted: split evenly)'
@@ -453,7 +453,7 @@ module Jetpants
     
     # This step is only really necessary if asset-tracker changes don't immediately reflect in application configuration.
     # (ie, if app configuration is a static file that needs to be deployed to webs.)
-    desc 'shard_split_child_reads', 'shard split step 2 of 4: move reads to child shards'
+    desc 'shard_split_child_reads', 'Shard split (step 2 of 4): move reads to child shards'
     def shard_split_child_reads
       s = ask_shard_being_split
       s.move_reads_to_children
@@ -469,7 +469,7 @@ module Jetpants
     end
     
     
-    desc 'shard_split_child_writes', 'shard split step 3 of 4: move writes to child shards'
+    desc 'shard_split_child_writes', 'Shard split (step 3 of 4): move writes to child shards'
     method_option :min_id, :desc => 'Minimum ID of parent shard being split'
     method_option :max_id, :desc => 'Maximum ID of parent shard being split'
     def shard_split_child_writes
@@ -482,12 +482,12 @@ module Jetpants
         'Commit/push the configuration in version control.',
         'Deploy the configuration to all machines.',
         'Wait for writes to stop on the old parent master.',
-        'Proceed to next step: jetpants shard_split_cleanup',
+        'Proceed to next step: jetpants shard_split_cleanup'
       )
     end
     
     
-    desc 'shard_split_cleanup', 'shard split step 4 of 4: clean up data that replicated to wrong shard'
+    desc 'shard_split_cleanup', 'Shard split (step 4 of 4): clean up data that replicated to wrong shard'
     method_option :min_id, :desc => 'Minimum ID of parent shard being split'
     method_option :max_id, :desc => 'Maximum ID of parent shard being split'
     def shard_split_cleanup
