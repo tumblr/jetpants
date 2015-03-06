@@ -16,7 +16,9 @@ class Object
         :page => 0
       }
 
-      assets = Jetpants::Plugin::JetCollins.find selector
+      assets = Jetpants::Plugin::JetCollins.find(selector, false)
+      raise "Invalid hostname: #{self}" if assets.empty?
+
       assets.first.to_db
     end
   end
