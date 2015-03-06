@@ -130,7 +130,7 @@ module Jetpants
     def display_buffer_pool_hit_rate(nodes=nil)
       return if nodes.nil?
       nodes.each { |node|
-        pct_hit_rate = node.get_avg_buffer_pool_hit_rate
+        pct_hit_rate = node.avg_buffer_pool_hit_rate
         node.output "Buffer pool hit ratio: #{pct_hit_rate}%"
       }
     end

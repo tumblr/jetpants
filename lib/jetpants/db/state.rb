@@ -342,19 +342,20 @@ module Jetpants
       raise "Plugin must override DB#claim!"
     end
 
-    def innodb_status(status_field_string=nil)
-      status = mysql_root_cmd("SHOW ENGINE INNODB STATUS").split(/\n/).reject { |line| line =~ /^-*-$/ }
-      if status_field_string
-        field_status = status.select { |status_line| status_line.match(/#{status_field_string}/) }
-      else
-        field_status = status
-      end
-      field_status
+    def innodb_status(section=nil)
+      status = mysql_root_cmd('SHOW ENGINE INNODB STATUS')
+      sections = Hash[status.scan /-+\n([[:upper:][:space:][:punct:]]+)\n-+\n(.*?)(?=\n-+\n[[:upper:][:space:][:punct:]]+\n)/m]
+      sections.each { |k, v| sections[k] = v.split(/\n/) }
+
+      # either return a single section or all sections
+      section ? sections[section.to_s.upcase] : sections
     end
 
-    def get_avg_buffer_pool_hit_rate
-      buffer_pool_hit_rate = innodb_status("Buffer pool hit rate")
-      ((buffer_pool_hit_rate[0].split[4].to_f * 100) / buffer_pool_hit_rate[0].split[6].to_f).round(2)
+    def avg_buffer_pool_hit_rate
+      status = innodb_status('BUFFER POOL AND MEMORY')
+      buffer_pool_hit_rate = status.select { |status_line| status_line.match(/^Buffer pool hit rate/) }.first
+
+      ((buffer_pool_hit_rate.split[4].to_f * 100) / buffer_pool_hit_rate.split[6].to_f).round(2)
     end
 
     ###### Private methods #####################################################
