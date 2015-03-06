@@ -14,6 +14,31 @@ module Jetpants
       Jetpants.topology.update_tracker_data
     end
 
+    def cleanup_spare!
+      # If the node is already a valid spare, do not do anything
+      return true if probe! && usable_spare?
+
+      if running?
+        datadir = mysql_root_cmd('select @@datadir;').chomp("\n/")
+        mysql_root_cmd("PURGE BINARY LOGS BEFORE NOW();") rescue nil
+      else
+        datadir = '/var/lib/mysql'
+      end
+
+      stop_mysql
+      output "Initializing the MySQL data directory"
+      ssh_cmd [
+        "rm -rf #{datadir}/*",
+        '/usr/bin/mysql_install_db'
+      ], 1
+
+      output service(:start, 'mysql')
+      confirm_listening
+      @running = true
+
+      usable_spare?
+    end
+
     ##### CALLBACKS ############################################################
     
     # Determine master from asset tracker if machine is unreachable or MySQL isn't running.
