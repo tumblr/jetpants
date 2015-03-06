@@ -342,6 +342,21 @@ module Jetpants
       raise "Plugin must override DB#claim!"
     end
 
+    def innodb_status(status_field_string=nil)
+      status = mysql_root_cmd("SHOW ENGINE INNODB STATUS").split(/\n/).reject { |line| line =~ /^-*-$/ }
+      if status_field_string
+        field_status = status.select { |status_line| status_line.match(/#{status_field_string}/) }
+      else
+        field_status = status
+      end
+      field_status
+    end
+
+    def get_avg_buffer_pool_hit_rate
+      buffer_pool_hit_rate = innodb_status("Buffer pool hit rate")
+      ((buffer_pool_hit_rate[0].split[4].to_f * 100) / buffer_pool_hit_rate[0].split[6].to_f).round(2)
+    end
+
     ###### Private methods #####################################################
     
     private
