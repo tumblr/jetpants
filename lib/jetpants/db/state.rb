@@ -336,6 +336,11 @@ module Jetpants
       @spare_validation_errors << "The node is not marked as a spare in the asset tracker" unless is_spare?
     end
 
+    # Resets the MySQL data on a server and puts it into the spare pool
+    def cleanup_spare!
+      raise "Plugin must override DB#cleanup_spare!"
+    end
+
     # Sets a server as "claimed" in the asset tracker so that no other operation can use it.
     # This is used for moving servers out of the spare pool.
     def claim!
