@@ -8,7 +8,7 @@ module Jetpants
     include Plugin::JetCollins
     
     collins_attr_accessor :slave_weight, :nodeclass, :nobackup
-    
+
     # Because we only support 1 mysql instance per machine for now, we can just
     # delegate this over to the host
     def collins_asset
@@ -86,7 +86,19 @@ module Jetpants
     def after_collins_status=(value)
       @spare_validation_errors = nil
     end
-    
+
+    # We set the priority here higher than the
+    # after_clone_to! of the stock DB class
+    callback_priority 200
+    def after_clone_to!(*targets)
+      clone_attributes = Jetpants.plugins['jetpants_collins']['clone_attributes'] || []
+      clone_attributes.each do |attribute|
+        targets.each do |target|
+          target.collins_set attribute, self.collins_get(attribute)
+        end
+      end
+    end
+
     ##### NEW METHODS ##########################################################
 
     # Returns true if this database is located in the same datacenter as jetpants_collins
