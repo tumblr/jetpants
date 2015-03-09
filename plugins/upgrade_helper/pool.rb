@@ -127,7 +127,14 @@ module Jetpants
       success
     end
     
-    
+    def display_buffer_pool_hit_rate(nodes=nil)
+      return if nodes.nil?
+      nodes.each { |node|
+        pct_hit_rate = node.avg_buffer_pool_hit_rate
+        node.output "Buffer pool hit ratio: #{pct_hit_rate}%"
+      }
+    end
+
     # Uses pt-upgrade to compare query performance and resultsets among nodes
     # in a pool. Supply params:
     # * a full path to a slowlog file
@@ -174,7 +181,9 @@ module Jetpants
       
       node_text = compare_nodes.map {|s| s.to_s + ' (v' + s.normalized_version(3) + ')'}.join ' vs '
       dsn_text = compare_nodes.map {|n| "h=#{n.ip},P=#{n.port},u=#{username},p=#{password},D=#{n.app_schema}"}.join ' '
-      
+     
+      display_buffer_pool_hit_rate(compare_nodes)
+
       # Do silent run if requested (to populate buffer pools)
       if silent_run_first
         output "Doing a silent run of pt-upgrade with slowlog #{slowlog_path} to populate buffer pool."
@@ -189,6 +198,8 @@ module Jetpants
         puts
       end
       
+      display_buffer_pool_hit_rate(compare_nodes)
+
       # Run pt-upgrade for real. Note that we only compare query times and results, NOT warnings,
       # due to issues with warning 1592 causing a huge amount of difficult-to-parse output.
       output "Running pt-upgrade with slowlog #{slowlog_path}"
@@ -200,6 +211,8 @@ module Jetpants
       end
       output stdout
       puts
+      display_buffer_pool_hit_rate(compare_nodes)
+
       output "pt-upgrade completed with exit code #{exit_code}"
       
       # Drop the SUPER user and re-enable logging of warning 1592
