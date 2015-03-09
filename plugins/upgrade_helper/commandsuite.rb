@@ -203,7 +203,7 @@ module Jetpants
       gather_machine ||= nil
       
       pool = Jetpants.topology.pool(pool_name) or raise "Pool #{pool_name} does not exist"
-      pool.collect_and_compare_queries!(dump_time, machines)
+      pool.collect_and_compare_queries!(dump_time, *machines)
     end
     
     no_tasks do
