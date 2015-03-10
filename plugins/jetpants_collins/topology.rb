@@ -301,9 +301,15 @@ module Jetpants
           )
         )
           keep_nodes << node
-          break if keep_nodes.size >= count
         end
       end
+
+      if source && source.pool
+        keep_nodes.sort! do |lhs, rhs|
+          lhs.proximity_score(source.pool) <=> rhs.proximity_score(source.pool)
+        end
+      end
+
       keep_nodes.slice(0,count)
     end
 

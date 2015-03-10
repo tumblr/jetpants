@@ -116,6 +116,12 @@ module Jetpants
       false
     end
 
+    # used for sorting spares for preference and considering physical locality
+    # the higher the proximity score the less it will be preferred
+    def proximity_score(pool)
+      0
+    end
+
     # Returns the Jetpants::Pool that this instance belongs to, if any.
     # Can optionally create an anonymous pool if no pool was found. This anonymous
     # pool intentionally has a blank sync_configuration implementation.  Rely on
