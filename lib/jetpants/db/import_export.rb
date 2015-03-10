@@ -347,15 +347,16 @@ module Jetpants
       files << 'ib_lru_dump' if ssh_cmd("test -f #{mysql_directory}/ib_lru_dump 2>/dev/null; echo $?").chomp.to_i == 0
       
       fast_copy_chain(mysql_directory, destinations, :port => 3306, :files => files, :overwrite => true)
-    end
+      clone_settings_to!(*targets)
 
-    # MySQL is restarted on source and targets
-    # after we have successfully cloned to the targets
-    def after_clone_to!(*targets)
       [self, targets].flatten.concurrent_each do |t|
         t.start_mysql
         t.start_query_killer
       end
+    end
+
+    def clone_settings_to!(*targets)
+      true
     end
 
   end

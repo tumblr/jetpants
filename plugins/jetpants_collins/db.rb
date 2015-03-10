@@ -45,6 +45,15 @@ module Jetpants
       self.collins_status = 'Allocated:Spare'
     end
 
+    def clone_settings_to!(*targets)
+      clone_attributes = Jetpants.plugins['jetpants_collins']['clone_attributes'] || []
+      clone_attributes.each do |attribute|
+        targets.each do |target|
+          target.collins_set attribute, self.collins_get(attribute)
+        end
+      end
+    end
+
     ##### CALLBACKS ############################################################
     
     # Determine master from Collins if machine is unreachable or MySQL isn't running.
@@ -85,18 +94,6 @@ module Jetpants
     # validation errors, so that we will re-probe when necessary
     def after_collins_status=(value)
       @spare_validation_errors = nil
-    end
-
-    # We set the priority here higher than the
-    # after_clone_to! of the stock DB class
-    callback_priority 200
-    def after_clone_to!(*targets)
-      clone_attributes = Jetpants.plugins['jetpants_collins']['clone_attributes'] || []
-      clone_attributes.each do |attribute|
-        targets.each do |target|
-          target.collins_set attribute, self.collins_get(attribute)
-        end
-      end
     end
 
     ##### NEW METHODS ##########################################################
