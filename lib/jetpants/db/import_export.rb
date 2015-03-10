@@ -320,6 +320,7 @@ module Jetpants
     # WARNING: temporarily shuts down mysql on self, and WILL OVERWRITE CONTENTS
     # OF MYSQL DIRECTORY ON TARGETS.  Confirms first that none of the targets
     # have over 100MB of data in the schema directory or in ibdata1.
+    # MySQL is restarted on source and targets afterwards.
     def clone_to!(*targets)
       targets.flatten!
       raise "Cannot clone an instance onto its master" if master && targets.include?(master)
