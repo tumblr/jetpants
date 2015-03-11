@@ -323,7 +323,7 @@ module Jetpants
       claimed_nodes
     end
 
-    def self.claimed_nodes_for_pool(pool)
+    def self.claimed_nodes_for(pool)
       @@claimed_node_list ||= {}
       @@claimed_node_list[pool] ||= []
 
