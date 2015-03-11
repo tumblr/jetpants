@@ -82,6 +82,8 @@ module Jetpants
 
       slaves(:standby).each {|db| db.collins_secondary_role = 'STANDBY_SLAVE'}
       slaves(:backup).each {|db| db.collins_secondary_role = 'BACKUP_SLAVE'}
+
+      Jetpants::Topology.clear_claimed_nodes_for(self)
       true
     end
     

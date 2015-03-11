@@ -330,6 +330,12 @@ module Jetpants
       @@claimed_node_list[pool]
     end
 
+    def self.clear_claimed_nodes_for(pool)
+      @@claimed_node_list ||= {}
+
+      @@claimed_node_list[pool] = nil
+    end
+
     def sort_pools_callback(pool)
       asset = pool.collins_asset
       role = asset.primary_role.upcase
