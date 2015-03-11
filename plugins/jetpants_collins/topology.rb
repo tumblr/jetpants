@@ -152,7 +152,7 @@ module Jetpants
         selector[:page] = page
         # find() apparently alters the selector object now, so we dup it
         # also force JetCollins to retry requests to the Collins server
-        results = Plugin::JetCollins.find selector.dup, true
+        results = Plugin::JetCollins.find selector.dup, true, page == 0
         done = (results.count < per_page) || (results.count == 0 && page > 0) 
         page += 1
         assets.concat(results.select {|a| a.pool}) # filter out any spare nodes, which will have no pool set
@@ -209,10 +209,10 @@ module Jetpants
         selector[:page] = page
         # find() apparently alters the selector object now, so we dup it
         # also force JetCollins to retry requests to the Collins server
-        page_of_results = Plugin::JetCollins.find selector.dup, true
+        page_of_results = Plugin::JetCollins.find selector.dup, true, page == 0
         assets += page_of_results
-        done = (page_of_results.count < per_page) || (page_of_results.count == 0 && page > 0)
         page += 1
+        done = (page_of_results.count < per_page) || (page_of_results.count == 0 && page > 0)
       end
       
       # If remote lookup is enabled, remove the remote copy of any pool that exists
@@ -279,9 +279,9 @@ module Jetpants
         selector[:page] = page
         # find() apparently alters the selector object now, so we dup it
         # also force JetCollins to retry requests to the Collins server
-        page_of_results = Plugin::JetCollins.find selector.dup, true
+        page_of_results = Plugin::JetCollins.find selector.dup, true, page == 0
         nodes += page_of_results
-        done = page_of_results.count < per_page
+        done = (page_of_results.count < per_page) || (page_of_results.count == 0 && page > 0)
         page += 1
       end
       

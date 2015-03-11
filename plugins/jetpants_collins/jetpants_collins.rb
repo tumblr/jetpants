@@ -50,14 +50,14 @@ module Jetpants
           end
         end
 
-        def find(selector, retry_request = false)
+        def find(selector, retry_request = false, error_on_zero = true)
           if retry_request
             Jetpants.with_retries(
                 Jetpants.plugins['jetpants_collins']['retries'],
                 Jetpants.plugins['jetpants_collins']['max_retry_backoff']
             ) {
               res = service.send 'find', selector
-              raise "Unable to find asset(s) for #{selector}" if res.empty?
+              raise "Unable to find asset(s) for #{selector}" if (res.empty? && error_on_zero)
               return res
             }
           else
