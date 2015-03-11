@@ -211,7 +211,7 @@ module Jetpants
         # also force JetCollins to retry requests to the Collins server
         page_of_results = Plugin::JetCollins.find selector.dup, true
         assets += page_of_results
-        done = page_of_results.count < per_page
+        done = (page_of_results.count < per_page) || (page_of_results.count == 0 && page > 0)
         page += 1
       end
       
