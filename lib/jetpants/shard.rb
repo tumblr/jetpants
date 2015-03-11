@@ -279,8 +279,8 @@ module Jetpants
         raise "Shard #{self} is not in a state compatible with calling clone_slaves_from_master! (current state=#{@state})"
       end
       
-      standby_slaves = Jetpants.topology.claim_spares(standby_slaves_needed, role: :standby_slave, like: master)
-      backup_slaves = Jetpants.topology.claim_spares(backup_slaves_needed, role: :backup_slave)
+      standby_slaves = Jetpants.topology.claim_spares(standby_slaves_needed, role: :standby_slave, like: master, for_pool: master.pool)
+      backup_slaves = Jetpants.topology.claim_spares(backup_slaves_needed, role: :backup_slave, for_pool: master.pool)
       enslave!([standby_slaves, backup_slaves].flatten)
       [standby_slaves, backup_slaves].flatten.each &:resume_replication
       [self, standby_slaves, backup_slaves].flatten.each { |db| db.catch_up_to_master }

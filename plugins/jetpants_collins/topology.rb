@@ -257,6 +257,7 @@ module Jetpants
     # Helper method to query Collins for spare DBs.
     def query_spare_assets(count, options={})
       per_page = Jetpants.plugins['jetpants_collins']['selector_page_size'] || 50
+      @@claimed_shard_list ||= {}
 
       # Intentionally no remoteLookup=true here.  We only want to grab spare nodes
       # from the datacenter that Jetpants is running in.
@@ -310,7 +311,23 @@ module Jetpants
         end
       end
 
-      keep_nodes.slice(0,count)
+      claimed_nodes = keep_nodes.slice(0,count)
+
+      if options[:for_pool]
+        @@claimed_node_list[options[:for_pool]] ||= []
+        claimed_nodes.each do |node|
+          @@claimed_node_list[options[:for_pool]] << node
+        end
+      end
+
+      claimed_nodes
+    end
+
+    def self.claimed_nodes_for_pool(pool)
+      @@claimed_node_list ||= {}
+      @@claimed_node_list[pool] ||= []
+
+      @@claimed_node_list[pool]
     end
 
     def sort_pools_callback(pool)
