@@ -153,7 +153,7 @@ module Jetpants
         # find() apparently alters the selector object now, so we dup it
         # also force JetCollins to retry requests to the Collins server
         results = Plugin::JetCollins.find selector.dup, true
-        done = results.count < per_page
+        done = (results.count < per_page) || (results.count == 0 && page > 0) 
         page += 1
         assets.concat(results.select {|a| a.pool}) # filter out any spare nodes, which will have no pool set
       end
