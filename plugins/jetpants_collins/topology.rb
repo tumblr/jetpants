@@ -314,26 +314,10 @@ module Jetpants
       claimed_nodes = keep_nodes.slice(0,count)
 
       if options[:for_pool]
-        @@claimed_node_list[options[:for_pool]] ||= []
-        claimed_nodes.each do |node|
-          @@claimed_node_list[options[:for_pool]] << node
-        end
+        pool.claimed_nodes << node unless pool.claimed_nodes.include? node
       end
 
       claimed_nodes
-    end
-
-    def self.claimed_nodes_for(pool)
-      @@claimed_node_list ||= {}
-      @@claimed_node_list[pool] ||= []
-
-      @@claimed_node_list[pool]
-    end
-
-    def self.clear_claimed_nodes_for(pool)
-      @@claimed_node_list ||= {}
-
-      @@claimed_node_list[pool] = nil
     end
 
     def sort_pools_callback(pool)
