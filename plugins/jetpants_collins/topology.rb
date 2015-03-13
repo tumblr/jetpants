@@ -313,7 +313,10 @@ module Jetpants
       claimed_nodes = keep_nodes.slice(0,count)
 
       if options[:for_pool]
-        pool.claimed_nodes << node unless pool.claimed_nodes.include? node
+        pool = options[:for_pool]
+        claimed_nodes.each do |node|
+          pool.claimed_nodes << node unless pool.claimed_nodes.include? node
+        end
       end
 
       claimed_nodes
