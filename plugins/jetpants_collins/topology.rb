@@ -257,7 +257,6 @@ module Jetpants
     # Helper method to query Collins for spare DBs.
     def query_spare_assets(count, options={})
       per_page = Jetpants.plugins['jetpants_collins']['selector_page_size'] || 50
-      @@claimed_shard_list ||= {}
 
       # Intentionally no remoteLookup=true here.  We only want to grab spare nodes
       # from the datacenter that Jetpants is running in.
