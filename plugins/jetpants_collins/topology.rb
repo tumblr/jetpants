@@ -308,6 +308,10 @@ module Jetpants
         keep_nodes.sort! do |lhs, rhs|
           lhs.proximity_score(source.pool) <=> rhs.proximity_score(source.pool)
         end
+
+        if keep_nodes.first.proximity_score(souce.pool) > 0 
+          output "First node claimed has a proximity score greater than zero!"
+        end
       end
 
       claimed_nodes = keep_nodes.slice(0,count)
