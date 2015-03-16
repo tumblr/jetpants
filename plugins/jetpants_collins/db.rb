@@ -8,7 +8,7 @@ module Jetpants
     include Plugin::JetCollins
     
     collins_attr_accessor :slave_weight, :nodeclass, :nobackup
-    
+
     # Because we only support 1 mysql instance per machine for now, we can just
     # delegate this over to the host
     def collins_asset
@@ -43,6 +43,15 @@ module Jetpants
 
     def return_to_spare!
       self.collins_status = 'Allocated:Spare'
+    end
+
+    def clone_settings_to!(*targets)
+      clone_attributes = Jetpants.plugins['jetpants_collins']['clone_attributes'] || []
+      clone_attributes.each do |attribute|
+        targets.each do |target|
+          target.collins_set attribute, self.collins_get(attribute)
+        end
+      end
     end
 
     ##### CALLBACKS ############################################################
@@ -86,7 +95,7 @@ module Jetpants
     def after_collins_status=(value)
       @spare_validation_errors = nil
     end
-    
+
     ##### NEW METHODS ##########################################################
 
     # Returns true if this database is located in the same datacenter as jetpants_collins
