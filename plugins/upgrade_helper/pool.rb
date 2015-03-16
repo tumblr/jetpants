@@ -49,9 +49,8 @@ module Jetpants
         command_line << '--nocheck-plan' if options[:no_check_plan]
         command_line << "--chunk-time #{options[:chunk_time]}" if options[:chunk_time]
         command_line << "--chunk-size-limit #{options[:chunk_size_limit]}" if options[:chunk_size_limit]
-        if options[:tables]
-          command_line << ['--tables', options[:tables].join(',')].join(' ') unless options[:tables].empty?
-        end
+        command_line << ['--tables', options[:tables].join(',')].join(' ') if (options[:tables] && !options[:tables].empty?)
+        command_line << '--resume' if previous_run
 
         command_line = command_line.join ' '
         
