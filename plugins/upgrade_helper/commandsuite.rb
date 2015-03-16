@@ -174,7 +174,8 @@ module Jetpants
     def checksum_pool
       pool_name = options[:pool] || ask('Please enter name of pool to checksum: ')
       pool = Jetpants.topology.pool(pool_name) or raise "Pool #{pool_name} does not exist"
-      checksum_options[:no_check_plan] = options[:no_check_plan]
+      checksum_options ||= {}
+      checksum_options[:no_check_plan] = options[:no_check_plan] || false
       checksum_options[:chunk_time] = options[:chunk_time] || 0.1
       checksum_options[:chunk_size_limit] = options[:chunk_size_limit] if options[:chunk_size_limit]
       if options[:tables]
