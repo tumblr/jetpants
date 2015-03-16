@@ -79,7 +79,13 @@ module Jetpants
       assets = query_spare_assets(count, options)
       raise "Not enough spare machines available! Found #{assets.count}, needed #{count}" if assets.count < count
       assets.map do |asset|
-        asset.to_db.claim!
+        db = asset.to_db
+        db.claim!
+        if options[:for_pool]
+          options[:for_pool].claimed_nodes << db unless options[:for_pool].claimed_nodes.include? db
+        end
+
+        db
       end
     end
 
@@ -297,33 +303,32 @@ module Jetpants
           (
             !source ||
             (!source.pool && db.usable_with?(source)) ||
-            (source.pool && db.usable_in?(source.pool))
+            (
+              (!options[:for_pool] && source.pool && db.usable_in?(source.pool)) ||
+              (options[:for_pool] && db.usable_in?(options[:for_pool]))
+            )
           )
         )
           keep_nodes << node
         end
       end
 
-      if source && source.pool
-        keep_nodes.sort! do |lhs, rhs|
-          lhs.proximity_score(source.pool) <=> rhs.proximity_score(source.pool)
-        end
+      if options[:for_pool]
+        compare_pool = options[:for_pool]
+      elsif source && source.pool
+        compare_pool = source.pool
+      end
 
-        if keep_nodes.first.proximity_score(souce.pool) > 0 
-          output "First node claimed has a proximity score greater than zero!"
+      if compare_pool
+        keep_nodes.sort! do |lhs, rhs|
+          lhs.to_db.proximity_score(compare_pool) <=> rhs.to_db.proximity_score(compare_pool)
+        end
+        if(!keep_nodes.empty? && keep_nodes.first.to_db.proximity_score(compare_pool) > 0)
+          compare_pool.output "First node claimed has a proximity score greater than zero!"
         end
       end
 
       claimed_nodes = keep_nodes.slice(0,count)
-
-      if options[:for_pool]
-        pool = options[:for_pool]
-        claimed_nodes.each do |node|
-          pool.claimed_nodes << node unless pool.claimed_nodes.include? node
-        end
-      end
-
-      claimed_nodes
     end
 
     def sort_pools_callback(pool)
