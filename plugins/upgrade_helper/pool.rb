@@ -48,7 +48,7 @@ module Jetpants
         command_line.unshift('--nocheck-plan') if options[:no_check_plan]
         command_line.unshift("--chunk-time #{options[:chunk_time]}") if options[:chunk_time]
         command_line.unshift("--chunk-size-limit #{options[:chunk_size_limit]}") if options[:chunk_size_limit]
-        command_line.unshift(['--tables',options[:tables].join(',')].join(' ')) unless options[:tables].empty?
+        command_line.unshift(['--tables',options[:tables].join(',')].join(' ')) unless (options[:tables] && options[:tables].empty?)
         command_line.unshift('--resume') if previous_run
 
         command_line = command_line.join ' '
