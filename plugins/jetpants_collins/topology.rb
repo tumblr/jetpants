@@ -78,7 +78,7 @@ module Jetpants
       return [] if count == 0
       assets = query_spare_assets(count, options)
       raise "Not enough spare machines available! Found #{assets.count}, needed #{count}" if assets.count < count
-      assets.map do |asset|
+      claimed_dbs = assets.map do |asset|
         db = asset.to_db
         db.claim!
         if options[:for_pool]
@@ -87,6 +87,20 @@ module Jetpants
 
         db
       end
+
+      if options[:for_pool]
+        compare_pool = options[:for_pool]
+      elsif source && source.pool
+        compare_pool = source.pool
+      else
+        compare_pool = false
+      end
+
+      if(!claimed_dbs.empty? && claimed_nodes.select{|n| n.proximity_score(compare_pool) > 0}.count > 0)
+        compare_pool.output "Unable to claim #{count} nodes with an ideal proximity score!" 
+      end
+
+      claimed_dbs
     end
 
     # This method won't ever return a number higher than 100, but that's
@@ -115,9 +129,6 @@ module Jetpants
       global_map
     end
 
-    def partition_spare_nodes(nodes)
-      [ nodes ] 
-    end
     # Returns an array of Collins::Asset objects meeting the given criteria.
     # Caches the result for subsequent use.
     # Optionally supply a pool name to restrict the result to that pool.
@@ -327,32 +338,18 @@ module Jetpants
       # here we compare nodes against the optionally provided source to attempt to
       # claim a node which is not physically local to the source nodes
       if compare_pool
-        keep_nodes.sort! do |lhs, rhs|
-          lhs.to_db.proximity_score(compare_pool) <=> rhs.to_db.proximity_score(compare_pool)
-        end
-
-        far_nodes = keep_nodes.select{|n| n.to_db.proximity_score(compare_pool) == 0}
-        near_nodes = keep_nodes - far_nodes
-        sorted_nodes = []
-
-        # partition spare nodes into cycles, the first would have nodes
-        # in all different rows, the second in another set of different nodes, etc 
-        node_buckets = {}
-        node_buckets = partition_spare_nodes(far_nodes)
-
-        # prepend the bucketed list of nodes to the nodes to keep
-        node_buckets.each do |bucket|
-           sorted_nodes = sorted_nodes.concat(bucket)
-        end
-        keep_nodes = sorted_nodes.concat(near_nodes)
-
-        # warn if the number of nodes claimed doesn't satisfy proximit requirements
-        if(!keep_nodes.empty? && keep_nodes.slice(0,count).select{|n| n.to_db.proximity_score(compare_pool) > 0}.count > 0)
-          compare_pool.output "Unable to claim #{count} nodes with a proximity score of zero!"
-        end
+        keep_nodes = sort_for_pool(compare_pool, keep_nodes)
       end
 
       claimed_nodes = keep_nodes.slice(0,count)
+    end
+
+    def sort_for_pool(pool, assets)
+      assets.sort! do |lhs, rhs|
+        lhs.to_db.proximity_score(pool) <=> rhs.to_db.proximity_score(pool)
+      end
+
+      assets
     end
 
     def sort_pools_callback(pool)
