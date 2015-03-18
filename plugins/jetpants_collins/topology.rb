@@ -114,7 +114,10 @@ module Jetpants
       pools_to_consider.reduce(global_map){ |map, shard| map.deep_merge!(shard.db_layout,Hash::DEEP_MERGE_CONCAT) }
       global_map
     end
-    
+
+    def partition_spare_nodes(nodes)
+      [ nodes ] 
+    end
     # Returns an array of Collins::Asset objects meeting the given criteria.
     # Caches the result for subsequent use.
     # Optionally supply a pool name to restrict the result to that pool.
@@ -317,14 +320,35 @@ module Jetpants
         compare_pool = options[:for_pool]
       elsif source && source.pool
         compare_pool = source.pool
+      else
+        compare_pool = false
       end
 
+      # here we compare nodes against the optionally provided source to attempt to
+      # claim a node which is not physically local to the source nodes
       if compare_pool
         keep_nodes.sort! do |lhs, rhs|
           lhs.to_db.proximity_score(compare_pool) <=> rhs.to_db.proximity_score(compare_pool)
         end
-        if(!keep_nodes.empty? && keep_nodes.first.to_db.proximity_score(compare_pool) > 0)
-          compare_pool.output "First node claimed has a proximity score greater than zero!"
+
+        far_nodes = keep_nodes.select{|n| n.to_db.proximity_score(compare_pool) == 0}
+        near_nodes = keep_nodes - far_nodes
+        sorted_nodes = []
+
+        # partition spare nodes into cycles, the first would have nodes
+        # in all different rows, the second in another set of different nodes, etc 
+        node_buckets = {}
+        node_buckets = partition_spare_nodes(far_nodes)
+
+        # prepend the bucketed list of nodes to the nodes to keep
+        node_buckets.each do |bucket|
+           sorted_nodes = sorted_nodes.concat(bucket)
+        end
+        keep_nodes = sorted_nodes.concat(near_nodes)
+
+        # warn if the number of nodes claimed doesn't satisfy proximit requirements
+        if(!keep_nodes.empty? && keep_nodes.slice(0,count).select{|n| n.to_db.proximity_score(compare_pool) > 0}.count > 0)
+          compare_pool.output "Unable to claim #{count} nodes with a proximity score of zero!"
         end
       end
 
