@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
   s.extra_rdoc_files = Dir['README.rdoc', 'doc/*.rdoc'].to_a
   s.has_rdoc = true
   s.rdoc_options = ["--line-numbers", "--title", s.summary, "--main", "README.rdoc"]
-  
+
   s.add_runtime_dependency 'mysql2', '~> 0.3.0'
   s.add_runtime_dependency 'sequel', '~> 3.36'
   s.add_runtime_dependency 'net-ssh', '~> 2.3'
@@ -28,7 +28,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'thor', '~> 0.15'
   s.add_runtime_dependency 'highline', '~> 1.6.12'
   s.add_runtime_dependency 'colored', '~> 1.2'
-  s.add_runtime_dependency 'collins_client', '~> 0.2.7'
+  s.add_runtime_dependency 'collins_client', '~> 0.2.12'
   s.add_runtime_dependency 'bloom-filter', '~> 0.2.0'
   s.add_runtime_dependency 'pony', '~> 1.11'
 end
