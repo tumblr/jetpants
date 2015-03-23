@@ -96,7 +96,7 @@ module Jetpants
         compare_pool = false
       end
 
-      if(compare_pool && !claimed_dbs.empty? && claimed_nodes.select{|n| n.proximity_score(compare_pool) > 0}.count > 0)
+      if(compare_pool && claimed_nodes.select{|n| n.proximity_score(compare_pool) > 0}.count > 0)
         compare_pool.output "Unable to claim #{count} nodes with an ideal proximity score!" 
       end
 
