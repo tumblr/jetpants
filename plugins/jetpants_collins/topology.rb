@@ -96,7 +96,7 @@ module Jetpants
         compare_pool = false
       end
 
-      if(compare_pool && claimed_nodes.select{|n| n.proximity_score(compare_pool) > 0}.count > 0)
+      if(compare_pool && claimed_dbs.select{|db| db.proximity_score(compare_pool) > 0}.count > 0)
         compare_pool.output "Unable to claim #{count} nodes with an ideal proximity score!" 
       end
 
@@ -305,7 +305,7 @@ module Jetpants
         page += 1
       end
       
-      keep_nodes = []
+      keep_assets = []
       
       # Probe concurrently for speed reasons
       nodes.map(&:to_db).concurrent_each {|db| db.probe rescue nil}
@@ -323,7 +323,7 @@ module Jetpants
             )
           )
         )
-          keep_nodes << node
+          keep_assets << node
         end
       end
 
@@ -338,13 +338,13 @@ module Jetpants
       # here we compare nodes against the optionally provided source to attempt to
       # claim a node which is not physically local to the source nodes
       if compare_pool
-        keep_nodes = sort_for_pool(compare_pool, keep_nodes)
+        keep_assets = sort_assets_for_pool(compare_pool, keep_assets)
       end
 
-      claimed_nodes = keep_nodes.slice(0,count)
+      claimed_assets = keep_assets.slice(0,count)
     end
 
-    def sort_for_pool(pool, assets)
+    def sort_assets_for_pool(pool, assets)
       assets.sort! do |lhs, rhs|
         lhs.to_db.proximity_score(pool) <=> rhs.to_db.proximity_score(pool)
       end
