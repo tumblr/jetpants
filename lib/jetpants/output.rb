@@ -42,7 +42,7 @@ module Jetpants
         puts output
       }
 
-      output
+      true
     end
   end
 
