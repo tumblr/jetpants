@@ -90,13 +90,13 @@ module Jetpants
 
       if options[:for_pool]
         compare_pool = options[:for_pool]
-      elsif source && source.pool
-        compare_pool = source.pool
+      elsif options[:like] && options[:like].pool
+        compare_pool = options[:like].pool
       else
         compare_pool = false
       end
 
-      if(!claimed_dbs.empty? && claimed_nodes.select{|n| n.proximity_score(compare_pool) > 0}.count > 0)
+      if(compare_pool && !claimed_dbs.empty? && claimed_nodes.select{|n| n.proximity_score(compare_pool) > 0}.count > 0)
         compare_pool.output "Unable to claim #{count} nodes with an ideal proximity score!" 
       end
 
