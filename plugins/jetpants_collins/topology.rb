@@ -341,7 +341,7 @@ module Jetpants
         keep_assets = sort_assets_for_pool(compare_pool, keep_assets)
       end
 
-      claimed_assets = keep_assets.slice(0,count)
+      keep_assets.slice(0,count)
     end
 
     def sort_assets_for_pool(pool, assets)
