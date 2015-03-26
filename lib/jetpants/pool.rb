@@ -49,6 +49,10 @@ module Jetpants
     # has no effect inside of Jetpants, but can be used by an asset tracker /
     # config generator plugin to carry the value through to the config file.
     attr_accessor :master_read_weight
+
+    # this is a list of nodes which have been claimed as spares, but which
+    # won't show up in the slaves list
+    attr_accessor :claimed_nodes
     
     def initialize(name, master)
       @name = name
@@ -59,6 +63,7 @@ module Jetpants
       @active_slave_weights = {}
       @tables = nil
       @probe_lock = Mutex.new
+      @claimed_nodes = []
     end
 
     def change_master_to! new_master

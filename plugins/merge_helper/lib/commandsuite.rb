@@ -124,8 +124,8 @@ module Jetpants
       Jetpants.topology.add_pool aggregate_shard
 
       # build up the rest of the new shard
-      spares_for_aggregate_shard = Jetpants.topology.claim_spares(aggregate_shard.slaves_layout[:standby_slave], role: :standby_slave, like: aggregate_shard_master)
-      backups_for_aggregate_shard = Jetpants.topology.claim_spares(aggregate_shard.slaves_layout[:backup_slave], role: :backup_slave)
+      spares_for_aggregate_shard = Jetpants.topology.claim_spares(aggregate_shard.slaves_layout[:standby_slave], role: :standby_slave, like: aggregate_shard_master, for_pool: aggregate_shard)
+      backups_for_aggregate_shard = Jetpants.topology.claim_spares(aggregate_shard.slaves_layout[:backup_slave], role: :backup_slave, for_pool: aggregate_shard)
 
       spares_for_aggregate_shard = [spares_for_aggregate_shard, backups_for_aggregate_shard].flatten
       aggregate_shard_master.enslave! spares_for_aggregate_shard

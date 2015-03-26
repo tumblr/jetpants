@@ -78,9 +78,29 @@ module Jetpants
       return [] if count == 0
       assets = query_spare_assets(count, options)
       raise "Not enough spare machines available! Found #{assets.count}, needed #{count}" if assets.count < count
-      assets.map do |asset|
-        asset.to_db.claim!
+      claimed_dbs = assets.map do |asset|
+        db = asset.to_db
+        db.claim!
+        if options[:for_pool]
+          options[:for_pool].claimed_nodes << db unless options[:for_pool].claimed_nodes.include? db
+        end
+
+        db
       end
+
+      if options[:for_pool]
+        compare_pool = options[:for_pool]
+      elsif options[:like] && options[:like].pool
+        compare_pool = options[:like].pool
+      else
+        compare_pool = false
+      end
+
+      if(compare_pool && claimed_dbs.select{|db| db.proximity_score(compare_pool) > 0}.count > 0)
+        compare_pool.output "Unable to claim #{count} nodes with an ideal proximity score!" 
+      end
+
+      claimed_dbs
     end
 
     # This method won't ever return a number higher than 100, but that's
@@ -108,7 +128,7 @@ module Jetpants
       pools_to_consider.reduce(global_map){ |map, shard| map.deep_merge!(shard.db_layout,Hash::DEEP_MERGE_CONCAT) }
       global_map
     end
-    
+
     # Returns an array of Collins::Asset objects meeting the given criteria.
     # Caches the result for subsequent use.
     # Optionally supply a pool name to restrict the result to that pool.
@@ -285,7 +305,7 @@ module Jetpants
         page += 1
       end
       
-      keep_nodes = []
+      keep_assets = []
       
       # Probe concurrently for speed reasons
       nodes.map(&:to_db).concurrent_each {|db| db.probe rescue nil}
@@ -297,20 +317,39 @@ module Jetpants
           (
             !source ||
             (!source.pool && db.usable_with?(source)) ||
-            (source.pool && db.usable_in?(source.pool))
+            (
+              (!options[:for_pool] && source.pool && db.usable_in?(source.pool)) ||
+              (options[:for_pool] && db.usable_in?(options[:for_pool]))
+            )
           )
         )
-          keep_nodes << node
+          keep_assets << node
         end
       end
 
-      if source && source.pool
-        keep_nodes.sort! do |lhs, rhs|
-          lhs.proximity_score(source.pool) <=> rhs.proximity_score(source.pool)
-        end
+      if options[:for_pool]
+        compare_pool = options[:for_pool]
+      elsif source && source.pool
+        compare_pool = source.pool
+      else
+        compare_pool = false
       end
 
-      keep_nodes.slice(0,count)
+      # here we compare nodes against the optionally provided source to attempt to
+      # claim a node which is not physically local to the source nodes
+      if compare_pool
+        keep_assets = sort_assets_for_pool(compare_pool, keep_assets)
+      end
+
+      keep_assets.slice(0,count)
+    end
+
+    def sort_assets_for_pool(pool, assets)
+      assets.sort! do |lhs, rhs|
+        lhs.to_db.proximity_score(pool) <=> rhs.to_db.proximity_score(pool)
+      end
+
+      assets
     end
 
     def sort_pools_callback(pool)
