@@ -728,6 +728,11 @@ module Jetpants
           end
       end
 
+      if nodes_array.empty?
+        output "No nodes to watch, exiting."
+        exit
+      end
+
       output "Press Ctrl + C to quit"
 
       Signal.trap("INT") {
