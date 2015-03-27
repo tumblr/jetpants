@@ -715,6 +715,38 @@ module Jetpants
       end
     end
 
+    # This is particularly useful during merge, split, activate_slave, pull_slave operations to keep an eye on the commands
+    desc 'watch_pool_commands', 'Outputs number of SELECT and INSERT commands executed on each node in the pool'
+    def watch_pool_commands
+      pool_to_watch = ask_pool("Please enter name of the pool to watch: ")
+      nodes_array = pool_to_watch.nodes
+
+      Signal.trap("INT") {
+        output "Ending the watch of pool: #{pool_to_watch}"
+        exit
+      }
+
+      header = ''
+      nodes_array.each do |node|
+        header += " %30s " % [node.ip]
+      end
+      header += "\n"
+
+      output header
+
+      loop do
+        op_line = ''
+        nodes_array.map do |node|
+          selects = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_select%'").first[:Value]
+          inserts = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_insert%'").first[:Value]
+          op_line += " S:%12s I:%12s " % [selects, inserts]
+        end
+        op_line +="\n"
+        output op_line
+        sleep(1)
+      end
+    end
+
     no_tasks do
       def to_s
         'console'
@@ -745,6 +777,12 @@ module Jetpants
         node = supplied_node || ask(prompt)
         error "Node (#{node.blue}) does not appear to be an IP address." unless is_ip? node
         node.to_db
+      end
+
+      def ask_pool(prompt, supplied_pool=false)
+        pool_name = supplied_pool || ask(prompt)
+        raise "Invalid pool name specified: #{pool_name.blue}" unless pools.include? pool(pool_name)
+        pool(pool_name)
       end
 
       def ask_shard(shards, prompt)
