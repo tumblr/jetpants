@@ -718,14 +718,14 @@ module Jetpants
     # This is particularly useful during merge, split, activate_slave, pull_slave operations to keep an eye on the commands
     desc 'watch_commands', 'Outputs number of SELECT and INSERT commands executed on each node in the list'
     def watch_commands
-      targets = ask('Please enter comma-separated list of nodes to watch: ')
+      targets = ask('Please enter comma-separated list of nodes to watch(IPs or Hostnames): ')
       nodes_array = []
-      targets.split(',').map do |target|
-        if is_ip? target
-          nodes_array << target.to_db
-        else
-          output "Invalid target '#{target}' specified"
-        end
+      targets.chomp.split(',').map do |target|
+          if target.to_db.running?
+            nodes_array << target.to_db
+          else
+            output "Node: #{target} is not running mysql"
+          end
       end
 
       output "Press Ctrl + C to quit"
@@ -746,8 +746,15 @@ module Jetpants
         output header if count % 20 == 0
         op_line = ''
         nodes_array.map do |node|
-          selects = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_select%'").first[:Value]
-          inserts = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_insert%'").first[:Value]
+          begin
+            selects = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_select%'").first[:Value]
+            inserts = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_insert%'").first[:Value]
+          rescue => ex
+            node.output "Failed to get command status: #{ex.message}"
+            selects = "N/A"
+            inserts = "N/A"
+          end
+
           op_line += " S:%12s I:%12s |" % [selects, inserts]
         end
         op_line +="\n"
