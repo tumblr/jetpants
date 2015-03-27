@@ -716,8 +716,8 @@ module Jetpants
     end
 
     # This is particularly useful during merge, split, activate_slave, pull_slave operations to keep an eye on the commands
-    desc 'watch_pool_commands', 'Outputs number of SELECT and INSERT commands executed on each node in the pool'
-    def watch_pool_commands
+    desc 'watch_commands', 'Outputs number of SELECT and INSERT commands executed on each node in the list'
+    def watch_commands
       targets = ask('Please enter comma-separated list of nodes to watch: ')
       nodes_array = []
       targets.split(',').map do |target|
