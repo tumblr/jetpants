@@ -180,7 +180,7 @@ module Jetpants
       end
 
       unless shards_with_errors.empty?
-        shards_with_errors.each{|message| output message}
+        shards_with_errors.each{|info| info[:shard].output info[:error]}
         raise "Error splitting shard #{self}."
       end
       
