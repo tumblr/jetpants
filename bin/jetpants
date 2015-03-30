@@ -715,6 +715,47 @@ module Jetpants
       end
     end
 
+   # This is particularly useful during merge, split, activate_slave, pull_slave operations to keep an eye on the commands
+    desc 'watch_commands', 'Outputs number of SELECT and INSERT commands executed on each node in the list'
+    def watch_commands
+      targets = ask('Please enter comma-separated list of nodes to watch(IPs or Hostnames): ')
+      nodes_array = []
+      targets.chomp.split(',').map do |target|
+        if target.to_db.running?
+          nodes_array << target.to_db
+        else
+          output "Node: #{target} is not running mysql"
+        end
+      end
+
+      if nodes_array.empty?
+        output "No nodes to watch, exiting."
+        exit
+      end
+
+      output "Press Ctrl + C to quit"
+
+      header = " %10s " % [" "]
+      nodes_array.each do |node|
+        header += " %30s " % [node.ip]
+      end
+
+      Signal.trap("INT") {
+        output "Stopping the watch"
+        output header
+        get_query_counts(nodes_array)
+        exit
+      }
+
+      count = 0
+      loop do
+        output header if count % 20 == 0
+        get_query_counts(nodes_array)
+        sleep(1)
+        count += 1
+      end
+    end
+
     no_tasks do
       def to_s
         'console'
@@ -800,6 +841,23 @@ module Jetpants
         raise "Invalid shard selected!" unless s.is_a? Shard
 
         s
+      end
+
+      def get_query_counts(nodes_array)
+        op_line = ''
+        nodes_array.map do |node|
+          begin
+            selects = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_select%'").first[:Value]
+            inserts = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_insert%'").first[:Value]
+          rescue => ex
+            node.output "Failed to get command status: #{ex.message}"
+            selects = "N/A"
+            inserts = "N/A"
+          end
+
+          op_line += " S:%12s I:%12s |" % [selects, inserts]
+        end
+        output op_line
       end
     end
 
