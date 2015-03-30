@@ -168,10 +168,20 @@ module Jetpants
         init_child_shard_masters(id_ranges)
       end
       
+      shards_with_errors = []
       @children.concurrent_each do |c|
         c.prune_data! if [:initializing, :exporting, :importing].include? c.state
-        c.clone_slaves_from_master
+        begin
+          c.clone_slaves_from_master
+        rescue Exception => e
+          shards_with_errors << {shard: c, error: e.message, stacktrace: e.backtrace.inspect}
+        end
         c.sync_configuration
+      end
+
+      unless shards_with_errors.empty?
+        shards_with_errors.each{|info| info[:shard].output info[:error]}
+        raise "Error splitting shard #{self}."
       end
       
       output "Initial split complete."
