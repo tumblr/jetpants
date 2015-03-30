@@ -721,11 +721,11 @@ module Jetpants
       targets = ask('Please enter comma-separated list of nodes to watch(IPs or Hostnames): ')
       nodes_array = []
       targets.chomp.split(',').map do |target|
-          if target.to_db.running?
-            nodes_array << target.to_db
-          else
-            output "Node: #{target} is not running mysql"
-          end
+        if target.to_db.running?
+          nodes_array << target.to_db
+        else
+          output "Node: #{target} is not running mysql"
+        end
       end
 
       if nodes_array.empty?
