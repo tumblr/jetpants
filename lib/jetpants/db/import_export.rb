@@ -311,7 +311,7 @@ module Jetpants
         alter_schemata 
         # re-retrieve table metadata in the case that we alter the tables
         pool.probe_tables!
-        tables = pool.tables.select{|t| pool.tables.map(&:name).include?(table.name)}
+        tables = pool.tables.select{|t| pool.tables.map(&:name).include?(t.name)}
       end
 
       index_list = {}
@@ -321,7 +321,7 @@ module Jetpants
           index_list[t] ||= []
 
           t.indexes.each do |i|
-            drop_idx_cmd = table.drop_index_query(i)
+            drop_idx_cmd = t.drop_index_query(i)
             index_list[t] << i
             output "Dropping index #{i.keys.first} prior to import"
             root_cmd(drop_idx_cmd)
