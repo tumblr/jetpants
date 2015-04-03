@@ -321,9 +321,10 @@ module Jetpants
           index_list[t] ||= []
 
           t.indexes.each do |i|
-            cmd = table.drop_index_query
-            output "Dropping index #{i} prior to import"
-            root_cmd(cmd)
+            drop_idx_cmd = table.drop_index_query(i)
+            index_list[t] << i
+            output "Dropping index #{i.keys.first} prior to import"
+            root_cmd(drop_idx_cmd)
           end
         end
       end
@@ -334,7 +335,7 @@ module Jetpants
         index_list.each do |table, indexes|
           indexes.each do |i|
             create_idx_cmd = table.create_index_query(i)
-            output "Recreating index #{i} after import"
+            output "Recreating index #{i.keys.first} after import"
             root_cmd(create_idx_cmd)
           end
         end
