@@ -307,8 +307,38 @@ module Jetpants
       export_schemata tables
       export_data tables, min_id, max_id
       import_schemata!
-      alter_schemata if respond_to? :alter_schemata
+      if respond_to? :alter_schemata
+        alter_schemata 
+        # re-retrieve table metadata in the case that we alter the tables
+        pool.probe_tables!
+        tables = pool.tables.select{|t| pool.tables.map(&:name).include?(table.name)}
+      end
+
+      index_list = {}
+
+      if Jetpants.import_without_indices
+        tables.each do |t|
+          index_list[t] ||= []
+
+          t.indexes.each do |i|
+            cmd = table.drop_index_query
+            output "Dropping index #{i} prior to import"
+            root_cmd(cmd)
+          end
+        end
+      end
+
       import_data tables, min_id, max_id
+
+      if Jetpants.import_without_indices
+        index_list.each do |table, indexes|
+          indexes.each do |i|
+            create_idx_cmd = table.create_index_query(i)
+            output "Recreating index #{i} after import"
+            root_cmd(create_idx_cmd)
+          end
+        end
+      end
       
       restart_mysql
       catch_up_to_master if is_slave?
