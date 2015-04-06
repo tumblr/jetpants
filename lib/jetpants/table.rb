@@ -121,19 +121,29 @@ module Jetpants
     #  {:index_name=>
     #     {:columns=>[:column_one, :column_two], :unique=>false}},
     #
-    def create_index_query(index_spec)
-      index_name = index_spec.keys.first
-      throw "Cannot determine index name!" if index_name.nil?
+    def create_index_query(index_specs*)
+      index_defs = []
 
-      index_opts = index_spec[index_name]
-      throw "Cannot determine index metadata!" if index_opts[:columns].nil?
+      index_specs.each do |index_spec|
+        index_name = index_spec.keys.first
+        throw "Cannot determine index name!" if index_name.nil?
 
-      unique = ""
-      if index_opts[:unique]
-        unique = "UNIQUE"
+        index_opts = index_spec[index_name]
+        throw "Cannot determine index metadata for new index #{index_name}!" if index_opts[:columns].nil?
+
+        index_spec[:columns].each do |col|
+          throw "Table #{name} does not have column #{col}" unless columns.include?(col)
+        end
+
+        unique = ""
+        if index_opts[:unique]
+          unique = "UNIQUE"
+        end
+
+        index_defs << "ADD #{unique} INDEX #{index_name} (#{index_opts[:columns].join(',')})"
       end
 
-      "ALTER TABLE #{name} ADD #{unique} INDEX #{index_name} (#{index_opts[:columns].join(',')})"
+      "ALTER TABLE #{name} #{index_defs.join(", ")}"
     end
     
     # Returns the first column of the primary key, or nil if there isn't one
