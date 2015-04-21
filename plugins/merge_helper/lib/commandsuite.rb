@@ -5,7 +5,7 @@ require 'thor'
 module Jetpants
   class CommandSuite < Thor
 
-    desc 'merge_shards_duplicate_check', 'Shard merge Step #0 of 5: Perform the duplicate check on the shards being merged.'
+    desc 'merge_shards_duplicate_check', 'Shard merge (step 0 of 5): perform the duplicate check on the shards being merged.'
     def merge_shards_duplicate_check
       # make sure we have a valid settings hash
       settings = Jetpants.plugins['merge_helper'] || {}
@@ -20,7 +20,9 @@ module Jetpants
       max_key = settings['max_id_dup_check']
 
       table_name = settings['table_dup_check']
-      column_name = settings['column_name_dup_check']
+      column_name = settings['column_name_dup_check'].to_sym
+
+      select_fields = [ settings['dup_check_fields'], settings['column_name_dup_check'] ].compact.flatten
 
       duplicates_found = false
 
@@ -41,12 +43,13 @@ module Jetpants
         if ids.length > 0
           duplicates_found = true
           pools = [source_shard, comparison_shard]
-          source_db.output "Duplicate post IDs and their states for pair: #{source_shard} and #{comparison_shard}"
+          source_db.output "Duplicate records and their data for pair: #{source_shard} and #{comparison_shard}"
           pools.concurrent_map { |pool|
             db = pool.standby_slaves.last || pool.backup_slaves.last
 
             # Query will output the results we need to fix.
-            db.query_return_array("SELECT id, tumblelog_id, state, type FROM posts WHERE id IN ( #{ids.join(',')} )")
+            duplicates = db.query_return_array("SELECT #{select_fields.join(',')} FROM #{table_name} WHERE #{key} IN ( #{ids.join(',')} ) ORDER BY #{key}")
+            output duplicates
           }
         end
       }
@@ -65,7 +68,7 @@ module Jetpants
       )
     end
 
-    desc 'merge_shards', 'Shard merge step #1 of 5: Merge two or more shards using an aggregator instance'
+    desc 'merge_shards', 'Shard merge (step 1 of 5): merge two or more shards using an aggregator instance'
     def merge_shards
       # ask the user for the shards to merge
       shards_to_merge = ask_merge_shard_ranges
@@ -73,11 +76,6 @@ module Jetpants
       aggregate_node_ip = ask "Please supply the IP of an aggregator node:"
       aggregate_node = Aggregator.new(aggregate_node_ip)
       raise "Invalid aggregate node!" unless aggregate_node.aggregator?
-
-      # claim node for the new shard master
-      spare_count = shards_to_merge.first.slaves_layout[:standby_slave] + 1;
-      raise "Not enough spares available!" unless Jetpants.count_spares(like: shards_to_merge.first.master) >= spare_count
-      raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= shards_to_merge.first.slaves_layout[:backup_slave]
 
       # claim the slaves further along in the process
       aggregate_shard_master = ask_node("Enter the IP address of the new master or press enter to select a spare:")
@@ -88,8 +86,13 @@ module Jetpants
          aggregate_shard_master = Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
       end
 
+      # claim node for the new shard master
+      spare_count = shards_to_merge.first.slaves_layout[:standby_slave] + 1;
+      raise "Not enough spares available!" unless Jetpants.count_spares(like: aggregate_shard_master) >= spare_count
+      raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= shards_to_merge.first.slaves_layout[:backup_slave]
+
       # Perform cleanup on aggregator in case of any earlier unsuccessful merge
-      if aggregator_node.needs_cleanup?
+      if aggregate_node.needs_cleanup?
         answer = ask "Aggregator needs a cleanup.  Do you want to cleanup the aggregator? (enter YES in all caps if so)?:"
         if answer == "YES"
           aggregate_node.cleanup!
@@ -121,8 +124,8 @@ module Jetpants
       Jetpants.topology.add_pool aggregate_shard
 
       # build up the rest of the new shard
-      spares_for_aggregate_shard = Jetpants.topology.claim_spares(aggregate_shard.slaves_layout[:standby_slave], role: :standby_slave, like: aggregate_shard_master)
-      backups_for_aggregate_shard = Jetpants.topology.claim_spares(aggregate_shard.slaves_layout[:backup_slave], role: :backup_slave)
+      spares_for_aggregate_shard = Jetpants.topology.claim_spares(aggregate_shard.slaves_layout[:standby_slave], role: :standby_slave, like: aggregate_shard_master, for_pool: aggregate_shard)
+      backups_for_aggregate_shard = Jetpants.topology.claim_spares(aggregate_shard.slaves_layout[:backup_slave], role: :backup_slave, for_pool: aggregate_shard)
 
       spares_for_aggregate_shard = [spares_for_aggregate_shard, backups_for_aggregate_shard].flatten
       aggregate_shard_master.enslave! spares_for_aggregate_shard
@@ -148,7 +151,7 @@ module Jetpants
 
     # Performs a validation step of pausing replication and determining row counts
     # on the aggregating server and its data sources
-    desc 'merge_shards_validate', 'Shard merge step #2 of 5: Validate aggregating server row counts'
+    desc 'merge_shards_validate', 'Shard merge (step 2 of 5): validate aggregating server row counts'
     def merge_shards_validate
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -184,7 +187,7 @@ module Jetpants
     end
 
     # regenerate config and switch reads to new shard's master
-    desc 'merge_shards_reads', 'Shard merge step #3 of 5: Switch reads to the new merged master'
+    desc 'merge_shards_reads', 'Shard merge (step 3 of 5): switch reads to the new merged master'
     def merge_shards_reads
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -206,13 +209,13 @@ module Jetpants
         'Commit/push the configuration in version control.',
         'Deploy the configuration to all machines.',
         'Wait for reads to stop on the old parent masters.',
-        'Proceed to next step: jetpants merge_shards_writes',
+        'Proceed to next step: jetpants merge_shards_writes'
       )
     end
 
 
     # regenerate config and switch writes to new shard's master
-    desc 'merge_shards_writes', 'Shard merge step #4 of 5: Switch writes to the new merged master'
+    desc 'merge_shards_writes', 'Shard merge (step 4 of 5): switch writes to the new merged master'
     def merge_shards_writes
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -236,12 +239,12 @@ module Jetpants
         'Commit/push the configuration in version control.',
         'Deploy the configuration to all machines.',
         'Wait for writes to stop on the old parent masters.',
-        'Proceed to next step: jetpants merge_shards_cleanup',
+        'Proceed to next step: jetpants merge_shards_cleanup'
       )
     end
 
     # clean up aggregator node and old shards
-    desc 'merge_shards_cleanup', 'Shard merge step #5 of 5: Clean up the old shards and aggregator node'
+    desc 'merge_shards_cleanup', 'Shard merge (step 5 of 5): clean up the old shards and aggregator node'
     def merge_shards_cleanup
       # obtain relevant shards
       shards_to_merge = ask_merge_shards
@@ -268,7 +271,7 @@ module Jetpants
     end
     def self.after_merge_shards_cleanup
       reminders(
-        'Review old nodes for hardware issues before re-using, or simply cancel them.',
+        'Review old nodes for hardware issues before re-using, or simply cancel them.'
       )
     end
 

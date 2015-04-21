@@ -8,7 +8,7 @@ module Jetpants
     # Returns true if no problems found, false otherwise.
     # If problems were found, the 'checksums' table will be
     # left in the pool - the user must review and manually delete.
-    def checksum_tables
+    def checksum_tables options={}
       schema = master.app_schema
       success = false
       output_lines = []
@@ -28,7 +28,7 @@ module Jetpants
       # Determine what to pass to --max-load
       master.output "Polling for normal max threads_running, please wait"
       max_threads_running = master.max_threads_running
-      limit_threads_running = [(max_threads_running * 1.2).ceil, 50].max
+      limit_threads_running = [(max_threads_running * 1.2).ceil, 20].max
       master.output "Found max threads_running=#{max_threads_running}, will use limit of #{limit_threads_running}"
       
       # Operate with a temporary user that has elevated permissions
@@ -44,8 +44,15 @@ module Jetpants
           "--replicate-database #{schema}",
           "--user #{username}",
           "--password #{password}"
-        ].join ' '
-        command_line += ' --resume' if previous_run
+        ]
+
+        command_line << '--nocheck-plan' if options[:no_check_plan]
+        command_line << "--chunk-time #{options[:chunk_time]}" if options[:chunk_time]
+        command_line << "--chunk-size-limit #{options[:chunk_size_limit]}" if options[:chunk_size_limit]
+        command_line << ['--tables', options[:tables].join(',')].join(' ') if (options[:tables] && !options[:tables].empty?)
+        command_line << '--resume' if previous_run
+
+        command_line = command_line.join ' '
         
         # Spawn the process
         Open3.popen3(command_line) do |stdin, stdout, stderr, wait_thread|
@@ -121,7 +128,14 @@ module Jetpants
       success
     end
     
-    
+    def display_buffer_pool_hit_rate(nodes=nil)
+      return if nodes.nil?
+      nodes.each { |node|
+        pct_hit_rate = node.avg_buffer_pool_hit_rate
+        node.output "Buffer pool hit ratio: #{pct_hit_rate}%"
+      }
+    end
+
     # Uses pt-upgrade to compare query performance and resultsets among nodes
     # in a pool. Supply params:
     # * a full path to a slowlog file
@@ -138,6 +152,9 @@ module Jetpants
         compare_nodes.flatten!
         raise "Supplied nodes must all be in this pool" unless compare_nodes.all? {|n| n == master || n.master == master}
       end
+
+      pt_upgrade_version = `pt-upgrade --version`.to_s.split(' ').last.chomp rescue '0.0.0'
+      raise "pt-upgrade executable is not available on the host" unless $?.exitstatus == 1
       
       # We need to create a temporary SUPER user on the nodes to compare
       # Also attempt to silence warning 1592 about unsafe-for-replication statements if
@@ -149,6 +166,11 @@ module Jetpants
         node.create_user username, password
         node.grant_privileges username, '*', 'SUPER'
         node.grant_privileges username, node.app_schema, 'ALL PRIVILEGES'
+        if pt_upgrade_version.to_f >= 2.2
+          node.mysql_root_cmd "CREATE DATABASE IF NOT EXISTS percona_schema;"
+          node.grant_privileges username, 'percona_schema', 'ALL PRIVILEGES'
+          node.mysql_root_cmd "USE percona_schema;CREATE TABLE IF NOT EXISTS pt_upgrade ( id INT NOT NULL PRIMARY KEY );"
+        end
         
         # We only want to try this if (a) the node supports log_warnings_suppress,
         # and (b) the node isn't already suppressing warning 1592
@@ -160,28 +182,46 @@ module Jetpants
       
       node_text = compare_nodes.map {|s| s.to_s + ' (v' + s.normalized_version(3) + ')'}.join ' vs '
       dsn_text = compare_nodes.map {|n| "h=#{n.ip},P=#{n.port},u=#{username},p=#{password},D=#{n.app_schema}"}.join ' '
-      
+     
+      display_buffer_pool_hit_rate(compare_nodes)
+
       # Do silent run if requested (to populate buffer pools)
       if silent_run_first
         output "Doing a silent run of pt-upgrade with slowlog #{slowlog_path} to populate buffer pool."
         output "Comparing nodes #{node_text}..."
-        stdout, exit_code = `pt-upgrade --set-vars wait_timeout=10000 #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+        if pt_upgrade_version.to_f >= 2.2
+          stdout, exit_code = `pt-upgrade --set-vars wait_timeout=10000 #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+        else
+          stdout, exit_code = `pt-upgrade --report=hosts,stats --set-vars wait_timeout=10000 --compare query_times,results #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+        end
         output "pt-upgrade silent run completed with exit code #{exit_code}"
         puts
         puts
       end
       
+      display_buffer_pool_hit_rate(compare_nodes)
+
       # Run pt-upgrade for real. Note that we only compare query times and results, NOT warnings,
       # due to issues with warning 1592 causing a huge amount of difficult-to-parse output.
       output "Running pt-upgrade with slowlog #{slowlog_path}"
       output "Comparing nodes #{node_text}..."
-      stdout, exit_code = `pt-upgrade --set-vars wait_timeout=10000 --compare query_times,results #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+      if pt_upgrade_version.to_f >= 2.2
+        stdout, exit_code = `pt-upgrade --set-vars wait_timeout=10000 #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+      else
+        stdout, exit_code = `pt-upgrade --report=hosts,stats --set-vars wait_timeout=10000 --compare query_times,results #{slowlog_path} #{dsn_text} 2>&1`, $?.to_i
+      end
       output stdout
       puts
+      display_buffer_pool_hit_rate(compare_nodes)
+
       output "pt-upgrade completed with exit code #{exit_code}"
       
       # Drop the SUPER user and re-enable logging of warning 1592
-      compare_nodes.each {|node| node.drop_user username}
+      compare_nodes.each do |node|
+        node.mysql_root_cmd "DROP DATABASE IF EXISTS percona_schema;" if pt_upgrade_version.to_f >= 2.2
+
+        node.drop_user username
+      end
       remove_suppress_1592.each {|node| node.mysql_root_cmd "SET GLOBAL log_warnings_suppress = ''"}
     end
     
@@ -230,7 +270,10 @@ module Jetpants
       # at the same position. We only proceed with this if we're comparing
       # exactly two nodes; this may be improved in a future release.
       if compare_nodes.size == 2
-        compare_nodes.each {|n| n.disable_monitoring}
+        compare_nodes.each { |n|
+          n.disable_monitoring
+          n.stop_query_killer
+        }
         compare_nodes.first.pause_replication_with(compare_nodes.last)
       end
       
@@ -250,6 +293,7 @@ module Jetpants
         compare_nodes.concurrent_each do |n| 
           n.resume_replication
           n.catch_up_to_master
+          n.start_query_killer
           n.enable_monitoring
         end
       end

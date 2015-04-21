@@ -26,7 +26,7 @@ module Jetpants
     
     # Jetpants::DB object that is the pool's master
     attr_reader   :master
-    
+
     # Array of strings containing other equivalent names for this pool
     attr_reader   :aliases
     
@@ -49,6 +49,10 @@ module Jetpants
     # has no effect inside of Jetpants, but can be used by an asset tracker /
     # config generator plugin to carry the value through to the config file.
     attr_accessor :master_read_weight
+
+    # this is a list of nodes which have been claimed as spares, but which
+    # won't show up in the slaves list
+    attr_accessor :claimed_nodes
     
     def initialize(name, master)
       @name = name
@@ -59,19 +63,25 @@ module Jetpants
       @active_slave_weights = {}
       @tables = nil
       @probe_lock = Mutex.new
+      @claimed_nodes = []
     end
-    
+
+    def change_master_to! new_master
+      @master = new_master
+    end
+
     # Returns all slaves, or pass in :active, :standby, or :backup to receive slaves
     # just of a particular type
     def slaves(type=false)
       case type
-      when :active  then active_slaves
-      when :standby then standby_slaves
-      when :backup  then backup_slaves
-      when false    then @master.slaves
+      when :active_slave,  :active  then active_slaves
+      when :standby_slave, :standby then standby_slaves
+      when :backup_slave,  :backup  then backup_slaves
+      when false                    then @master.slaves
       else []
       end
     end
+    alias :running_slaves :slaves
     
     # Returns an array of Jetpants::DB objects.
     # Active slaves are ones that receive read queries from your application.

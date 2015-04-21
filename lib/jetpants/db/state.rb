@@ -336,10 +336,31 @@ module Jetpants
       @spare_validation_errors << "The node is not marked as a spare in the asset tracker" unless is_spare?
     end
 
+    # Resets the MySQL data on a server and puts it into the spare pool
+    def cleanup_spare!
+      raise "Plugin must override DB#cleanup_spare!"
+    end
+
     # Sets a server as "claimed" in the asset tracker so that no other operation can use it.
     # This is used for moving servers out of the spare pool.
     def claim!
       raise "Plugin must override DB#claim!"
+    end
+
+    def innodb_status(section=nil)
+      status = mysql_root_cmd('SHOW ENGINE INNODB STATUS')
+      sections = Hash[status.scan /-+\n([[:upper:][:space:][:punct:]]+)\n-+\n(.*?)(?=\n-+\n[[:upper:][:space:][:punct:]]+\n)/m]
+      sections.each { |k, v| sections[k] = v.split(/\n/) }
+
+      # either return a single section or all sections
+      section ? sections[section.to_s.upcase] : sections
+    end
+
+    def avg_buffer_pool_hit_rate
+      status = innodb_status('BUFFER POOL AND MEMORY')
+      buffer_pool_hit_rate = status.select { |status_line| status_line.match(/^Buffer pool hit rate/) }.first
+
+      ((buffer_pool_hit_rate.split[4].to_f * 100) / buffer_pool_hit_rate.split[6].to_f).round(2)
     end
 
     ###### Private methods #####################################################

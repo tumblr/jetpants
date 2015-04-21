@@ -320,7 +320,7 @@ module Jetpants
     # WARNING: temporarily shuts down mysql on self, and WILL OVERWRITE CONTENTS
     # OF MYSQL DIRECTORY ON TARGETS.  Confirms first that none of the targets
     # have over 100MB of data in the schema directory or in ibdata1.
-    # MySQL is restarted on source and targets afterwards. 
+    # MySQL is restarted on source and targets afterwards.
     def clone_to!(*targets)
       targets.flatten!
       raise "Cannot clone an instance onto its master" if master && targets.include?(master)
@@ -347,13 +347,18 @@ module Jetpants
       files = (databases + ['ibdata1', app_schema]).uniq
       files << 'ib_lru_dump' if ssh_cmd("test -f #{mysql_directory}/ib_lru_dump 2>/dev/null; echo $?").chomp.to_i == 0
       
-      fast_copy_chain(mysql_directory, 
-                      destinations,
-                      port: 3306,
-                      files: files,
-                      overwrite: true)
-      [self, targets].flatten.concurrent_each {|t| t.start_mysql; t.start_query_killer}
+      fast_copy_chain(mysql_directory, destinations, :port => 3306, :files => files, :overwrite => true)
+      clone_settings_to!(*targets)
+
+      [self, targets].flatten.concurrent_each do |t|
+        t.start_mysql
+        t.start_query_killer
+      end
     end
-    
+
+    def clone_settings_to!(*targets)
+      true
+    end
+
   end
 end

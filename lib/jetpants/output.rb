@@ -30,6 +30,7 @@ module Jetpants
         @@output_logger ||= Logger.new(Jetpants.log_file)
         @@output_logger.send(level, context) {
           output
+            .encode('UTF-8', :undef => :replace, :invalid => :replace, :replace => '')
             .gsub(/\e\[\d+(;\d+)*m/, '') # remove all coloring from Highline
             .gsub(/^#{level}: /i, '')    # remove repetition of the logging level
         }
@@ -41,7 +42,7 @@ module Jetpants
         puts output
       }
 
-      output
+      true
     end
   end
 

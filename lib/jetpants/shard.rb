@@ -168,10 +168,20 @@ module Jetpants
         init_child_shard_masters(id_ranges)
       end
       
+      shards_with_errors = []
       @children.concurrent_each do |c|
         c.prune_data! if [:initializing, :exporting, :importing].include? c.state
-        c.clone_slaves_from_master
+        begin
+          c.clone_slaves_from_master
+        rescue Exception => e
+          shards_with_errors << {shard: c, error: e.message, stacktrace: e.backtrace.inspect}
+        end
         c.sync_configuration
+      end
+
+      unless shards_with_errors.empty?
+        shards_with_errors.each{|info| info[:shard].output info[:error]}
+        raise "Error splitting shard #{self}."
       end
       
       output "Initial split complete."
@@ -258,7 +268,16 @@ module Jetpants
       raise "Not enough standby_slave role machines in spare pool!" if standby_slaves_needed > standby_slaves_available
 
       backup_slaves_available = Jetpants.topology.count_spares(role: :backup_slave)
-      raise "Not enough backup_slave role machines in spare pool!" if backup_slaves_needed > backup_slaves_available
+      if backup_slaves_needed > backup_slaves_available
+        if standby_slaves_available > backup_slaves_needed + standby_slaves_needed &&
+          agree("Not enough backup_slave role machines in spare pool, would you like to use standby_slaves? [yes/no]: ")
+
+          standby_slaves_needed = standby_slaves_needed + backup_slaves_needed
+          backup_slaves_needed = 0
+        else
+          raise "Not enough backup_slave role machines in spare pool!" if backup_slaves_needed > backup_slaves_available
+        end
+      end
 
       # Handle state transitions
       if @state == :child || @state == :importing
@@ -270,8 +289,8 @@ module Jetpants
         raise "Shard #{self} is not in a state compatible with calling clone_slaves_from_master! (current state=#{@state})"
       end
       
-      standby_slaves = Jetpants.topology.claim_spares(standby_slaves_needed, role: :standby_slave, like: master)
-      backup_slaves = Jetpants.topology.claim_spares(backup_slaves_needed, role: :backup_slave)
+      standby_slaves = Jetpants.topology.claim_spares(standby_slaves_needed, role: :standby_slave, like: master, for_pool: master.pool)
+      backup_slaves = Jetpants.topology.claim_spares(backup_slaves_needed, role: :backup_slave, for_pool: master.pool)
       enslave!([standby_slaves, backup_slaves].flatten)
       [standby_slaves, backup_slaves].flatten.each &:resume_replication
       [self, standby_slaves, backup_slaves].flatten.each { |db| db.catch_up_to_master }
@@ -314,14 +333,18 @@ module Jetpants
           child_shard.sync_configuration
         end
         @state = :recycle
-      
-      # situation B - clean up after a two-step shard master promotion
+
+      # situation B - clean up after a two-step (lockless) shard master promotion
       elsif @state == :needs_cleanup && @master.master && !@parent
         eject_master = @master.master
-        eject_slaves = @master.slaves.reject {|s| s == @master}
-        eject_master.revoke_all_access!
+        eject_slaves = eject_master.slaves.reject { |s| s == @master } rescue []
+
+        # stop the new master from replicating from the old master (we are about to eject)
         @master.disable_replication!
-        
+
+        eject_slaves.each(&:revoke_all_access!)
+        eject_master.revoke_all_access!
+
         # We need to update the asset tracker to no longer consider the ejected
         # nodes as part of this pool. This includes ejecting the old master, which
         # might be handled by Pool#after_master_promotion! instead 
@@ -329,14 +352,14 @@ module Jetpants
         after_master_promotion!(@master, false) if respond_to? :after_master_promotion!
         
         @state = :ready
-        
+
       else
         raise "Shard #{self} is not in a state compatible with calling cleanup! (state=#{state}, child count=#{@children.size}"
       end
       
       sync_configuration
     end
-    
+
     # Displays information about the shard
     def summary(extended_info=false, with_children=false)
       super(extended_info)

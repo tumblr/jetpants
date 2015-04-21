@@ -82,9 +82,19 @@ module Jetpants
 
       slaves(:standby).each {|db| db.collins_secondary_role = 'STANDBY_SLAVE'}
       slaves(:backup).each {|db| db.collins_secondary_role = 'BACKUP_SLAVE'}
+
+      @claimed_nodes = []
       true
     end
     
+    # Return the count of Allocated:RUNNING slaves
+    def running_slaves(secondary_role=false)
+      slaves.select { |slave|
+        collins_secondary_role = Jetpants.topology.normalize_roles(slave.collins_secondary_role).first rescue false
+        (slave.collins_status_state.downcase == 'allocated:running') && (secondary_role ? collins_secondary_role == secondary_role : true)
+      }
+    end
+
     # If the pool's master hasn't been probed yet, return active_slaves list
     # based strictly on what we found in Collins. This is a major speed-up at
     # start-up time, especially for tasks that need to iterate over all pools.
@@ -133,7 +143,7 @@ module Jetpants
       assets = Jetpants.topology.server_node_assets(@name, :slave)
       assets.reject! {|a| a.location && a.location.upcase != Plugin::JetCollins.datacenter}
       assets.map(&:to_db).each do |db|
-        if !db.running? || db.pool != self
+        if db.master != @master || !db.running? || db.pool != self
           db.output "Not replicating from new master, removing from pool #{self}"
           db.collins_pool = ''
           db.collins_secondary_role = ''

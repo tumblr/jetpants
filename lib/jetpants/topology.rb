@@ -9,14 +9,16 @@ module Jetpants
     include Output
 
     def initialize
-      @pools  = [] # array of Pool objects
+      # initialize @pools to an empty state
+      @pools  = nil
+
       # We intentionally don't call load_pools here. The caller must do that.
       # This allows Jetpants module to create Jetpants.topology object, and THEN
       # invoke load_pools, which might then refer back to Jetpants.topology.
     end
 
     def pools
-      load_pools if @pools.empty?
+      load_pools if @pools.nil?
       @pools
     end
 
@@ -103,7 +105,15 @@ module Jetpants
     def count_spares(options={})
       raise "Plugin must override Topology#count_spares"
     end
-    
+
+    synchronized
+    # Plugin should override so that this returns a list of spare machines
+    # matching the selected options. options hash follows same format as for
+    # Topology#claim_spares.
+    def spares(options={})
+      raise "Plugin must override Topology#spares"
+    end
+
     # Returns a list of valid role symbols in use in Jetpants.
     def valid_roles
       [:master, :active_slave, :standby_slave, :backup_slave]
