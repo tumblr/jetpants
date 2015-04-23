@@ -209,19 +209,18 @@ module Jetpants
         operation:    'and',
         details:      true,
         size:         per_page,
-        query:        'status != ^DECOMMISSIONED$',
+        query:        'status != ^DECOMMISSIONED$ AND type = ^CONFIGURATION$',
       }
 
       if primary_roles.count == 1
-        selector[:type] = '^CONFIGURATION$'
         selector[:primary_role] = primary_roles.first
       else
         values = primary_roles.map {|r| "primary_role = ^#{r}$"}
-        selector[:query] += ' AND type = ^CONFIGURATION$ AND (' + values.join(' OR ') + ')'
+        selector[:query] += ' AND (' + values.join(' OR ') + ')'
       end
       
       selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
-      
+
       done = false
       page = 0
       assets = []
