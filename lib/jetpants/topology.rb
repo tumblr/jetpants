@@ -127,8 +127,9 @@ module Jetpants
     ###### Instance Methods ####################################################
     
     # Returns array of this topology's Jetpants::Pool objects of type Jetpants::Shard
-    def shards
-      pools.select {|p| p.is_a? Shard}
+    def shards(shard_pool = nil)
+      shard_pool = default_shard_pool if shard_pool.nil
+      pools.select {|p| p.is_a? Shard}.select { |p| p.shard_pool = shard_pool }
     end
     
     # Returns array of this topology's Jetpants::Pool objects that are NOT of type Jetpants::Shard
@@ -151,13 +152,28 @@ module Jetpants
     # * just a min ID
     # * a Range object
     def shard(*args)
-      if args.count == 2 || args[0].is_a?(Array)
+      if args.count >= 2 || args[0].is_a?(Array)
         args.flatten!
+        if(args.last.to_i == 0 && args.last.upcase != 'INFINITY')
+          shard_pool = args.last
+        else
+          shard_pool = default_shard_pool
+        end
         args.map! {|x| x.to_s.upcase == 'INFINITY' ? 'INFINITY' : x.to_i}
         shards.select {|s| s.min_id == args[0] && s.max_id == args[1]}.first
       elsif args[0].is_a?(Range)
-        shards.select {|s| s.min_id == args[0].min && s.max_id == args[0].max}.first
+        if(args[1].nil?)
+          shard_pool = default_shard_pool
+        else
+          shard_pool = args[1]
+        end
+        shards.select {|s| s.min_id == args[0].min && s.max_id == args[0].max && s.shard_pool = shard_pool}.first
       else
+        if(args[1].nil?)
+          shard_pool = default_shard_pool
+        else
+          shard_pool = args[1]
+        end
         result = shards.select {|s| s.min_id == args[0].to_i}
         raise "Multiple shards found with that min_id!" if result.count > 1
         result.first
@@ -170,7 +186,8 @@ module Jetpants
     # child is fully built / in production, this method will always return
     # the child shard. However, Shard#db(:write) will correctly delegate writes
     # to the parent shard when appropriate in this case. (see also: Topology#shard_db_for_id)
-    def shard_for_id(id)
+    def shard_for_id(id, shard_pool = nil)
+      shard_pool = default_shard_pool if shard_pool.nil?
       choices = shards.select {|s| s.min_id <= id && (s.max_id == 'INFINITY' || s.max_id >= id)}
       choices.reject! {|s| s.parent && ! s.in_config?} # filter out child shards that are still being built
       

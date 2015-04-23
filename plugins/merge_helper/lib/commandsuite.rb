@@ -295,11 +295,14 @@ module Jetpants
         min_id = ask("Please provide the min ID of the shard range to merge:")
         max_id = ask("Please provide the max ID of the shard range to merge:")
 
+        shard_pool = ask('Please enter the sharding pool which to perform the action on (enter for default pool): ')
+        shard_pool = default_shard_pool if shard_pool.empty?
+
         # for now we assume we'll never merge the shard at the head of the list
-        shards_to_merge = Jetpants.shards.select do |shard|
+        shards_to_merge = Jetpants.shards(shard_pool).select do |shard|
           shard.min_id.to_i >= min_id.to_i &&
           shard.max_id.to_i <= max_id.to_i &&
-          shard.max_id != 'INFINITY'
+          shard.max_id != 'INFINITY' &&
         end
 
         shard_str = shards_to_merge.join(', ')

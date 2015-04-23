@@ -7,7 +7,7 @@ module Jetpants
     
     include Plugin::JetCollins
     
-    collins_attr_accessor :shard_min_id, :shard_max_id, :shard_state, :shard_parent
+    collins_attr_accessor :shard_min_id, :shard_max_id, :shard_state, :shard_parent, :shard_pool
     
     # Returns a Collins::Asset for this pool
     def collins_asset(create_if_missing=false)

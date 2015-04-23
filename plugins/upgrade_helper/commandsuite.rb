@@ -122,10 +122,14 @@ module Jetpants
     method_option :reads,   :desc => 'Move reads to the new master', :type => :boolean
     method_option :writes,  :desc => 'Move writes to new master', :type => :boolean
     method_option :cleanup, :desc => 'Tear down the old-version nodes', :type => :boolean
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the upgrade'
     def shard_upgrade
+      shard_pool = options[:shard_pool] || ask('Please enter the sharding pool which to perform the action on (enter for default pool): ')
+      shard_pool = default_shard_pool if shard_pool.empty?
+
       if options[:reads]
         raise 'The --reads, --writes, and --cleanup options are mutually exclusive' if options[:writes] || options[:cleanup]
-        s = ask_shard_being_upgraded :reads
+        s = ask_shard_being_upgraded(:reads, shard_pool)
         s.branched_upgrade_move_reads
         Jetpants.topology.write_config
         self.class.reminders(
@@ -136,7 +140,7 @@ module Jetpants
         )
       elsif options[:writes]
         raise 'The --reads, --writes, and --cleanup options are mutually exclusive' if options[:reads] || options[:cleanup]
-        s = ask_shard_being_upgraded :writes
+        s = ask_shard_being_upgraded(:writes, shard_pool)
         s.branched_upgrade_move_writes
         Jetpants.topology.write_config
         self.class.reminders(
@@ -148,7 +152,7 @@ module Jetpants
         
       elsif options[:cleanup]
         raise 'The --reads, --writes, and --cleanup options are mutually exclusive' if options[:reads] || options[:writes]
-        s = ask_shard_being_upgraded :cleanup
+        s = ask_shard_being_upgraded(:cleanup, shard_pool)
         s.cleanup!
         
       else
@@ -156,7 +160,7 @@ module Jetpants
           'This process may take an hour or two. You probably want to run this from a screen session.',
           'Be especially careful if you are relying on SSH Agent Forwarding for your root key, since this is not screen-friendly.'
         )
-        s = ask_shard_being_upgraded :prep
+        s = ask_shard_being_upgraded(:prep, shard_pool)
         s.branched_upgrade_prep
         self.class.reminders(
           'Proceed to next step: jetpants shard_upgrade --reads'
@@ -208,8 +212,8 @@ module Jetpants
     end
     
     no_tasks do
-      def ask_shard_being_upgraded(stage=:prep)
-        shards_being_upgraded = Jetpants.shards.select {|s| [:child, :needs_cleanup].include?(s.state) && !s.parent && s.master.master}
+      def ask_shard_being_upgraded(stage = :prep, shard_pool = nil)
+        shards_being_upgraded = Jetpants.shards(shard_pool).select {|s| [:child, :needs_cleanup].include?(s.state) && !s.parent && s.master.master}
         if stage == :writes || stage == :cleanup
           if shards_being_upgraded.size == 0
             raise 'No shards are currently being upgraded. You can only use this task after running "jetpants shard_upgrade".'

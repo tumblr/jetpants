@@ -4,7 +4,7 @@ module Jetpants
   class Shard
     # Runs queries against a slave in the pool to verify sharding key values
     def validate_shard_data
-      tables = Table.from_config 'sharded_tables'
+      tables = Table.from_config('sharded_tables', self.shard_pool)
       table_statuses = {}
       tables.limited_concurrent_map(8) { |table|
         table.sharding_keys.each do |col|

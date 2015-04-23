@@ -117,9 +117,9 @@ module Jetpants
 
     ##### NEW METHODS ##########################################################
 
-    def db_location_report(shards_only = false)
-      if shards_only
-        pools_to_consider = shards
+    def db_location_report(shards_only = nil)
+      unless shards_only.nil?
+        pools_to_consider = shards(shards_only)
       else
         pools_to_consider = pools
       end

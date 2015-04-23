@@ -407,10 +407,15 @@ module Jetpants
     method_option :max_id, :desc => 'Maximum ID of parent shard to split'
     method_option :ranges, :desc => 'Optional comma-separated list of ranges per child ie "1000-1999,2000-2499" (default if omitted: split evenly)'
     method_option :count,  :desc => 'How many child shards to split the parent into (only necessary if the ranges option is omitted)'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the split'
     def shard_split
       shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
       shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
-      s = Jetpants.topology.shard shard_min, shard_max
+
+      shard_pool = options[:shard_pool] || ask('Please enter the sharding pool for which to perform the split (enter for default pool): ')
+      shard_pool = default_shard_pool if shard_pool.empty?
+
+      s = Jetpants.topology.shard(shard_min, shard_max, shard_pool)
       
       raise "Shard not found" unless s
       raise "Shard isn't in ready state" unless s.state == :ready
@@ -503,10 +508,14 @@ module Jetpants
     
     desc 'shard_cutover', 'truncate the current last shard range, and add a new shard after it'
     method_option :cutover_id, :desc => 'Minimum ID of new last shard being created'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the cutover'
     def shard_cutover
       cutover_id = options[:cutover_id] || ask('Please enter min ID of the new shard to be created: ')
       cutover_id = cutover_id.to_i
-      last_shard = Jetpants.topology.shards.select {|s| s.max_id == 'INFINITY' && s.in_config?}.first
+      shard_pool = options[:shard_pool] || ask('Please enter the sharding pool for which to perform the split (enter for default pool): ')
+      shard_pool = default_shard_pool if shard_pool.empty?
+
+      last_shard = Jetpants.topology.shards(shard_pool).select {|s| s.max_id == 'INFINITY' && s.in_config?}.first
       last_shard_master = last_shard.master
       
       # Simple sanity-check that the cutover ID is greater than the current last shard's MIN id.
@@ -794,7 +803,9 @@ module Jetpants
         output 'Which shard would you like to perform this action on?'
         shard_min = ask('Please enter min ID of the shard: ')
         shard_max = ask('Please enter max ID of the shard: ')
-        s = Jetpants.topology.shard shard_min, shard_max
+        shard_pool = ask('Please enter the sharding pool which to perform the action on (enter for default pool): ')
+        shard_pool = default_shard_pool if shard_pool.empty?
+        s = Jetpants.topology.shard(shard_min, shard_max, shard_pool)
         raise 'Shard not found' unless s
         s
       end

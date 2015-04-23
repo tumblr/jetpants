@@ -107,20 +107,20 @@ module Jetpants
     # Override the probe_tables method to accommodate shard topology -
     # delegate everything to the first shard.
     def probe_tables
-      if Jetpants.topology.shards.first == self
+      if Jetpants.topology.shards(self.shard_pool).first == self
         super
       else
-        Jetpants.topology.shards.first.probe_tables
+        Jetpants.topology.shards(self.shard_pool).first.probe_tables
       end
     end
 
     # Override the tables accessor to accommodate shard topology - delegate
     # everything to the first shard
     def tables
-      if Jetpants.topology.shards.first == self
+      if Jetpants.topology.shards(self.shard_pool).first == self
         super
       else
-        Jetpants.topology.shards.first.tables
+        Jetpants.topology.shards(self.shard_pool).first.tables
       end
     end
 
@@ -414,6 +414,7 @@ module Jetpants
         spare.disable_read_only! if (spare.running? && spare.read_only?)
         spare.output "Will be master for new shard with ID range of #{my_range.first} to #{my_range.last} (inclusive)"
         child_shard = Shard.new(my_range.first, my_range.last, spare, :initializing)
+        child_shard.shard_pool = self.shard_pool
         child_shard.sync_configuration
         add_child(child_shard)
         Jetpants.topology.add_pool child_shard
