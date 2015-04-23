@@ -310,7 +310,7 @@ module Jetpants
       if respond_to? :alter_schemata
         alter_schemata 
         # re-retrieve table metadata in the case that we alter the tables
-        pool.probe_tables!
+        pool.probe_tables
         tables = pool.tables.select{|t| pool.tables.map(&:name).include?(t.name)}
       end
 
