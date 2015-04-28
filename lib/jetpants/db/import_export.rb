@@ -318,12 +318,11 @@ module Jetpants
 
       if Jetpants.import_without_indices
         tables.each do |t|
-          index_list[t] ||= []
+          index_list[t] = t.indexes
 
-          t.indexes.each do |i|
-            drop_idx_cmd = t.drop_index_query(i)
-            index_list[t] << i
-            output "Dropping index #{i.keys.first} prior to import"
+          t.indexes.each do |index_name, index_info|
+            drop_idx_cmd = t.drop_index_query(index_name)
+            output "Dropping index #{index_name} prior to import"
             root_cmd(drop_idx_cmd)
           end
         end
