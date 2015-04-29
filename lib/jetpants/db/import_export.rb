@@ -315,6 +315,7 @@ module Jetpants
       end
 
       index_list = {}
+      db_prefix = "USE #{app_schema};"
 
       if Jetpants.import_without_indices
         tables.each do |t|
@@ -323,7 +324,7 @@ module Jetpants
           t.indexes.each do |index_name, index_info|
             drop_idx_cmd = t.drop_index_query(index_name)
             output "Dropping index #{index_name} prior to import"
-            mysql_root_cmd(drop_idx_cmd)
+            mysql_root_cmd("#{db_prefix}#{drop_idx_cmd}")
           end
         end
       end
@@ -335,7 +336,7 @@ module Jetpants
           indexes.each do |i|
             create_idx_cmd = table.create_index_query(i)
             output "Recreating index #{i.keys.first} after import"
-            mysql_root_cmd(create_idx_cmd)
+            mysql_root_cmd("#{db_prefix}#{create_idx_cmd}")
           end
         end
       end
