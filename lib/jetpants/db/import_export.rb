@@ -323,7 +323,7 @@ module Jetpants
           t.indexes.each do |index_name, index_info|
             drop_idx_cmd = t.drop_index_query(index_name)
             output "Dropping index #{index_name} prior to import"
-            root_cmd(drop_idx_cmd)
+            mysql_root_cmd(drop_idx_cmd)
           end
         end
       end
@@ -335,7 +335,7 @@ module Jetpants
           indexes.each do |i|
             create_idx_cmd = table.create_index_query(i)
             output "Recreating index #{i.keys.first} after import"
-            root_cmd(create_idx_cmd)
+            mysql_root_cmd(create_idx_cmd)
           end
         end
       end
