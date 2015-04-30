@@ -109,11 +109,6 @@ module Jetpants
     def probe_tables
       if Jetpants.topology.shards.first == self
         super
-        config = Jetpants.send('sharded_tables')
-        @tables.map! do |table|
-          table.parse_params(config[table.name]) if config[table.name]
-          table
-        end
       else
         Jetpants.topology.shards.first.probe_tables
       end

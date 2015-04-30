@@ -124,11 +124,9 @@ module Jetpants
     def create_index_query(*index_specs)
       index_defs = []
 
-      index_specs.each do |index_spec|
-        index_name = index_spec.keys.first
+      index_specs.each do |index_name, index_opts|
         throw "Cannot determine index name!" if index_name.nil?
 
-        index_opts = index_spec[index_name]
         throw "Cannot determine index metadata for new index #{index_name}!" if index_opts[:columns].nil?
 
         index_spec[:columns].each do |col|
