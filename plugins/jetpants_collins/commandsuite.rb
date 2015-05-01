@@ -29,11 +29,11 @@ module Jetpants
     method_option :name, :name => 'unique name of new pool to be created'
     method_option :master, :master => 'ip of pre-configured master for new pool'
     def create_pool
-      name = options[:name] || ask('Please enter the name of the new pool.')
-      if configuration_assets('MYSQL_POOL').map(&:pool).include? name.upcase
+      name = options[:name] || ask('Please enter the name of the new pool: ')
+      if Jetpants.topology.configuration_assets('MYSQL_POOL').map(&:pool).include? name.upcase
         error "Pool #{name} already exists"
       end
-      master = options[:master] || ask("Please enter the ip of the master, or 'none' if one does not yet exist.")
+      master = options[:master] || ask("Please enter the ip of the master, or 'none' if one does not yet exist: ")
       if (master.downcase != 'none') && ! (is_ip? master)
         error "Master must either be 'none' or a valid ip."
       end
