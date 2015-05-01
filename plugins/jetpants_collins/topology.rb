@@ -38,6 +38,14 @@ module Jetpants
     
     ##### METHOD OVERRIDES #####################################################
 
+    def load_sharding_pools
+      @sharding_pools = configuration_assets('MYSQL_SHARDING_POOL').map(&:to_sharding_pool)
+      @sharding_pools.compact! # remove nils from pools that had no master
+      @sharding_pools.sort_by! { |p| p.name }
+
+      true
+    end
+
     # Initializes list of pools + shards from Collins
     def load_pools
       # We keep a cache of Collins::Asset objects, organized as pool_name => role => [asset, asset, ...]

@@ -37,19 +37,24 @@ module Jetpants
     #   :deprecated     --  Parent shard that has been split but children are still in :child or :needs_cleanup state. Shard may still be in production for writes / replication not torn down yet.
     #   :recycle        --  Parent shard that has been split and children are now in the :ready state. Shard no longer in production, replication to children has been torn down.
     attr_accessor :state
+
+    # the sharding pool to which this shard belongs
+    attr_accessor :shard_pool
     
     # Constructor for Shard --
     # * min_id: int
     # * max_id: int or the string "INFINITY"
     # * master: string (IP address) or a Jetpants::DB object
     # * state:  one of the above state symbols
-    def initialize(min_id, max_id, master, state=:ready)
+    def initialize(min_id, max_id, master, state=:ready, shard_pool=nil)
       @min_id = min_id.to_i
       @max_id = (max_id.to_s.upcase == 'INFINITY' ? 'INFINITY' : max_id.to_i)
       @state = state
 
       @children = []    # array of shards being initialized by splitting this one
       @parent = nil
+      shard_pool = Jetpants.topology.default_sharding_pool if shard_pool.nil?
+      @shard_pool = shard_pool
       
       super(generate_name, master)
     end

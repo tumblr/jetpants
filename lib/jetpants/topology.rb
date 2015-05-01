@@ -12,6 +12,9 @@ module Jetpants
       # initialize @pools to an empty state
       @pools  = nil
 
+      # initialize sharding pools to empty
+      @sharding_pools = nil
+
       # We intentionally don't call load_pools here. The caller must do that.
       # This allows Jetpants module to create Jetpants.topology object, and THEN
       # invoke load_pools, which might then refer back to Jetpants.topology.
@@ -20,6 +23,11 @@ module Jetpants
     def pools
       load_pools if @pools.nil?
       @pools
+    end
+
+    def sharding_pools
+      load_sharding_pools if @sharding_pools.nil?
+      @sharding_pools
     end
 
     ###### Class methods #######################################################
@@ -67,6 +75,11 @@ module Jetpants
     # @pools as appropriate.
     def load_pools
       output "Notice: no plugin has overridden Topology#load_pools, so *no* pools are imported automatically"
+    end
+
+    synchronized
+    def load_sharding_pools
+      output "Notice: no plugin has overriddent Topology#load_sharding_pools, so *no* sharding pools are imported automaticaly"
     end
 
     synchronized
