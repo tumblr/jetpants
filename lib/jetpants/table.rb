@@ -129,7 +129,7 @@ module Jetpants
 
         throw "Cannot determine index metadata for new index #{index_name}!" if index_opts[:columns].nil?
 
-        index_spec[:columns].each do |col|
+        index_opts[:columns].each do |col|
           throw "Table #{name} does not have column #{col}" unless columns.include?(col)
         end
 
