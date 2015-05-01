@@ -11,7 +11,7 @@ module Jetpants
       output "Attempting to shutdown MySQL"
       disconnect if @db
       output service(:stop, 'mysql')
-      running = ssh_cmd "netstat -ln | grep ':#{@port}' | wc -l"
+      running = ssh_cmd "netstat -ln | grep \":#{@port}\\s\" | wc -l"
       raise "[#{@ip}] Failed to shut down MySQL: Something is still listening on port #{@port}" unless running.chomp == '0'
       @options = []
       @running = false
