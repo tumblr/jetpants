@@ -333,11 +333,10 @@ module Jetpants
 
       if Jetpants.import_without_indices
         index_list.each do |table, indexes|
-          indexes.each do |i|
-            create_idx_cmd = table.create_index_query(i)
-            output "Recreating index #{i.keys.first} for #{table.name} after import"
-            mysql_root_cmd("#{db_prefix}#{create_idx_cmd}")
-          end
+          create_idx_cmd = table.create_index_query(indexes)
+          index_names = indexes.keys.join(", ")
+          output "Recreating indexes #{index_names} for #{table.name} after import"
+          mysql_root_cmd("#{db_prefix}#{create_idx_cmd}")
         end
       end
       

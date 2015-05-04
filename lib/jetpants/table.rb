@@ -121,7 +121,7 @@ module Jetpants
     #  {:index_name=>
     #     {:columns=>[:column_one, :column_two], :unique=>false}},
     #
-    def create_index_query(*index_specs)
+    def create_index_query(index_specs)
       index_defs = []
 
       index_specs.each do |index_name, index_opts|
