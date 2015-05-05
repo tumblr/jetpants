@@ -333,6 +333,8 @@ module Jetpants
 
       if Jetpants.import_without_indices
         index_list.each do |table, indexes|
+          next if indexes.keys.empty?
+
           create_idx_cmd = table.create_index_query(indexes)
           index_names = indexes.keys.join(", ")
           output "Recreating indexes #{index_names} for #{table.name} after import"
