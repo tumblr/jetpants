@@ -125,12 +125,12 @@ module Jetpants
       index_defs = []
 
       index_specs.each do |index_name, index_opts|
-        throw "Cannot determine index name!" if index_name.nil?
+        raise "Cannot determine index name!" if index_name.nil?
 
-        throw "Cannot determine index metadata for new index #{index_name}!" if index_opts[:columns].nil?
+        raise "Cannot determine index metadata for new index #{index_name}!" if index_opts[:columns].nil?
 
         index_opts[:columns].each do |col|
-          throw "Table #{name} does not have column #{col}" unless columns.include?(col)
+          raise "Table #{name} does not have column #{col}" unless columns.include?(col)
         end
 
         unique = ""
