@@ -110,8 +110,7 @@ module Jetpants
     # generates a query to drop a specified index named by
     # the symbol passed in to the method
     def drop_index_query(index_name)
-      index_info = indexes.select{|idx_name,idx_info| idx_name == index_name}.first
-      raise "Unable to find index #{index_name}!" if index_info.nil?
+      raise "Unable to find index #{index_name}!" unless indexes.has_key? index_name
      
       "ALTER TABLE #{name} DROP INDEX #{index_name}"
     end
@@ -127,7 +126,7 @@ module Jetpants
       index_specs.each do |index_name, index_opts|
         raise "Cannot determine index name!" if index_name.nil?
 
-        raise "Cannot determine index metadata for new index #{index_name}!" if index_opts[:columns].nil?
+        raise "Cannot determine index metadata for new index #{index_name}!" unless index_opts[:columns].kind_of?(Array)
 
         index_opts[:columns].each do |col|
           raise "Table #{name} does not have column #{col}" unless columns.include?(col)
