@@ -30,6 +30,11 @@ module Jetpants
       @sharding_pools
     end
 
+    def default_shard_pool
+      raise "Default shard pool not defined!" if @config['default_shard_pool'].nil?
+      @config['default_shard_pool']
+    end
+
     ###### Class methods #######################################################
     
     # Metaprogramming hackery to create a "synchronized" method decorator

@@ -53,7 +53,7 @@ module Jetpants
 
       @children = []    # array of shards being initialized by splitting this one
       @parent = nil
-      shard_pool = Jetpants.topology.default_sharding_pool if shard_pool.nil?
+      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.nil?
       @shard_pool = shard_pool
       
       super(generate_name, master)
