@@ -15,8 +15,16 @@ module Collins
       raise "Can only call to_host on SERVER_NODE assets, but #{self} has type #{type}" unless type.upcase == 'SERVER_NODE'
       backend_ip_address.to_host
     end
-    
-    
+
+    # Convert a Collins:Asset to a Jetpants::Shard_pool
+    def to_shard_pool
+      raise "Can only call to_shard_pool on CONFIGURATION assets, but #{self} has type #{type}" unless type.upcase == 'CONFIGURATION'
+      raise "Unknown primary role #{primary_role} for configuration asset #{self}" unless ['MYSQL_SHARD_POOL'].include?(primary_role.upcase)
+      raise "No shard_pool attribute set on asset #{self}" unless shard_pool && shard_pool.length > 0
+
+      Jetpants::ShardPool.new(shard_pool)
+    end
+
     # Convert a Collins::Asset to either a Jetpants::Pool or a Jetpants::Shard, depending
     # on the value of PRIMARY_ROLE.  Requires asset TYPE to be CONFIGURATION.
     def to_pool

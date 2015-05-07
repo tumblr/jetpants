@@ -3,7 +3,7 @@ module Jetpants
   # man Shards.  All shards within the pool partition a logically coherent
   # keyspace
 
-  class ShardingPool
+  class ShardPool
     def initialize(name)
       @name = name
     end
