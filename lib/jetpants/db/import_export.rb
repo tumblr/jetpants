@@ -307,8 +307,40 @@ module Jetpants
       export_schemata tables
       export_data tables, min_id, max_id
       import_schemata!
-      alter_schemata if respond_to? :alter_schemata
+      if respond_to? :alter_schemata
+        alter_schemata 
+        # re-retrieve table metadata in the case that we alter the tables
+        pool.probe_tables
+        tables = pool.tables.select{|t| pool.tables.map(&:name).include?(t.name)}
+      end
+
+      index_list = {}
+      db_prefix = "USE #{app_schema};"
+
+      if Jetpants.import_without_indices
+        tables.each do |t|
+          index_list[t] = t.indexes
+
+          t.indexes.each do |index_name, index_info|
+            drop_idx_cmd = t.drop_index_query(index_name)
+            output "Dropping index #{index_name} from #{t.name} prior to import"
+            mysql_root_cmd("#{db_prefix}#{drop_idx_cmd}")
+          end
+        end
+      end
+
       import_data tables, min_id, max_id
+
+      if Jetpants.import_without_indices
+        index_list.each do |table, indexes|
+          next if indexes.keys.empty?
+
+          create_idx_cmd = table.create_index_query(indexes)
+          index_names = indexes.keys.join(", ")
+          output "Recreating indexes #{index_names} for #{table.name} after import"
+          mysql_root_cmd("#{db_prefix}#{create_idx_cmd}")
+        end
+      end
       
       restart_mysql
       catch_up_to_master if is_slave?

@@ -48,6 +48,7 @@ module Jetpants
     'log_file'                =>  '/var/log/jetpants.log', # where to log all output from the jetpants commands
     'local_private_interface' =>  nil,        # local network interface corresponding to private IP of the machine jetpants is running on
     'free_mem_min_mb'         =>  0,          # Minimum amount of free memory in MB to be maintained on the node while performing the task (eg. network copy)
+    'import_without_indices'  => false,
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
