@@ -6,6 +6,9 @@ module Jetpants
   attr_accessor :name
 
   class ShardPool
+    include CallbackHandler
+    include Output
+
     def initialize(name)
       @name = name
     end
