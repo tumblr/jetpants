@@ -106,6 +106,42 @@ module Jetpants
       end
       return sql
     end
+
+    # generates a query to drop a specified index named by
+    # the symbol passed in to the method
+    def drop_index_query(index_name)
+      raise "Unable to find index #{index_name}!" unless indexes.has_key? index_name
+     
+      "ALTER TABLE #{name} DROP INDEX #{index_name}"
+    end
+
+    # generates a query to create a specified index, given
+    # a hash of columns, a name, and a unique flag as show below:
+    #  {:index_name=>
+    #     {:columns=>[:column_one, :column_two], :unique=>false}},
+    #
+    def create_index_query(index_specs)
+      index_defs = []
+
+      index_specs.each do |index_name, index_opts|
+        raise "Cannot determine index name!" if index_name.nil?
+
+        raise "Cannot determine index metadata for new index #{index_name}!" unless index_opts[:columns].kind_of?(Array)
+
+        index_opts[:columns].each do |col|
+          raise "Table #{name} does not have column #{col}" unless columns.include?(col)
+        end
+
+        unique = ""
+        if index_opts[:unique]
+          unique = "UNIQUE"
+        end
+
+        index_defs << "ADD #{unique} INDEX #{index_name} (#{index_opts[:columns].join(',')})"
+      end
+
+      "ALTER TABLE #{name} #{index_defs.join(", ")}"
+    end
     
     # Returns the first column of the primary key, or nil if there isn't one
     def first_pk_col

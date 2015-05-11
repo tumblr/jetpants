@@ -24,6 +24,12 @@ module Jetpants
         'columns' => connection.schema(table_name).map{|schema| schema[0]} 
       }
 
+      config_params = Jetpants.send('sharded_tables')
+
+      unless(config_params[table_name].nil?)
+        params.merge!(config_params[table_name])
+      end
+
       Table.new(table_name, params)
     end
 

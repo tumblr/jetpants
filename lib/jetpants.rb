@@ -49,6 +49,7 @@ module Jetpants
     'local_private_interface' =>  nil,        # local network interface corresponding to private IP of the machine jetpants is running on
     'free_mem_min_mb'         =>  0,          # Minimum amount of free memory in MB to be maintained on the node while performing the task (eg. network copy)
     'default_shard_pool'      =>  nil,        # default pool for sharding operations
+    'import_without_indices'  => false,
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
