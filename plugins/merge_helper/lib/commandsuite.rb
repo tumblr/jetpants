@@ -302,7 +302,7 @@ module Jetpants
         shards_to_merge = Jetpants.shards(shard_pool).select do |shard|
           shard.min_id.to_i >= min_id.to_i &&
           shard.max_id.to_i <= max_id.to_i &&
-          shard.max_id != 'INFINITY' &&
+          shard.max_id != 'INFINITY'
         end
 
         shard_str = shards_to_merge.join(', ')

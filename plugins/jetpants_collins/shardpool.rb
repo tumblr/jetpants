@@ -44,7 +44,7 @@ module Jetpants
         end
         collins_set asset: asset,
                     primary_role: 'MYSQL_SHARD_POOL',
-                    shard_pool: @name.upcase,
+                    shard_pool: @name.upcase
         Plugin::JetCollins.get new_tag
       elsif results.count == 0 && !create_if_missing
         raise "Could not find configuration asset for pool #{name}"

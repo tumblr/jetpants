@@ -31,8 +31,8 @@ module Jetpants
     end
 
     def default_shard_pool
-      raise "Default shard pool not defined!" if @config['default_shard_pool'].nil?
-      @config['default_shard_pool']
+      raise "Default shard pool not defined!" if Jetpants.default_shard_pool.nil?
+      Jetpants.default_shard_pool
     end
 
     ###### Class methods #######################################################
@@ -146,7 +146,7 @@ module Jetpants
     
     # Returns array of this topology's Jetpants::Pool objects of type Jetpants::Shard
     def shards(shard_pool = nil)
-      shard_pool = default_shard_pool if shard_pool.nil
+      shard_pool = default_shard_pool if shard_pool.nil?
       pools.select {|p| p.is_a? Shard}.select { |p| p.shard_pool = shard_pool }
     end
     
