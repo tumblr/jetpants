@@ -17,6 +17,9 @@ module Jetpants
       
       # Array of hashes, each containing info from Shard#to_hash
       attr_accessor :shards
+
+      # Array of hashes, each containing info from ShardPool#to_hash
+      attr_accessor :shard_pools
       
       # Clean state DB nodes that are ready for use. Array of any of the following:
       # * hashes each containing key 'node'. could expand to include 'role' or other metadata as well,
@@ -37,7 +40,7 @@ module Jetpants
       
       def save
         File.open(@tracker_data_file_path, 'w') do |f|
-          data = {'pools' => @global_pools, 'shards' => @shards, 'spares' => @spares}
+          data = {'pools' => @global_pools, 'shards' => @shards, 'spares' => @spares, 'shard_pools' => @shard_pools}
           f.puts JSON.pretty_generate(data)
           f.close
         end
