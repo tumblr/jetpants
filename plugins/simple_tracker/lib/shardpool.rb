@@ -12,7 +12,7 @@ module Jetpants
       # we just return the shard for now... we have to wait until later to
       # set up children + parents, since it's easier to grab the corresponding
       # objects once all pools have been initialized.
-      Shard.new(h['shard_pool'])
+      ShardPool.new(h['shard_pool'])
     end
 
     ##### NEW METHODS ##########################################################

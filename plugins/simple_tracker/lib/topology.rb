@@ -1,27 +1,29 @@
 module Jetpants
   class Topology
     
-    attr_accessor :tracker
+    def self.tracker
+      @tracker ||= Jetpants::Plugin::SimpleTracker.new
+
+      @tracker
+    end
     
     ##### METHOD OVERRIDES #####################################################
     
     # Populates @pools by reading asset tracker data
     def load_pools
-      @tracker ||= Jetpants::Plugin::SimpleTracker.new
 
       # Create Pool and Shard objects
-      @pools = @tracker.global_pools.map {|h| Pool.from_hash(h)}.compact
-      all_shards = @tracker.shards.map {|h| Shard.from_hash(h)}.reject {|s| s.state == :recycle}
+      @pools = self.class.tracker.global_pools.map {|h| Pool.from_hash(h)}.compact
+      all_shards = self.class.tracker.shards.map {|h| Shard.from_hash(h)}.reject {|s| s.state == :recycle}
       @pools.concat all_shards
 
       # Now that all shards exist, we can safely assign parent/child relationships
-      @tracker.shards.each {|h| Shard.assign_relationships(h, all_shards)}
+      self.class.tracker.shards.each {|h| Shard.assign_relationships(h, all_shards)}
     end
 
     # Populate @shard_pools by reading asset tracker data
     def load_shard_pools
-      @tracker ||= Jetpants::Plugin::SimpleTracker.new
-      @shard_pools = @tracker.shard_pools.map{|h| ShardPool.from_hash(h) }.compact
+      @shard_pools = self.class.tracker.shard_pools.map{|h| ShardPool.from_hash(h) }.compact
     end
 
     def add_pool(pool)
@@ -57,8 +59,8 @@ module Jetpants
 
     # simple_tracker completely ignores any options like :role or :like
     def claim_spares(count, options={})
-      raise "Not enough spare machines -- requested #{count}, only have #{@tracker.spares.count}" if @tracker.spares.count < count
-      hashes = @tracker.spares.shift(count)
+      raise "Not enough spare machines -- requested #{count}, only have #{self.class.tracker.spares.count}" if self.class.tracker.spares.count < count
+      hashes = self.class.tracker.spares.shift(count)
       update_tracker_data
       dbs = hashes.map {|h| h.is_a?(Hash) && h['node'] ? h['node'].to_db : h.to_db}
 
@@ -73,11 +75,11 @@ module Jetpants
     end
     
     def count_spares(options={})
-      @tracker.spares.count
+      self.class.tracker.spares.count
     end
 
     def spares(options={})
-      @tracker.spares.map(&:to_db)
+      self.class.tracker.spares.map(&:to_db)
     end
 
     
@@ -89,10 +91,10 @@ module Jetpants
     # instead Pool#sync_configuration could just update the info for that pool
     # only.
     def update_tracker_data
-      @tracker.global_pools = functional_partitions.map &:to_hash
-      @tracker.shards = shards.reject {|s| s.state == :recycle}.map &:to_hash
-      @tracker.shard_pools = shards_pools.map(&:to_hash)
-      @tracker.save
+      self.class.tracker.global_pools = functional_partitions.map &:to_hash
+      self.class.tracker.shards = shards.reject {|s| s.state == :recycle}.map &:to_hash
+      self.class.tracker.shard_pools = shard_pools.map(&:to_hash)
+      self.class.tracker.save
     end
 
   end
