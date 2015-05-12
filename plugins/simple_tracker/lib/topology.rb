@@ -18,6 +18,12 @@ module Jetpants
       @tracker.shards.each {|h| Shard.assign_relationships(h, all_shards)}
     end
 
+    # Populate @shard_pools by reading asset tracker data
+    def load_shard_pools
+      @tracker = Jetpants::Plugin::SimpleTracker.new
+      @shard_pools = @tracker.shard_pools.map{|h| ShardPool.from_hash(h) }.compact
+    end
+
     def add_pool(pool)
       @pools << pool unless pools.include? pool
     end
