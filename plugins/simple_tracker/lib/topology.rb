@@ -7,7 +7,7 @@ module Jetpants
     
     # Populates @pools by reading asset tracker data
     def load_pools
-      @tracker = Jetpants::Plugin::SimpleTracker.new
+      @tracker ||= Jetpants::Plugin::SimpleTracker.new
 
       # Create Pool and Shard objects
       @pools = @tracker.global_pools.map {|h| Pool.from_hash(h)}.compact
@@ -20,7 +20,7 @@ module Jetpants
 
     # Populate @shard_pools by reading asset tracker data
     def load_shard_pools
-      @tracker = Jetpants::Plugin::SimpleTracker.new
+      @tracker ||= Jetpants::Plugin::SimpleTracker.new
       @shard_pools = @tracker.shard_pools.map{|h| ShardPool.from_hash(h) }.compact
     end
 
@@ -41,6 +41,7 @@ module Jetpants
         'database' => {
           'pools' => functional_partitions.map {|p| p.to_hash(true)},
           'shards' => shards.select {|s| s.in_config?}.map {|s| s.to_hash(true)},
+          'shard_pools' => shard_pools.map {|sp| sp.to_hash(true)},
         }
       }
 

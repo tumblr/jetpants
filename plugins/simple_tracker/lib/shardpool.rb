@@ -8,6 +8,10 @@ module Jetpants
       sync_configuration
     end
 
+    def shards
+      Jetpants.topology.shards(@name)
+    end
+
     ##### NEW CLASS-LEVEL METHODS ##############################################
 
     # Converts a hash (from asset tracker json file) into a Shard.
@@ -18,16 +22,12 @@ module Jetpants
       Shard.new(h['shard_pool'])
     end
 
-    def shards
-      Jetpants.topology.shards(@name)
-    end
-
     ##### NEW METHODS ##########################################################
 
     # Converts a Shard to a hash, for use in either the internal asset tracker
     # json (for_app_config=false) or for use in the application config file yaml 
     # (for_app_config=true)
-    def to_hash
+    def to_hash(for_app_config = true)
       {
         shard_pool: @name
       }      

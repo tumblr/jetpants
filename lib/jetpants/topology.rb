@@ -252,6 +252,7 @@ module Jetpants
     # Clears the pool list and nukes cached DB and Host object lookup tables
     def clear
       @pools = []
+      @shard_pools = []
       DB.clear
       Host.clear
     end
@@ -259,6 +260,7 @@ module Jetpants
     # Empties and then reloads the pool list
     def refresh
       clear
+      load_shard_pools
       load_pools
       true
     end
