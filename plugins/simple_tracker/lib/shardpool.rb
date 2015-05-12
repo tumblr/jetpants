@@ -1,15 +1,8 @@
 module Jetpants
-  class Shard < Pool
+  class ShardPool
 
-    ##### CALLBACKS ############################################################
-
-    # After changing the state of a shard, sync config back to the asset tracker json
-    def after_state=(value)
-      sync_configuration
-    end
-
-    def shards
-      Jetpants.topology.shards(@name)
+    def sync_configuration
+      Jetpants.topology.update_tracker_data
     end
 
     ##### NEW CLASS-LEVEL METHODS ##############################################

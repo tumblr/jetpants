@@ -40,10 +40,12 @@ module Jetpants
       db_data = {
         'database' => {
           'pools' => functional_partitions.map {|p| p.to_hash(true)},
-          'shards' => shards.select {|s| s.in_config?}.map {|s| s.to_hash(true)},
-          'shard_pools' => shard_pools.map {|sp| sp.to_hash(true)},
         }
       }
+
+      shard_pools.each do |shard_pool|
+        db_data[shard_pool.name] = shard_pool.shards.select {|s| s.in_config?}.map {|s| s.to_hash(true)}
+      end
 
       # Convert that hash to YAML and write it to a file
       File.open(config_file_path, 'w') do |f|
@@ -89,6 +91,7 @@ module Jetpants
     def update_tracker_data
       @tracker.global_pools = functional_partitions.map &:to_hash
       @tracker.shards = shards.reject {|s| s.state == :recycle}.map &:to_hash
+      @tracker.shard_pools = shards_pools.map(&:to_hash)
       @tracker.save
     end
 
