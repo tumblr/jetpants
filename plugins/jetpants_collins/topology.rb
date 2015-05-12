@@ -79,6 +79,15 @@ module Jetpants
       true
     end
 
+    def add_shard_pool(shard_pool)
+      raise 'Attempt to add a non shard pool to the sharding pools topology' unless shard_pool.is_a?(ShardPool)
+
+      unless shard_pools.include? shard_pool
+        @shard_pools << shard_pool
+        @shard_pools.sort_by! { |sp| sp.name }
+      end
+    end
+
     # Returns (count) DB objects.  Pulls from machines in the spare state
     # and converts them to the Allocated status.
     # You can pass in :role to request spares with a particular secondary_role

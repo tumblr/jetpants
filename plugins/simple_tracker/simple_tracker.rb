@@ -32,10 +32,11 @@ module Jetpants
       def initialize
         @tracker_data_file_path = Jetpants.plugins['simple_tracker']['tracker_data_file_path'] || '/etc/jetpants_tracker.json'
         @app_config_file_path   = Jetpants.plugins['simple_tracker']['app_config_file_path']   || '/var/lib/mysite/config/databases.yaml'
-        data = JSON.parse(File.read(@tracker_data_file_path)) rescue {'pools' => {}, 'shards' => [], 'spares' => []}
+        data = JSON.parse(File.read(@tracker_data_file_path)) rescue {'pools' => {}, 'shards' => [], 'spares' => [], 'shard_pools' => []}
         @global_pools = data['pools']
         @shards = data['shards']
         @spares = data['spares']
+        @shard_pools = data['shard_pools']
       end
       
       def save

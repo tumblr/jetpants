@@ -28,6 +28,10 @@ module Jetpants
       @pools << pool unless pools.include? pool
     end
 
+    def add_shard_pool(shard_pool)
+      @shard_pools << shard_pool unless shard_pools.include? shard_pool
+    end
+
     # Generates a database configuration file for a hypothetical web application
     def write_config
       config_file_path = @tracker.app_config_file_path

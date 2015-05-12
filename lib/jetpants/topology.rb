@@ -94,6 +94,12 @@ module Jetpants
     end
 
     synchronized
+    # Plugin should override so that this adds the given shard pool to the current topology (@shard_pools)
+    def add_shard_pool(shard_pool)
+      output "Notice: no plugin has overridden Topology#add_shard_pool, so the shard pool was *not* added to the topology"
+    end
+
+    synchronized
     # Plugin should override so that it writes a configuration file or commits a
     # configuration change to a config service.
     def write_config
