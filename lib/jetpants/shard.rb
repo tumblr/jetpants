@@ -39,29 +39,29 @@ module Jetpants
     attr_accessor :state
 
     # the sharding pool to which this shard belongs
-    attr_accessor :shard_pool
+    attr_reader :shard_pool
     
     # Constructor for Shard --
     # * min_id: int
     # * max_id: int or the string "INFINITY"
     # * master: string (IP address) or a Jetpants::DB object
     # * state:  one of the above state symbols
-    def initialize(min_id, max_id, master, state=:ready, shard_pool=nil)
+    def initialize(min_id, max_id, master, state=:ready, shard_pool_name=nil)
       @min_id = min_id.to_i
       @max_id = (max_id.to_s.upcase == 'INFINITY' ? 'INFINITY' : max_id.to_i)
       @state = state
 
       @children = []    # array of shards being initialized by splitting this one
       @parent = nil
-      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.nil?
-      @shard_pool = shard_pool
+      shard_pool_name = Jetpants.topology.default_shard_pool if shard_pool_name.nil?
+      @shard_pool = Jetpants.topology.shard_pool(shard_pool_name)
       
       super(generate_name, master)
     end
     
     # Generates a string containing the shard's min and max IDs. Plugin may want to override.
     def generate_name
-      "shard-#{min_id}-#{max_id.to_s.downcase}"
+      "#{@shard_pool.name}-#{min_id}-#{max_id.to_s.downcase}"
     end
     
     # Returns true if the shard state is one of the values that indicates it's

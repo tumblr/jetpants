@@ -16,5 +16,9 @@ module Jetpants
     def shards
       Jetpants.topology.shards(@name)
     end
+
+    def to_s
+      @name
+    end
   end
 end

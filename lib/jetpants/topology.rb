@@ -204,6 +204,11 @@ module Jetpants
         result.first
       end
     end
+
+    # Finds a ShardPool object by name
+    def shard_pool(name)
+      shard_pools.select{|sp| sp.name == name}.first
+    end
     
     # Returns the Jetpants::Shard that handles the given ID.
     # During a shard split, if the child isn't "in production" yet (ie, it's
