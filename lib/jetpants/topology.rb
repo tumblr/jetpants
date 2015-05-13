@@ -212,7 +212,7 @@ module Jetpants
     # to the parent shard when appropriate in this case. (see also: Topology#shard_db_for_id)
     def shard_for_id(id, shard_pool = nil)
       shard_pool = default_shard_pool if shard_pool.nil?
-      choices = shards.select {|s| s.min_id <= id && (s.max_id == 'INFINITY' || s.max_id >= id)}
+      choices = shards(shard_pool).select {|s| s.min_id <= id && (s.max_id == 'INFINITY' || s.max_id >= id)}
       choices.reject! {|s| s.parent && ! s.in_config?} # filter out child shards that are still being built
       
       # Preferentially return child shards at this point
