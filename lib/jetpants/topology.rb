@@ -152,9 +152,9 @@ module Jetpants
     ###### Instance Methods ####################################################
     
     # Returns array of this topology's Jetpants::Pool objects of type Jetpants::Shard
-    def shards(shard_pool = nil)
-      shard_pool = default_shard_pool if shard_pool.nil?
-      pools.select {|p| p.is_a? Shard}.select { |p| p.shard_pool = shard_pool }
+    def shards(shard_pool_name = nil)
+      shard_pool_name = default_shard_pool if shard_pool_name.nil?
+      pools.select {|p| p.is_a? Shard}.select { |p| p.shard_pool.name == shard_pool_name }
     end
     
     # Returns array of this topology's Jetpants::Pool objects that are NOT of type Jetpants::Shard
