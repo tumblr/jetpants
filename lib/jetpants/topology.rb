@@ -226,8 +226,8 @@ module Jetpants
     
     # Returns the Jetpants::DB that handles the given ID with the specified
     # mode (either :read or :write)
-    def shard_db_for_id(id, mode=:read)
-      shard_for_id(id).db(mode)
+    def shard_db_for_id(id, mode=:read, shard_pool = nil)
+      shard_for_id(id, shard_pool).db(mode)
     end
     
     # Nicer inteface into claim_spares when only one DB is desired -- returns
