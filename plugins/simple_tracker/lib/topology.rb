@@ -36,17 +36,18 @@ module Jetpants
 
     # Generates a database configuration file for a hypothetical web application
     def write_config
-      config_file_path = @tracker.app_config_file_path
+      config_file_path = self.class.tracker.app_config_file_path
 
       # Convert the pool list into a hash
       db_data = {
         'database' => {
           'pools' => functional_partitions.map {|p| p.to_hash(true)},
-        }
+        },
+        'shard_pools' => []
       }
 
       shard_pools.each do |shard_pool|
-        db_data[shard_pool.name] = shard_pool.shards.select {|s| s.in_config?}.map {|s| s.to_hash(true)}
+        db_data['shard_pools'][shard_pool.name] = shard_pool.shards.select {|s| s.in_config?}.map {|s| s.to_hash(true)}
       end
 
       # Convert that hash to YAML and write it to a file

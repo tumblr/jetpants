@@ -3,11 +3,11 @@ module Jetpants
   # man Shards.  All shards within the pool partition a logically coherent
   # keyspace
 
-  attr_reader :name
-
   class ShardPool
     include CallbackHandler
     include Output
+
+    attr_reader :name
 
     def initialize(name)
       @name = name
