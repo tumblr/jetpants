@@ -173,19 +173,19 @@ module Jetpants
     end
     
     # Finds and returns a single Jetpants::Shard. Pass in one of these:
-    # * a min ID and a max ID
-    # * just a min ID
-    # * a Range object
+    # * a min ID and a max ID, shard pool
+    # * just a min ID, shard pool
+    # * a Range object, shard pool
     def shard(*args)
       if args.count >= 2 || args[0].is_a?(Array)
         args.flatten!
-        if(args.last.to_i == 0 && args.last.upcase != 'INFINITY')
+        if(args.last.is_a?(String) && args.last.upcase != 'INFINITY')
           shard_pool = args.last
         else
           shard_pool = default_shard_pool
         end
         args.map! {|x| x.to_s.upcase == 'INFINITY' ? 'INFINITY' : x.to_i}
-        shards.select {|s| s.min_id == args[0] && s.max_id == args[1]}.first
+        shards(shard_pool).select {|s| s.min_id == args[0] && s.max_id == args[1]}.first
       elsif args[0].is_a?(Range)
         if(args[1].nil?)
           shard_pool = default_shard_pool
