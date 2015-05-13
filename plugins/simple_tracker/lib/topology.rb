@@ -43,7 +43,7 @@ module Jetpants
         'database' => {
           'pools' => functional_partitions.map {|p| p.to_hash(true)},
         },
-        'shard_pools' => []
+        'shard_pools' => {}
       }
 
       shard_pools.each do |shard_pool|

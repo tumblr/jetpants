@@ -112,20 +112,20 @@ module Jetpants
     # Override the probe_tables method to accommodate shard topology -
     # delegate everything to the first shard.
     def probe_tables
-      if Jetpants.topology.shards(self.shard_pool).first == self
+      if Jetpants.topology.shards(self.shard_pool.name).first == self
         super
       else
-        Jetpants.topology.shards(self.shard_pool).first.probe_tables
+        Jetpants.topology.shards(self.shard_pool.name).first.probe_tables
       end
     end
 
     # Override the tables accessor to accommodate shard topology - delegate
     # everything to the first shard
     def tables
-      if Jetpants.topology.shards(self.shard_pool).first == self
+      if Jetpants.topology.shards(self.shard_pool.name).first == self
         super
       else
-        Jetpants.topology.shards(self.shard_pool).first.tables
+        Jetpants.topology.shards(self.shard_pool.name).first.tables
       end
     end
 
