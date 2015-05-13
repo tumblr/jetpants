@@ -83,6 +83,7 @@ module Jetpants
     end
 
     synchronized
+    # Plugin should override this to initialize @shard_pools
     def load_shard_pools
       output "Notice: no plugin has overriddent Topology#load_shard_pools, so *no* shard pools are imported automaticaly"
     end

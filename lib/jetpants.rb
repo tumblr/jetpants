@@ -159,4 +159,5 @@ module Jetpants
   # Finally, initialize topology object
   @topology = Topology.new
   @topology.load_pools unless @config['lazy_load_pools']
+  @topology.load_shard_pools unless @config['lazy_load_pools']
 end
