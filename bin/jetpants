@@ -590,9 +590,12 @@ module Jetpants
     method_option :min_id, :desc => 'Minimum ID of shard involved in master promotion'
     method_option :max_id, :desc => 'Maximum ID of shard involved in master promotion'
     method_option :new_master, :desc => 'New node to become master of the shard'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the cutover'
     def shard_promote_master
+      shard_pool = options[:shard_pool] || ask('Please enter the sharding pool for which to perform the split (enter for default pool): ')
+      shard_pool = default_shard_pool if shard_pool.empty?
       # find the shard we are going to do master promotion on
-      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id])
+      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id], shard_pool)
 
       new_master = ask_node "Please enter the IP of the new master for #{s}: ", options[:new_master]
       raise "New master node #{new_master} is not currently a slave in shard #{s}" unless s.slaves && s.slaves.include?(new_master)
@@ -619,9 +622,12 @@ module Jetpants
     desc 'shard_promote_master_reads', 'Lockless shard master promotion (step 2 of 4): move reads to new master'
     method_option :min_id, :desc => 'Minimum ID of shard involved in master promotion'
     method_option :max_id, :desc => 'Maximum ID of shard involved in master promotion'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the cutover'
     def shard_promote_master_reads
+      shard_pool = options[:shard_pool] || ask('Please enter the sharding pool for which to perform the split (enter for default pool): ')
+      shard_pool = default_shard_pool if shard_pool.empty?
       # find the shard we are going to do master promotion on
-      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id])
+      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id], shard_pool)
 
       # at this point we only have one slave, which is the new master
       new_master = s.master.slaves.last
@@ -646,8 +652,11 @@ module Jetpants
     end
 
     desc 'shard_promote_master_writes', 'Lockless shard master promotion (step 3 of 4): move writes to new master'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the cutover'
     def shard_promote_master_writes
-      s = ask_shard_being_promoted :writes
+      shard_pool = options[:shard_pool] || ask('Please enter the sharding pool for which to perform the split (enter for default pool): ')
+      shard_pool = default_shard_pool if shard_pool.empty?
+      s = ask_shard_being_promoted(:writes, nil, nil, shard_pool)
       if s.state != :child
         raise "Shard #{s} is in wrong state to perform this action! Expected :child, found #{s.state}"
       end
@@ -668,8 +677,11 @@ module Jetpants
     end
 
     desc 'shard_promote_master_cleanup', 'Lockless shard master promotion (step 4 of 4): clean up shard and eject old master'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the cutover'
     def shard_promote_master_cleanup
-      s = ask_shard_being_promoted :cleanup
+      shard_pool = options[:shard_pool] || ask('Please enter the sharding pool for which to perform the split (enter for default pool): ')
+      shard_pool = default_shard_pool if shard_pool.empty?
+      s = ask_shard_being_promoted(:cleanup, nil, nil, shard_pool)
       if s.state != :needs_cleanup
         raise "Shard #{s} is in wrong state to perform this action! Expected :needs_cleanup, found #{s.state}"
       end
@@ -825,7 +837,7 @@ module Jetpants
         s
       end
 
-      def ask_shard_being_promoted(stage = :prep, min_id = nil, max_id = nil)
+      def ask_shard_being_promoted(stage = :prep, min_id = nil, max_id = nil, shard_pool)
         if stage == :writes || stage == :cleanup
           shards_being_promoted = Jetpants.shards.select do |s|
             [:reads, :child, :needs_cleanup].include?(s.state) && !s.parent && s.master.master
