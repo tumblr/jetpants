@@ -19,7 +19,7 @@ module Collins
     # Convert a Collins:Asset to a Jetpants::Shard_pool
     def to_shard_pool
       raise "Can only call to_shard_pool on CONFIGURATION assets, but #{self} has type #{type}" unless type.upcase == 'CONFIGURATION'
-      raise "Unknown primary role #{primary_role} for configuration asset #{self}" unless ['MYSQL_SHARD_POOL'].include?(primary_role.upcase)
+      raise "Unknown primary role #{primary_role} for configuration asset #{self}" unless primary_role.upcase == 'MYSQL_SHARD_POOL'
       raise "No shard_pool attribute set on asset #{self}" unless shard_pool && shard_pool.length > 0
 
       Jetpants::ShardPool.new(shard_pool)
