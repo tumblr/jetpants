@@ -154,7 +154,7 @@ module Jetpants
     # Returns array of this topology's Jetpants::Pool objects of type Jetpants::Shard
     def shards(shard_pool_name = nil)
       shard_pool_name = default_shard_pool if shard_pool_name.nil?
-      pools.select {|p| p.is_a? Shard}.select { |p| p.shard_pool.name == shard_pool_name }
+      pools.select {|p| p.is_a? Shard}.select { |p| p.shard_pool && p.shard_pool.name.downcase == shard_pool_name.downcase }
     end
     
     # Returns array of this topology's Jetpants::Pool objects that are NOT of type Jetpants::Shard

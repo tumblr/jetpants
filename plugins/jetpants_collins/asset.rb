@@ -73,7 +73,8 @@ module Collins
         result = Jetpants::Shard.new(shard_min_id.to_i, 
                                    shard_max_id == 'INFINITY' ? 'INFINITY' : shard_max_id.to_i, 
                                    master_assets.first.to_db, 
-                                   shard_state.downcase.to_sym)
+                                   shard_state.downcase.to_sym,
+                                   shard_pool)
         
         # We'll need to set up the parent/child relationship if a shard split is in progress,
         # BUT we need to wait to do that later since the shards may have been returned by
