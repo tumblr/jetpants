@@ -376,7 +376,8 @@ module Jetpants
       [self, targets].flatten.concurrent_each {|t| t.stop_query_killer; t.stop_mysql}
       targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_logfile*"}
 
-      files = (databases + ['ibdata1', 'tokudb.*', '*.tokudb', app_schema]).uniq
+      files = (databases + ['ibdata1', app_schema]).uniq
+      files += ['*.tokudb', 'tokudb.*', 'log*.tokulog*'] if mysql_root_cmd("SHOW ENGINES").match /Engine:\s+TokuDB\n/
       files << 'ib_lru_dump' if ssh_cmd("test -f #{mysql_directory}/ib_lru_dump 2>/dev/null; echo $?").chomp.to_i == 0
 
       fast_copy_chain(mysql_directory, destinations, :port => 3306, :files => files, :overwrite => true)
