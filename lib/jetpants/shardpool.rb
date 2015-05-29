@@ -18,7 +18,7 @@ module Jetpants
     end
 
     def to_s
-      @name
+      @name.downcase
     end
   end
 end

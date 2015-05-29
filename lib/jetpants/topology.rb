@@ -20,6 +20,10 @@ module Jetpants
       # invoke load_pools, which might then refer back to Jetpants.topology.
     end
 
+    def to_s
+      "Jetpants.topology"
+    end
+
     def pools
       load_pools if @pools.nil?
       @pools
@@ -153,7 +157,10 @@ module Jetpants
     
     # Returns array of this topology's Jetpants::Pool objects of type Jetpants::Shard
     def shards(shard_pool_name = nil)
-      shard_pool_name = default_shard_pool if shard_pool_name.nil?
+      if shard_pool_name.nil?
+        shard_pool_name = default_shard_pool 
+        output "Using default shard pool #{default_shard_pool}"
+      end
       pools.select {|p| p.is_a? Shard}.select { |p| p.shard_pool && p.shard_pool.name.downcase == shard_pool_name.downcase }
     end
     
