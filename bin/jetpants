@@ -415,6 +415,8 @@ module Jetpants
       shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the split (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
 
+      output "Using shard pool `#{shard_pool}`"
+
       s = Jetpants.topology.shard(shard_min, shard_max, shard_pool)
       
       raise "Shard not found" unless s
