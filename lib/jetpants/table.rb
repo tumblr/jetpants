@@ -162,7 +162,7 @@ module Jetpants
     # TODO: integrate better with table schema detection code. Consider auto-detecting chunk
     # count based on file size and row count estimate.
     def Table.from_config(label, shard_pool = nil)
-      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.nil
+      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.nil?
       result = []
       Jetpants.send(label)[shard_pool].map {|name, attributes| Table.new name, attributes}
     end
