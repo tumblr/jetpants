@@ -118,7 +118,7 @@ module Jetpants
 
       aggregate_shard_master.catch_up_to_master
 
-      aggregate_shard = Shard.new(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_shard_master, :initializing)
+      aggregate_shard = Shard.new(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_shard_master, :initializing, shards_to_merge.first.shard_pool.name)
       # ensure a record is present in collins
       aggregate_shard.sync_configuration
       Jetpants.topology.add_pool aggregate_shard
