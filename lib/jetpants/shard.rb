@@ -61,7 +61,8 @@ module Jetpants
     
     # Generates a string containing the shard's min and max IDs. Plugin may want to override.
     def generate_name
-      "#{@shard_pool.name.downcase}-#{min_id}-#{max_id.to_s.downcase}"
+      prefix = (@shard_pool.nil?) ? 'anon' : @shard_pool.name.downcase
+      "#{prefix}-#{min_id}-#{max_id.to_s.downcase}"
     end
     
     # Returns true if the shard state is one of the values that indicates it's
