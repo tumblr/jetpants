@@ -226,7 +226,7 @@ module Jetpants
         raise "Shard #{self} is not in a state compatible with calling prune_data! (current state=#{@state})"
       end
       
-      tables = Table.from_config('sharded_tables', pool.shard_pool)
+      tables = Table.from_config('sharded_tables', shard_pool.name)
       
       if @state == :initializing
         @state = :exporting
@@ -320,7 +320,7 @@ module Jetpants
 
       # situation A - clean up after a shard split
       if @state == :deprecated && @children.size > 0
-        tables = Table.from_config('sharded_tables', pool.shard_pool)
+        tables = Table.from_config('sharded_tables', pool.shard_pool.name)
         @master.revoke_all_access!
         @children.concurrent_each do |child_shard|
           raise "Child state does not indicate cleanup is needed" unless child_shard.state == :needs_cleanup
