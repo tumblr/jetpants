@@ -377,8 +377,9 @@ module Jetpants
       targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_logfile*"}
 
       files = (databases + ['ibdata1', app_schema]).uniq
+      files += ['*.tokudb', 'tokudb.*', 'log*.tokulog*'] if ssh_cmd("test -f #{mysql_directory}/tokudb.environment 2>/dev/null; echo $?").chomp.to_i == 0
       files << 'ib_lru_dump' if ssh_cmd("test -f #{mysql_directory}/ib_lru_dump 2>/dev/null; echo $?").chomp.to_i == 0
-      
+
       fast_copy_chain(mysql_directory, destinations, :port => 3306, :files => files, :overwrite => true)
       clone_settings_to!(*targets)
 
