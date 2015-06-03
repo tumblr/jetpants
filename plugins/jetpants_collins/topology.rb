@@ -327,7 +327,7 @@ module Jetpants
       nodes.map(&:to_db).concurrent_each {|db| db.probe rescue nil}
       
       # Now iterate in a single-threaded way for simplicity
-      nodes.each do |node|
+      nodes.concurrent_each do |node|
         db = node.to_db
         if(db.usable_spare? &&
           (

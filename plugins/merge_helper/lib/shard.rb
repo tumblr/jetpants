@@ -235,7 +235,7 @@ module Jetpants
     end
 
     def combined_shard
-      Jetpants.shards.select { |shard| ( 
+      Jetpants.shards(shard_pool.name).select { |shard| ( 
         shard.min_id.to_i <= @min_id.to_i \
         && shard.max_id.to_i >= @max_id.to_i \
         && shard.max_id != 'INFINITY' \
