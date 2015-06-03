@@ -287,6 +287,7 @@ module Jetpants
         shard_pool_name = ask("Enter shard pool name performing a merge operation (enter for default #{Jetpants.topology.default_shard_pool}):")
         shard_pool_name = Jetpants.topology.default_shard_pool if shard_pool_name.empty?
         shards_to_merge = Jetpants.shards(shard_pool_name).select{ |shard| !shard.combined_shard.nil? }
+        raise("No shards detected as merging!") if shards_to_merge.empty?
         shards_str = shards_to_merge.join(', ')
         answer = ask "Detected shards to merge as #{shards_str}, proceed (enter YES in all caps if so)?"
         raise "Aborting on user input" unless answer == "YES"
