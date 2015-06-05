@@ -160,6 +160,7 @@ module Jetpants
       if shard_pool_name.nil?
         shard_pool_name = default_shard_pool 
         output "Using default shard pool #{default_shard_pool}"
+puts caller
       end
       pools.select {|p| p.is_a? Shard}.select { |p| p.shard_pool && p.shard_pool.name.downcase == shard_pool_name.downcase }
     end
@@ -195,7 +196,7 @@ module Jetpants
 
     # Finds a ShardPool object by name
     def shard_pool(name)
-      shard_pools.select{|sp| sp.name == name}.first
+      shard_pools.select{|sp| sp.name.downcase == name.downcase}.first
     end
     
     # Returns the Jetpants::Shard that handles the given ID.

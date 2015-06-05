@@ -371,17 +371,19 @@ module Jetpants
     def sort_pools_callback(pool)
       asset = pool.collins_asset
       role = asset.primary_role.upcase
+      shard_pool = ''
 
       case role
         when 'MYSQL_POOL'
           position = (asset.config_sort_order || 0).to_i
         when 'MYSQL_SHARD'
           position = asset.shard_min_id.to_i
+          shard_pool = pool.shard_pool.name
         else
           position = 0
       end
 
-      [role, position]
+      [role, shard_pool, position]
     end
 
   end
