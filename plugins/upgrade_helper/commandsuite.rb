@@ -17,8 +17,8 @@ module Jetpants
       
       puts "You may clone to particular IP address(es), or can type \"spare\" to claim a node from the spare pool."
       target = options[:target] || ask('Please enter comma-separated list of targets (IPs or "spare") to clone to: ')
-      spares_needed = target.split(',').count {|t| t.strip.upcase == 'SPARE'}
       target = 'spare' if target.strip == '' || target.split(',').length == 0
+      spares_needed = target.split(',').count {|t| t.strip.upcase == 'SPARE'}
       if spares_needed > 0
         spares_available = Jetpants.topology.count_spares(role: :standby_slave, like: source, version: Plugin::UpgradeHelper.new_version)
         raise "Not enough upgraded spares with role of standby slave! Requested #{spares_needed} but only have #{spares_available} available." if spares_needed > spares_available
