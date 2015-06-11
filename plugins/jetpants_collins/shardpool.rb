@@ -1,6 +1,6 @@
 module Jetpants
-  # A ShardingPool is a sharding keyspace in Jetpants that contains
-  # man Shards.  All shards within the pool partition a logically coherent
+  # A ShardPool is a sharding keyspace in Jetpants that contains
+  # many Shards.  All shards within the pool partition a logically coherent
   # keyspace
 
   class ShardPool

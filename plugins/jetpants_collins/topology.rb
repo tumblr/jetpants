@@ -40,7 +40,7 @@ module Jetpants
 
     def load_shard_pools
       @shard_pools = configuration_assets('MYSQL_SHARD_POOL').map(&:to_shard_pool)
-      @shard_pools.compact! # remove nils from pools that had no master
+      @shard_pools.compact!
       @shard_pools.sort_by! { |p| p.name }
 
       true
