@@ -825,7 +825,7 @@ module Jetpants
       end
 
       def ask_shard_being_split
-        shard_pool = ask("Enter shard pool to take action on:")
+        shard_pool = ask("Enter shard pool to take action on (enter for default pool, #{Jetpants.topology.default_shard_pool}):")
         shards_being_split = Jetpants.shards(shard_pool).select {|s| s.children.count > 0}
         if shards_being_split.count == 0
           raise 'No shards are currently being split. You can only use this task after running "jetpants shard_split".'
