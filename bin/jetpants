@@ -539,7 +539,7 @@ module Jetpants
       # has the same master/slaves but now has a non-infinity max ID.
       last_shard.state = :recycle
       last_shard.sync_configuration
-      last_shard_replace = Shard.new(last_shard.min_id, cutover_id - 1, last_shard_master, last_shard.shard_pool.name)
+      last_shard_replace = Shard.new(last_shard.min_id, cutover_id - 1, last_shard_master, :ready, shard_pool)
       last_shard_replace.sync_configuration
       Jetpants.topology.add_pool last_shard_replace
       
@@ -568,12 +568,12 @@ module Jetpants
         end
       end
 
-      new_last_shard = Shard.new(cutover_id, 'INFINITY', new_last_shard_master)
+      new_last_shard = Shard.new(cutover_id, 'INFINITY', new_last_shard_master, :ready, shard_pool)
       new_last_shard.sync_configuration
       Jetpants.topology.add_pool new_last_shard
       
       # Create tables on the new shard's master, obtaining schema from previous last shard
-      tables = Table.from_config 'sharded_tables'
+      tables = Table.from_config('sharded_tables', shard_pool)
       last_shard_master.export_schemata tables
       last_shard_master.host.fast_copy_chain(Jetpants.export_location, new_last_shard_master.host, files: ["create_tables_#{last_shard_master.port}.sql"])
       new_last_shard_master.import_schemata!
