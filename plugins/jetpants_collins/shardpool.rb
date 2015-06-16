@@ -16,7 +16,7 @@ module Jetpants
         operation:    'and',
         details:      true,
         type:         'CONFIGURATION',
-        primary_role: 'MYSQL_SHARD_POOL',
+        primary_role: '^MYSQL_SHARD_POOL$',
         shard_pool:   "^#{@name.upcase}$",
         status:       'Allocated',
       }

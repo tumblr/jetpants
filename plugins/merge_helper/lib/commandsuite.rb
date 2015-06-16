@@ -81,7 +81,8 @@ module Jetpants
       aggregate_shard_master_ip = ask("Enter the IP address of the new master or press enter to select a spare:")
 
       unless aggregate_shard_master_ip.empty?
-         aggregate_shard_master = aggregate_shard_master.to_db
+         error "Node (#{aggregate_shard_master_ip.blue}) does not appear to be an IP address." unless is_ip? aggregate_shard_master_ip
+         aggregate_shard_master = aggregate_shard_master_ip.to_db
          aggregate_shard_master.claim! if aggregate_shard_master.is_spare?
       else
          aggregate_shard_master = Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
@@ -296,11 +297,11 @@ module Jetpants
       end
 
       def ask_merge_shard_ranges
-        min_id = ask("Please provide the min ID of the shard range to merge:")
-        max_id = ask("Please provide the max ID of the shard range to merge:")
-
         shard_pool = ask("Please enter the sharding pool which to perform the action on (enter for default pool #{Jetpants.topology.default_shard_pool}): ")
         shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
+
+        min_id = ask("Please provide the min ID of the shard range to merge:")
+        max_id = ask("Please provide the max ID of the shard range to merge:")
 
         # for now we assume we'll never merge the shard at the head of the list
         shards_to_merge = Jetpants.shards(shard_pool).select do |shard|

@@ -16,7 +16,7 @@ module Collins
       backend_ip_address.to_host
     end
 
-    # Convert a Collins:Asset to a Jetpants::Shard_pool
+    # Convert a Collins:Asset to a Jetpants::ShardPool
     def to_shard_pool
       raise "Can only call to_shard_pool on CONFIGURATION assets, but #{self} has type #{type}" unless type.upcase == 'CONFIGURATION'
       raise "Unknown primary role #{primary_role} for configuration asset #{self}" unless primary_role.upcase == 'MYSQL_SHARD_POOL'

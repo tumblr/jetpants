@@ -274,7 +274,7 @@ module Jetpants
       
       p = pool
       if p.is_a?(Shard)
-        tables ||= Table.from_config('sharded_tables', pool.shard_pool.name)
+        tables ||= Table.from_config('sharded_tables', p.shard_pool.name)
         min_id ||= p.min_id
         max_id ||= p.max_id if p.max_id != 'INFINITY'
       end

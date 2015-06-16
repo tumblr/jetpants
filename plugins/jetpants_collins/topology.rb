@@ -323,10 +323,7 @@ module Jetpants
       
       keep_assets = []
       
-      # Probe concurrently for speed reasons
       nodes.map(&:to_db).concurrent_each {|db| db.probe rescue nil}
-      
-      # Now iterate in a single-threaded way for simplicity
       nodes.concurrent_each do |node|
         db = node.to_db
         if(db.usable_spare? &&
@@ -371,19 +368,19 @@ module Jetpants
     def sort_pools_callback(pool)
       asset = pool.collins_asset
       role = asset.primary_role.upcase
-      shard_pool = ''
+      shard_pool_name = ''
 
       case role
         when 'MYSQL_POOL'
           position = (asset.config_sort_order || 0).to_i
         when 'MYSQL_SHARD'
           position = asset.shard_min_id.to_i
-          shard_pool = pool.shard_pool.name
+          shard_pool_name = pool.shard_pool.name
         else
           position = 0
       end
 
-      [role, shard_pool, position]
+      [role, shard_pool_name, position]
     end
 
   end

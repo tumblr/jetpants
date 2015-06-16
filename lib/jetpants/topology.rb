@@ -89,7 +89,7 @@ module Jetpants
     synchronized
     # Plugin should override this to initialize @shard_pools
     def load_shard_pools
-      output "Notice: no plugin has overriddent Topology#load_shard_pools, so *no* shard pools are imported automaticaly"
+      output "Notice: no plugin has overridden Topology#load_shard_pools, so *no* shard pools are imported automaticaly"
     end
 
     synchronized
@@ -160,7 +160,6 @@ module Jetpants
       if shard_pool_name.nil?
         shard_pool_name = default_shard_pool 
         output "Using default shard pool #{default_shard_pool}"
-puts caller
       end
       pools.select {|p| p.is_a? Shard}.select { |p| p.shard_pool && p.shard_pool.name.downcase == shard_pool_name.downcase }
     end
@@ -181,8 +180,8 @@ puts caller
     end
     
     # Finds and returns a single Jetpants::Shard
-    def shard(min_id, max_id, shard_pool = nil)
-      shard_pool = default_shard_pool if shard_pool.nil?
+    def shard(min_id, max_id, shard_pool_name = nil)
+      shard_pool_name = default_shard_pool if shard_pool_name.nil?
       if max_id.upcase == 'INFINITY'
         max_id.upcase!
       else
@@ -191,7 +190,7 @@ puts caller
 
       min_id = min_id.to_i
 
-      shards(shard_pool).select {|s| s.min_id == min_id.to_i && s.max_id == max_id}.first
+      shards(shard_pool_name).select {|s| s.min_id == min_id && s.max_id == max_id}.first
     end
 
     # Finds a ShardPool object by name

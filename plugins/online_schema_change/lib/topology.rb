@@ -35,7 +35,7 @@ module Jetpants
     # also I will do the first shard and ask if you want to
     # continue, after that it will do each table serially
     def drop_old_alter_table_shards(database, table, shard_pool)
-      my_shards = shards.dup
+      my_shards = shards(shard_pool).dup
       first_shard = my_shards.shift
       output "Will run on first shard and prompt before going on to the rest\n\n"
       output "[#{Time.now.to_s.blue}] #{first_shard.pool.to_s}\n"

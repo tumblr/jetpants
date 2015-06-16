@@ -15,7 +15,7 @@ module Jetpants
         operation:    'and',
         details:      true,
         type:         'CONFIGURATION', 
-        primary_role: 'MYSQL_SHARD',
+        primary_role: '^MYSQL_SHARD$',
         shard_min_id: "^#{@min_id}$",
         shard_max_id: "^#{@max_id}$",
         shard_pool:   "^#{@shard_pool.name}$"
