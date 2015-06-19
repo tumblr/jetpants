@@ -863,7 +863,7 @@ module Jetpants
           max_id = ask("Enter max id of shard to perform master promotion: ")
           max_id = Integer(max_id) rescue max_id.upcase
 
-          s = Jetpants.topology.shard(min_id, max_id)
+          s = Jetpants.topology.shard(min_id, max_id, shard_pool)
         end
         raise "Invalid shard selected!" unless s.is_a? Shard
 
