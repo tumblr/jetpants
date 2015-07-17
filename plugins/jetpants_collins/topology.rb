@@ -48,6 +48,8 @@ module Jetpants
 
     # Initializes list of pools + shards from Collins
     def load_pools
+      load_shard_pools if @shard_pools.nil?
+
       # We keep a cache of Collins::Asset objects, organized as pool_name => role => [asset, asset, ...]
       @pool_role_assets = {}
 
