@@ -12,14 +12,31 @@ module Jetpants
       # initialize @pools to an empty state
       @pools  = nil
 
+      # initialize shard pools to empty
+      @shard_pools = nil
+
       # We intentionally don't call load_pools here. The caller must do that.
       # This allows Jetpants module to create Jetpants.topology object, and THEN
       # invoke load_pools, which might then refer back to Jetpants.topology.
     end
 
+    def to_s
+      "Jetpants.topology"
+    end
+
     def pools
       load_pools if @pools.nil?
       @pools
+    end
+
+    def shard_pools
+      load_shard_pools if @shard_pools.nil?
+      @shard_pools
+    end
+
+    def default_shard_pool
+      raise "Default shard pool not defined!" if Jetpants.default_shard_pool.nil?
+      Jetpants.default_shard_pool
     end
 
     ###### Class methods #######################################################
@@ -70,9 +87,21 @@ module Jetpants
     end
 
     synchronized
+    # Plugin should override this to initialize @shard_pools
+    def load_shard_pools
+      output "Notice: no plugin has overridden Topology#load_shard_pools, so *no* shard pools are imported automaticaly"
+    end
+
+    synchronized
     # Plugin should override so that this adds the given pool to the current topology (@pools)
     def add_pool(pool)
       output "Notice: no plugin has overridden Topology#add_pool, so the pool was *not* added to the topology"
+    end
+
+    synchronized
+    # Plugin should override so that this adds the given shard pool to the current topology (@shard_pools)
+    def add_shard_pool(shard_pool)
+      output "Notice: no plugin has overridden Topology#add_shard_pool, so the shard pool was *not* added to the topology"
     end
 
     synchronized
@@ -127,8 +156,12 @@ module Jetpants
     ###### Instance Methods ####################################################
     
     # Returns array of this topology's Jetpants::Pool objects of type Jetpants::Shard
-    def shards
-      pools.select {|p| p.is_a? Shard}
+    def shards(shard_pool_name = nil)
+      if shard_pool_name.nil?
+        shard_pool_name = default_shard_pool 
+        output "Using default shard pool #{default_shard_pool}"
+      end
+      pools.select {|p| p.is_a? Shard}.select { |p| p.shard_pool && p.shard_pool.name.downcase == shard_pool_name.downcase }
     end
     
     # Returns array of this topology's Jetpants::Pool objects that are NOT of type Jetpants::Shard
@@ -146,22 +179,23 @@ module Jetpants
       end
     end
     
-    # Finds and returns a single Jetpants::Shard. Pass in one of these:
-    # * a min ID and a max ID
-    # * just a min ID
-    # * a Range object
-    def shard(*args)
-      if args.count == 2 || args[0].is_a?(Array)
-        args.flatten!
-        args.map! {|x| x.to_s.upcase == 'INFINITY' ? 'INFINITY' : x.to_i}
-        shards.select {|s| s.min_id == args[0] && s.max_id == args[1]}.first
-      elsif args[0].is_a?(Range)
-        shards.select {|s| s.min_id == args[0].min && s.max_id == args[0].max}.first
+    # Finds and returns a single Jetpants::Shard
+    def shard(min_id, max_id, shard_pool_name = nil)
+      shard_pool_name = default_shard_pool if shard_pool_name.nil?
+      if max_id.is_a?(String) && max_id.upcase == 'INFINITY'
+        max_id.upcase!
       else
-        result = shards.select {|s| s.min_id == args[0].to_i}
-        raise "Multiple shards found with that min_id!" if result.count > 1
-        result.first
+        max_id = max_id.to_i
       end
+
+      min_id = min_id.to_i
+
+      shards(shard_pool_name).select {|s| s.min_id == min_id && s.max_id == max_id}.first
+    end
+
+    # Finds a ShardPool object by name
+    def shard_pool(name)
+      shard_pools.select{|sp| sp.name.downcase == name.downcase}.first
     end
     
     # Returns the Jetpants::Shard that handles the given ID.
@@ -170,8 +204,9 @@ module Jetpants
     # child is fully built / in production, this method will always return
     # the child shard. However, Shard#db(:write) will correctly delegate writes
     # to the parent shard when appropriate in this case. (see also: Topology#shard_db_for_id)
-    def shard_for_id(id)
-      choices = shards.select {|s| s.min_id <= id && (s.max_id == 'INFINITY' || s.max_id >= id)}
+    def shard_for_id(id, shard_pool = nil)
+      shard_pool = default_shard_pool if shard_pool.nil?
+      choices = shards(shard_pool).select {|s| s.min_id <= id && (s.max_id == 'INFINITY' || s.max_id >= id)}
       choices.reject! {|s| s.parent && ! s.in_config?} # filter out child shards that are still being built
       
       # Preferentially return child shards at this point
@@ -184,8 +219,8 @@ module Jetpants
     
     # Returns the Jetpants::DB that handles the given ID with the specified
     # mode (either :read or :write)
-    def shard_db_for_id(id, mode=:read)
-      shard_for_id(id).db(mode)
+    def shard_db_for_id(id, mode=:read, shard_pool = nil)
+      shard_for_id(id, shard_pool).db(mode)
     end
     
     # Nicer inteface into claim_spares when only one DB is desired -- returns
@@ -210,7 +245,8 @@ module Jetpants
     synchronized
     # Clears the pool list and nukes cached DB and Host object lookup tables
     def clear
-      @pools = []
+      @pools = nil
+      @shard_pools = nil
       DB.clear
       Host.clear
     end
@@ -218,6 +254,7 @@ module Jetpants
     # Empties and then reloads the pool list
     def refresh
       clear
+      load_shard_pools
       load_pools
       true
     end

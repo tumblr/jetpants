@@ -9,7 +9,7 @@ require 'yaml'
 module Jetpants; end
 
 $LOAD_PATH.unshift File.join(File.dirname(__FILE__), 'jetpants'), File.join(File.dirname(__FILE__), '..', 'plugins')
-%w(output callback table host db pool topology shard monkeypatch commandsuite).each {|g| require g}
+%w(output callback table host db pool topology shard shardpool monkeypatch commandsuite).each {|g| require g}
 
 # Since Jetpants is extremely multi-threaded, we need to force uncaught exceptions to
 # kill all threads in order to have any kind of sane error handling.
@@ -37,7 +37,7 @@ module Jetpants
     'verify_replication'      =>  true,       # raise exception if the 2 repl threads are in different states, or if actual repl topology differs from Jetpants' understanding of it
     'plugins'                 =>  {},         # hash of plugin name => arbitrary plugin data (usually a nested hash of settings)
     'ssh_keys'                =>  nil,        # array of SSH key file locations
-    'sharded_tables'          =>  [],         # array of name => {sharding_key=>X, chunks=>Y} hashes
+    'sharded_tables'          =>  [],         # hash of {shard_pool => {name => {sharding_key=>X, chunks=>Y}} hashes
     'compress_with'           =>  false,      # command line to use for compression in large file transfers
     'decompress_with'         =>  false,      # command line to use for decompression in large file transfers
     'private_interface'       =>  'bond0',    # network interface corresponding to private IP
@@ -48,6 +48,7 @@ module Jetpants
     'log_file'                =>  '/var/log/jetpants.log', # where to log all output from the jetpants commands
     'local_private_interface' =>  nil,        # local network interface corresponding to private IP of the machine jetpants is running on
     'free_mem_min_mb'         =>  0,          # Minimum amount of free memory in MB to be maintained on the node while performing the task (eg. network copy)
+    'default_shard_pool'      =>  nil,        # default pool for sharding operations
     'import_without_indices'  => false,
   }
 
@@ -157,5 +158,6 @@ module Jetpants
 
   # Finally, initialize topology object
   @topology = Topology.new
+  @topology.load_shard_pools unless @config['lazy_load_pools']
   @topology.load_pools unless @config['lazy_load_pools']
 end

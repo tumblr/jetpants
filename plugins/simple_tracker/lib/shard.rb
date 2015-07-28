@@ -26,7 +26,7 @@ module Jetpants
       # we just return the shard for now... we have to wait until later to
       # set up children + parents, since it's easier to grab the corresponding
       # objects once all pools have been initialized.
-      Shard.new(h['min_id'], h['max_id'], h['master'], h['state'].to_sym)
+      Shard.new(h['min_id'], h['max_id'], h['master'], h['state'].to_sym, h['shard_pool'])
     end
 
     # Sets up parent/child relationships for the shard represented by the
@@ -82,6 +82,7 @@ module Jetpants
           'state'  => state,
           'master' => master,
           'slaves' => slave_data,
+          'shard_pool' => shard_pool,
         }
       end
     end

@@ -78,16 +78,18 @@ module Jetpants
       raise "Invalid aggregate node!" unless aggregate_node.aggregator?
 
       # claim the slaves further along in the process
-      aggregate_shard_master = ask_node("Enter the IP address of the new master or press enter to select a spare:")
+      aggregate_shard_master_ip = ask("Enter the IP address of the new master or press enter to select a spare:")
 
-      if aggregate_shard_master
+      unless aggregate_shard_master_ip.empty?
+         error "Node (#{aggregate_shard_master_ip.blue}) does not appear to be an IP address." unless is_ip? aggregate_shard_master_ip
+         aggregate_shard_master = aggregate_shard_master_ip.to_db
          aggregate_shard_master.claim! if aggregate_shard_master.is_spare?
       else
          aggregate_shard_master = Jetpants.topology.claim_spare(role: :master, like: shards_to_merge.first.master)
       end
 
       # claim node for the new shard master
-      spare_count = shards_to_merge.first.slaves_layout[:standby_slave] + 1;
+      spare_count = shards_to_merge.first.slaves_layout[:standby_slave];
       raise "Not enough spares available!" unless Jetpants.count_spares(like: aggregate_shard_master) >= spare_count
       raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= shards_to_merge.first.slaves_layout[:backup_slave]
 
@@ -118,7 +120,7 @@ module Jetpants
 
       aggregate_shard_master.catch_up_to_master
 
-      aggregate_shard = Shard.new(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_shard_master, :initializing)
+      aggregate_shard = Shard.new(shards_to_merge.first.min_id, shards_to_merge.last.max_id, aggregate_shard_master, :initializing, shards_to_merge.first.shard_pool.name)
       # ensure a record is present in collins
       aggregate_shard.sync_configuration
       Jetpants.topology.add_pool aggregate_shard
@@ -283,7 +285,10 @@ module Jetpants
 
     no_tasks do
       def ask_merge_shards
-        shards_to_merge = Jetpants.shards.select{ |shard| !shard.combined_shard.nil? }
+        shard_pool_name = ask("Enter shard pool name performing a merge operation (enter for default #{Jetpants.topology.default_shard_pool}):")
+        shard_pool_name = Jetpants.topology.default_shard_pool if shard_pool_name.empty?
+        shards_to_merge = Jetpants.shards(shard_pool_name).select{ |shard| !shard.combined_shard.nil? }
+        raise("No shards detected as merging!") if shards_to_merge.empty?
         shards_str = shards_to_merge.join(', ')
         answer = ask "Detected shards to merge as #{shards_str}, proceed (enter YES in all caps if so)?"
         raise "Aborting on user input" unless answer == "YES"
@@ -292,11 +297,14 @@ module Jetpants
       end
 
       def ask_merge_shard_ranges
+        shard_pool = ask("Please enter the sharding pool which to perform the action on (enter for default pool #{Jetpants.topology.default_shard_pool}): ")
+        shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
+
         min_id = ask("Please provide the min ID of the shard range to merge:")
         max_id = ask("Please provide the max ID of the shard range to merge:")
 
         # for now we assume we'll never merge the shard at the head of the list
-        shards_to_merge = Jetpants.shards.select do |shard|
+        shards_to_merge = Jetpants.shards(shard_pool).select do |shard|
           shard.min_id.to_i >= min_id.to_i &&
           shard.max_id.to_i <= max_id.to_i &&
           shard.max_id != 'INFINITY'

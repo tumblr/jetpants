@@ -38,8 +38,18 @@ module Jetpants
     
     ##### METHOD OVERRIDES #####################################################
 
+    def load_shard_pools
+      @shard_pools = configuration_assets('MYSQL_SHARD_POOL').map(&:to_shard_pool)
+      @shard_pools.compact!
+      @shard_pools.sort_by! { |p| p.name }
+
+      true
+    end
+
     # Initializes list of pools + shards from Collins
     def load_pools
+      load_shard_pools if @shard_pools.nil?
+
       # We keep a cache of Collins::Asset objects, organized as pool_name => role => [asset, asset, ...]
       @pool_role_assets = {}
 
@@ -69,6 +79,15 @@ module Jetpants
         @pools.sort_by! { |p| sort_pools_callback p }
       end
       true
+    end
+
+    def add_shard_pool(shard_pool)
+      raise 'Attempt to add a non shard pool to the sharding pools topology' unless shard_pool.is_a?(ShardPool)
+
+      unless shard_pools.include? shard_pool
+        @shard_pools << shard_pool
+        @shard_pools.sort_by! { |sp| sp.name }
+      end
     end
 
     # Returns (count) DB objects.  Pulls from machines in the spare state
@@ -117,9 +136,9 @@ module Jetpants
 
     ##### NEW METHODS ##########################################################
 
-    def db_location_report(shards_only = false)
-      if shards_only
-        pools_to_consider = shards
+    def db_location_report(shards_only = nil)
+      unless shards_only.nil?
+        pools_to_consider = shards(shards_only)
       else
         pools_to_consider = pools
       end
@@ -306,11 +325,8 @@ module Jetpants
       
       keep_assets = []
       
-      # Probe concurrently for speed reasons
       nodes.map(&:to_db).concurrent_each {|db| db.probe rescue nil}
-      
-      # Now iterate in a single-threaded way for simplicity
-      nodes.each do |node|
+      nodes.concurrent_each do |node|
         db = node.to_db
         if(db.usable_spare? &&
           (
@@ -354,17 +370,19 @@ module Jetpants
     def sort_pools_callback(pool)
       asset = pool.collins_asset
       role = asset.primary_role.upcase
+      shard_pool_name = ''
 
       case role
         when 'MYSQL_POOL'
           position = (asset.config_sort_order || 0).to_i
         when 'MYSQL_SHARD'
           position = asset.shard_min_id.to_i
+          shard_pool_name = pool.shard_pool.name
         else
           position = 0
       end
 
-      [role, position]
+      [role, shard_pool_name, position]
     end
 
   end

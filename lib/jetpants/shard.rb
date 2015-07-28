@@ -37,26 +37,32 @@ module Jetpants
     #   :deprecated     --  Parent shard that has been split but children are still in :child or :needs_cleanup state. Shard may still be in production for writes / replication not torn down yet.
     #   :recycle        --  Parent shard that has been split and children are now in the :ready state. Shard no longer in production, replication to children has been torn down.
     attr_accessor :state
+
+    # the sharding pool to which this shard belongs
+    attr_reader :shard_pool
     
     # Constructor for Shard --
     # * min_id: int
     # * max_id: int or the string "INFINITY"
     # * master: string (IP address) or a Jetpants::DB object
     # * state:  one of the above state symbols
-    def initialize(min_id, max_id, master, state=:ready)
+    def initialize(min_id, max_id, master, state=:ready, shard_pool_name=nil)
       @min_id = min_id.to_i
       @max_id = (max_id.to_s.upcase == 'INFINITY' ? 'INFINITY' : max_id.to_i)
       @state = state
 
       @children = []    # array of shards being initialized by splitting this one
       @parent = nil
+      shard_pool_name = Jetpants.topology.default_shard_pool if shard_pool_name.nil?
+      @shard_pool = Jetpants.topology.shard_pool(shard_pool_name)
       
       super(generate_name, master)
     end
     
     # Generates a string containing the shard's min and max IDs. Plugin may want to override.
     def generate_name
-      "shard-#{min_id}-#{max_id.to_s.downcase}"
+      prefix = (@shard_pool.nil?) ? 'anon' : @shard_pool.name.downcase
+      "#{prefix}-#{min_id}-#{max_id.to_s.downcase}"
     end
     
     # Returns true if the shard state is one of the values that indicates it's
@@ -107,20 +113,20 @@ module Jetpants
     # Override the probe_tables method to accommodate shard topology -
     # delegate everything to the first shard.
     def probe_tables
-      if Jetpants.topology.shards.first == self
+      if Jetpants.topology.shards(self.shard_pool.name).first == self
         super
       else
-        Jetpants.topology.shards.first.probe_tables
+        Jetpants.topology.shards(self.shard_pool.name).first.probe_tables
       end
     end
 
     # Override the tables accessor to accommodate shard topology - delegate
     # everything to the first shard
     def tables
-      if Jetpants.topology.shards.first == self
+      if Jetpants.topology.shards(self.shard_pool.name).first == self
         super
       else
-        Jetpants.topology.shards.first.tables
+        Jetpants.topology.shards(self.shard_pool.name).first.tables
       end
     end
 
@@ -221,7 +227,7 @@ module Jetpants
         raise "Shard #{self} is not in a state compatible with calling prune_data! (current state=#{@state})"
       end
       
-      tables = Table.from_config 'sharded_tables'
+      tables = Table.from_config('sharded_tables', shard_pool.name)
       
       if @state == :initializing
         @state = :exporting
@@ -315,7 +321,7 @@ module Jetpants
 
       # situation A - clean up after a shard split
       if @state == :deprecated && @children.size > 0
-        tables = Table.from_config 'sharded_tables'
+        tables = Table.from_config('sharded_tables', pool.shard_pool.name)
         @master.revoke_all_access!
         @children.concurrent_each do |child_shard|
           raise "Child state does not indicate cleanup is needed" unless child_shard.state == :needs_cleanup
@@ -413,7 +419,7 @@ module Jetpants
         spare = Jetpants.topology.claim_spare(role: :master, like: master)
         spare.disable_read_only! if (spare.running? && spare.read_only?)
         spare.output "Will be master for new shard with ID range of #{my_range.first} to #{my_range.last} (inclusive)"
-        child_shard = Shard.new(my_range.first, my_range.last, spare, :initializing)
+        child_shard = Shard.new(my_range.first, my_range.last, spare, :initializing, shard_pool.name)
         child_shard.sync_configuration
         add_child(child_shard)
         Jetpants.topology.add_pool child_shard
