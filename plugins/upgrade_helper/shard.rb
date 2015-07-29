@@ -40,11 +40,14 @@ module Jetpants
       # Make the 1st new slave be the "future master" which the other new
       # slaves will replicate from
       future_master = targets.shift
-      targets.each do |t|
-        future_master.pause_replication_with t
-        t.change_master_to future_master
-        [future_master, t].each {|db| db.resume_replication; db.catch_up_to_master}
+      future_master.pause_replication_with *targets
+      targets.concurrent_each do |slave|
+        slave.change_master_to future_master
+        slave.resume_replication
+        slave.catch_up_to_master
       end
+      future_master.resume_replication
+      future_master.catch_up_to_master
     end
     
     # Hack the pool configuration to send reads to the new master, but still send
