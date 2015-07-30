@@ -12,13 +12,13 @@ module Jetpants
       # Array to hold all the target nodes
       targets = []
 
-      spares_needed.map do |role, needed|
+      spares_needed.each do |role, needed|
         next if needed == 0
         available = Jetpants.topology.count_spares(role:  "#{role}_slave".to_sym, like: source, version: Plugin::UpgradeHelper.new_version)
         raise "Not enough spare machines with role of #{role} slave! Requested #{needed} but only have #{available} available." if needed > available
       end
 
-      spares_needed.map do |role, needed|
+      spares_needed.each do |role, needed|
         next if needed == 0
         targets.concat Jetpants.topology.claim_spares(needed, role: "#{role}_slave".to_sym, like: source, version: Plugin::UpgradeHelper.new_version)
       end
