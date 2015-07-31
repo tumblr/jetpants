@@ -125,7 +125,7 @@ module Jetpants
     method_option :shard_pool, :desc => 'The sharding pool for which to perform the upgrade'
     def shard_upgrade
       shard_pool = options[:shard_pool] || ask('Please enter the sharding pool which to perform the action on (enter for default pool): ')
-      shard_pool = default_shard_pool if shard_pool.empty?
+      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
 
       if options[:reads]
         raise 'The --reads, --writes, and --cleanup options are mutually exclusive' if options[:writes] || options[:cleanup]
