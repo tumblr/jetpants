@@ -377,6 +377,10 @@ module Jetpants
     def respond_to?(name, include_private=false)
       super || @master.respond_to?(name)
     end
+
+    def slave_for_clone
+      backup_slaves.empty? ? standby_slaves.last : backup_slaves.last
+    end
     
   end
 end
