@@ -5,7 +5,7 @@ module Jetpants
     def branched_upgrade_prep
       raise "Shard #{self} in wrong state to perform this action! expected :ready, found #{@state}" unless @state == :ready
       raise "Not enough standby slaves of this shard!" unless standby_slaves.size >= slaves_layout[:standby_slave]
-      source = standby_slaves.last
+      source = slave_for_clone
 
       spares_needed = {'standby' => slaves_layout[:standby_slave] + 1, 'backup' => slaves_layout[:backup_slave]}
 
