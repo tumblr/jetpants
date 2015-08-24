@@ -363,6 +363,11 @@ module Jetpants
       ((buffer_pool_hit_rate.split[4].to_f * 100) / buffer_pool_hit_rate.split[6].to_f).round(2)
     end
 
+    # Determine whether a server should use ssl as a replication source
+    def use_ssl_replication?
+      global_variables[:have_ssl] && global_variables[:have_ssl].downcase == "yes"
+    end
+
     ###### Private methods #####################################################
     
     private
