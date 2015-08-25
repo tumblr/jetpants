@@ -28,17 +28,39 @@ module Jetpants
       
       repl_user = option_hash[:user]     || replication_credentials[:user]
       repl_pass = option_hash[:password] || replication_credentials[:pass]
+      use_ssl   = new_master.use_ssl_replication? && use_ssl_replication?
 
       pause_replication if @master && !@repl_paused
-      result = mysql_root_cmd "CHANGE MASTER TO " +
+      cmd_str = "CHANGE MASTER TO " +
         "MASTER_HOST='#{new_master.ip}', " +
         "MASTER_PORT=#{new_master.port}, " +
         "MASTER_LOG_FILE='#{logfile}', " +
         "MASTER_LOG_POS=#{pos}, " +
         "MASTER_USER='#{repl_user}', " + 
         "MASTER_PASSWORD='#{repl_pass}'"
-      
-      output "Changing master to #{new_master} with coordinates (#{logfile}, #{pos}). #{result}"
+
+      if use_ssl
+        ssl_ca_path = option_hash[:ssl_ca_path] || Jetpants.ssl_ca_path
+        ssl_client_cert_path = option_hash[:ssl_client_cert_path] || Jetpants.ssl_client_cert_path
+        ssl_client_key_path = option_hash[:ssl_client_key_path] || Jetpants.ssl_client_key_path
+
+        cmd_str += ", MASTER_SSL=1"
+        cmd_str += ", MASTER_SSL_CA='#{ssl_ca_path}'" if ssl_ca_path
+
+        if ssl_client_cert_path && ssl_client_key_path
+            cmd_str +=
+              ", MASTER_SSL_CERT='#{ssl_client_cert_path}', " + 
+              "MASTER_SSL_KEY='#{ssl_client_key_path}'"
+        end
+      end
+
+      result = mysql_root_cmd cmd_str 
+
+      msg = "Changing master to #{new_master}"
+      msg += " using SSL" if use_ssl
+      msg += " with coordinates (#{logfile}, #{pos}). #{result}"
+      output msg
+
       @master.slaves.delete(self) if @master rescue nil
       @master = new_master
       @repl_paused = true
