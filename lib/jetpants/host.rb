@@ -253,7 +253,7 @@ module Jetpants
         decompression_pipe = Jetpants.decompress_with ? "| #{Jetpants.decompress_with}" : ''
         decryption_pipe = Jetpants.decrypt_with ? "| #{Jetpants.decrypt_with}" : ''
         if i == 0
-          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} #{decompression_pipe} | tar xv" }
+          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} #{decryption_pipe} #{decompression_pipe} | tar xv" }
           t.confirm_listening_on_port port
           t.output "Listening with netcat."
         else
