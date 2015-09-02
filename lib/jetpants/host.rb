@@ -217,7 +217,7 @@ module Jetpants
 
       should_encrypt = false
       targets.each do |t|
-        should_encrypt = should_encrypt || should_encrypt_with? t
+        should_encrypt = should_encrypt || should_encrypt_with?(t)
       end
 
       if Jetpants.encrypt_with && Jetpants.decrypt_with && should_encrypt
@@ -295,7 +295,7 @@ module Jetpants
     # Add a hook point to determine whether a host should encrypt a data stream between two hosts
     # This is useful to avoid encryption latency in a secure environment
     def should_encrypt_with?(host)
-      true
+      Jetpants.encrypt_file_transfers
     end
     
     # Given the name of a directory or single file, returns a hash of filename => size of each file present.
