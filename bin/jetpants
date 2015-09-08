@@ -594,7 +594,7 @@ module Jetpants
     method_option :new_master, :desc => 'New node to become master of the shard'
     method_option :shard_pool, :desc => 'The sharding pool for which to perform the promotion'
     def shard_promote_master
-      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the split (enter for default, #{Jetpants.topology.default_shard_pool}): ")
+      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the master promotion (enter for default, #{Jetpants.topology.default_shard_pool}): ")
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
       # find the shard we are going to do master promotion on
       s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id], shard_pool)
@@ -626,7 +626,7 @@ module Jetpants
     method_option :max_id, :desc => 'Maximum ID of shard involved in master promotion'
     method_option :shard_pool, :desc => 'The sharding pool for which to perform the promotion'
     def shard_promote_master_reads
-      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the split (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
+      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the master promotion (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
       # find the shard we are going to do master promotion on
       s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id], shard_pool)
@@ -656,7 +656,7 @@ module Jetpants
     desc 'shard_promote_master_writes', 'Lockless shard master promotion (step 3 of 4): move writes to new master'
     method_option :shard_pool, :desc => 'The sharding pool for which to perform the promotion'
     def shard_promote_master_writes
-      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the split (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
+      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the master promotion (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
       s = ask_shard_being_promoted(:writes, nil, nil, shard_pool)
       if s.state != :child
@@ -681,7 +681,7 @@ module Jetpants
     desc 'shard_promote_master_cleanup', 'Lockless shard master promotion (step 4 of 4): clean up shard and eject old master'
     method_option :shard_pool, :desc => 'The sharding pool for which to perform the promotion'
     def shard_promote_master_cleanup
-      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the split (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
+      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the master promotion (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
       s = ask_shard_being_promoted(:cleanup, nil, nil, shard_pool)
       if s.state != :needs_cleanup
