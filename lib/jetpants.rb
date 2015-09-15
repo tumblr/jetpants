@@ -53,6 +53,9 @@ module Jetpants
     'ssl_ca_path'             =>  '/var/lib/mysql/ca.pem',
     'ssl_client_cert_path'    =>  '/var/lib/mysql/client-cert.pem',
     'ssl_client_key_path'     =>  '/var/lib/mysql/client-key.pem',
+    'encrypt_with'            =>  false,      # command line stream encryption binary
+    'decrypt_with'            =>  false,      # command line stream decryption binary
+    'encrypt_file_transfers'  =>  false       # flag to use stream encryption
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
