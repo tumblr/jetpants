@@ -422,7 +422,7 @@ module Jetpants
       raise "Shard isn't in ready state" unless s.state == :ready
       
       if s.max_id == 'INFINITY'
-        ranges = options[:ranges] || ask('Enter comma-separated list of ranges per child ie "1000-1999,2000-INFINITY" [default=even split]: ')
+        ranges = options[:ranges] || ask('Enter comma-separated list of ranges per child ie "1000-1999,2000-INFINITY" [REQUIRED]: ')
         raise "Must enter a range for a max ID of infinity" if ranges.strip == ''
       else
         ranges = options[:ranges] || ask('Optionally enter comma-separated list of ranges per child ie "1000-1999,2000-2499" [default=even split]: ')
