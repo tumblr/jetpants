@@ -440,7 +440,7 @@ module Jetpants
           supply_ranges << [my_min, my_max]
         end
         children = supply_ranges.count
-        raise "Supplied range does not cover parent completely!" if supply_ranges.first[0] != shard_min.to_i || supply_ranges.last[1] != shard_max.to_i
+        raise "Supplied range does not cover parent completely!" if supply_ranges.first[0] != shard_min.to_i || ((supply_ranges.last[1] != shard_max.to_i) && (supply_ranges.last[1] != 'INFINITY' &&  shard_max != 'INFINITY'))
         s.split!(children, supply_ranges)
       else
         children = options[:count] || ask('Optionally enter how many children to split into [default=2]: ')
