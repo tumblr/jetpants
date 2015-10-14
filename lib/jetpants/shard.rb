@@ -228,6 +228,15 @@ module Jetpants
       end
       
       tables = Table.from_config('sharded_tables', shard_pool.name)
+
+      if @max_id == 'INFINITY'
+        max_table_value = tables.map do |table|
+          highest_table_key_value table
+        end.max
+        max_table_value = max_table_value * 1.2
+      else
+        max_table_value = @max_id
+      end
       
       if @state == :initializing
         @state = :exporting
@@ -237,7 +246,7 @@ module Jetpants
       if @state == :exporting
         stop_query_killer
         export_schemata tables
-        export_data tables, @min_id, (@max_id == 'INFINITY' ? 4294967295 : @max_id)
+        export_data tables, @min_id, max_table_value
         @state = :importing
         sync_configuration
       end
@@ -248,7 +257,7 @@ module Jetpants
         alter_schemata if respond_to? :alter_schemata
         disable_monitoring
         restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
-        import_data tables, @min_id, (@max_id == 'INFINITY' ? 4294967295 : @max_id)
+        import_data tables, @min_id, max_table_value
         restart_mysql # to clear out previous options '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
         enable_monitoring
         start_query_killer

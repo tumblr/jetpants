@@ -95,6 +95,11 @@ module Jetpants
       output "#{rows_exported} rows exported", table
       rows_exported
     end
+
+    def highest_table_key_value(table, key=NULL)
+      key = first_pk_col unless key
+      return query_return_first_value("SELECT max(#{key}) from #{table.name};")
+    end
     
     # Imports data for a table that was previously exported using export_data. 
     # Only includes the data subset that falls within min_id and max_id.  If
