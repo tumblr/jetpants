@@ -13,7 +13,6 @@ module Jetpants
       targets = []
 
       unless upgrade_shard_master_ip.empty?
-         error "Node (#{upgrade_shard_master_ip.blue}) does not appear to be an IP address." unless is_ip? upgrade_shard_master_ip
          upgrade_shard_master = upgrade_shard_master_ip.to_db
          upgrade_shard_master.claim! if upgrade_shard_master.is_spare?
          spares_needed['standby'] = spares_needed['standby'] - 1
