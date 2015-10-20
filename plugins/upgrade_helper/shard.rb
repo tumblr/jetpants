@@ -2,7 +2,7 @@ module Jetpants
   class Shard
     # Builds a set of upgraded slaves, and then makes one of the new slaves become the
     # master for the other new slaves
-    def branched_upgrade_prep
+    def branched_upgrade_prep(upgrade_shard_master_ip)
       raise "Shard #{self} in wrong state to perform this action! expected :ready, found #{@state}" unless @state == :ready
       raise "Not enough standby slaves of this shard!" unless standby_slaves.size >= slaves_layout[:standby_slave]
       source = slave_for_clone
@@ -12,15 +12,26 @@ module Jetpants
       # Array to hold all the target nodes
       targets = []
 
+      unless upgrade_shard_master_ip.empty?
+         error "Node (#{upgrade_shard_master_ip.blue}) does not appear to be an IP address." unless is_ip? upgrade_shard_master_ip
+         upgrade_shard_master = upgrade_shard_master_ip.to_db
+         upgrade_shard_master.claim! if upgrade_shard_master.is_spare?
+         spares_needed['standby'] = spares_needed['standby'] - 1
+         like_node = upgrade_shard_master
+         targets << upgrade_shard_master
+      else
+         like_node = source
+      end
+
       spares_needed.each do |role, needed|
         next if needed == 0
-        available = Jetpants.topology.count_spares(role:  "#{role}_slave".to_sym, like: source, version: Plugin::UpgradeHelper.new_version)
+        available = Jetpants.topology.count_spares(role:  "#{role}_slave".to_sym, like: like_node, version: Plugin::UpgradeHelper.new_version)
         raise "Not enough spare machines with role of #{role} slave! Requested #{needed} but only have #{available} available." if needed > available
       end
 
       spares_needed.each do |role, needed|
         next if needed == 0
-        targets.concat Jetpants.topology.claim_spares(needed, role: "#{role}_slave".to_sym, like: source, version: Plugin::UpgradeHelper.new_version)
+        targets.concat Jetpants.topology.claim_spares(needed, role: "#{role}_slave".to_sym, like: like_node, version: Plugin::UpgradeHelper.new_version)
       end
       
       # Disable fast shutdown on the source
