@@ -4,7 +4,7 @@ module Jetpants
   class Shard
     # Runs queries against a slave in the pool to verify sharding key values
     def validate_shard_data
-      tables = Table.from_config 'sharded_tables'
+      tables = Table.from_config('sharded_tables', shard_pool.name)
       table_statuses = {}
       tables.limited_concurrent_map(8) { |table|
         table.sharding_keys.each do |col|
@@ -125,7 +125,7 @@ module Jetpants
     # Generate a list of filenames for exported data
     def table_export_filenames(full_path = true, tables = false)
       export_filenames = []
-      tables = Table.from_config 'sharded_tables' unless tables
+      tables = Table.from_config('sharded_tables', shard_pool.name) unless tables
       export_filenames = tables.map { |table| table.export_filenames(@min_id, @max_id) }.flatten
 
       export_filenames.map!{ |filename| File.basename filename } unless full_path
@@ -159,7 +159,7 @@ module Jetpants
       slaves_to_replicate = shards_to_merge.map { |shard| shard.standby_slaves.last }
 
       # sharded table list to ship
-      tables = Plugin::MergeHelper.tables_to_merge
+      tables = Plugin::MergeHelper.tables_to_merge(shards_to_merge.first.shard_pool.name)
 
       # data export counts for validation later
       export_counts = {}
@@ -235,7 +235,7 @@ module Jetpants
     end
 
     def combined_shard
-      Jetpants.shards.select { |shard| ( 
+      Jetpants.shards(shard_pool.name).select { |shard| ( 
         shard.min_id.to_i <= @min_id.to_i \
         && shard.max_id.to_i >= @max_id.to_i \
         && shard.max_id != 'INFINITY' \

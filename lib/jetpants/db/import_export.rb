@@ -274,7 +274,7 @@ module Jetpants
       
       p = pool
       if p.is_a?(Shard)
-        tables ||= Table.from_config 'sharded_tables'
+        tables ||= Table.from_config('sharded_tables', p.shard_pool.name)
         min_id ||= p.min_id
         max_id ||= p.max_id if p.max_id != 'INFINITY'
       end
@@ -307,8 +307,40 @@ module Jetpants
       export_schemata tables
       export_data tables, min_id, max_id
       import_schemata!
-      alter_schemata if respond_to? :alter_schemata
+      if respond_to? :alter_schemata
+        alter_schemata 
+        # re-retrieve table metadata in the case that we alter the tables
+        pool.probe_tables
+        tables = pool.tables.select{|t| pool.tables.map(&:name).include?(t.name)}
+      end
+
+      index_list = {}
+      db_prefix = "USE #{app_schema};"
+
+      if Jetpants.import_without_indices
+        tables.each do |t|
+          index_list[t] = t.indexes
+
+          t.indexes.each do |index_name, index_info|
+            drop_idx_cmd = t.drop_index_query(index_name)
+            output "Dropping index #{index_name} from #{t.name} prior to import"
+            mysql_root_cmd("#{db_prefix}#{drop_idx_cmd}")
+          end
+        end
+      end
+
       import_data tables, min_id, max_id
+
+      if Jetpants.import_without_indices
+        index_list.each do |table, indexes|
+          next if indexes.keys.empty?
+
+          create_idx_cmd = table.create_index_query(indexes)
+          index_names = indexes.keys.join(", ")
+          output "Recreating indexes #{index_names} for #{table.name} after import"
+          mysql_root_cmd("#{db_prefix}#{create_idx_cmd}")
+        end
+      end
       
       restart_mysql
       catch_up_to_master if is_slave?
@@ -345,8 +377,9 @@ module Jetpants
       targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_logfile*"}
 
       files = (databases + ['ibdata1', app_schema]).uniq
+      files += ['*.tokudb', 'tokudb.*', 'log*.tokulog*'] if ssh_cmd("test -f #{mysql_directory}/tokudb.environment 2>/dev/null; echo $?").chomp.to_i == 0
       files << 'ib_lru_dump' if ssh_cmd("test -f #{mysql_directory}/ib_lru_dump 2>/dev/null; echo $?").chomp.to_i == 0
-      
+
       fast_copy_chain(mysql_directory, destinations, :port => 3306, :files => files, :overwrite => true)
       clone_settings_to!(*targets)
 

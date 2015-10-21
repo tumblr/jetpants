@@ -3,8 +3,8 @@ module Jetpants
     module MergeHelper
       class << self
         # Provide a config hook to specify a list of tables to merge, overriding the sharded_tables list
-        def tables_to_merge
-          tables = Table.from_config 'sharded_tables'
+        def tables_to_merge(shard_pool)
+          tables = Table.from_config('sharded_tables', shard_pool)
           table_list = []
           if (!Jetpants.plugins['merge_helper'].nil? && Jetpants.plugins['merge_helper'].has_key?('table_list'))
             table_list = Jetpants.plugins['merge_helper']['table_list']

@@ -347,7 +347,7 @@ module Jetpants
     # WARNING! This will pause replication on the nodes this machine aggregates from
     # And perform expensive row count operations on them
     def validate_aggregate_row_counts(restart_monitoring = true, tables = false)
-      tables = Table.from_config 'sharded_tables' unless tables
+      tables = Table.from_config('sharded_tables', aggregating_nodes.first.pool.shard_pool.name) unless tables
       query_nodes = [ slaves, aggregating_nodes ].flatten
       aggregating_nodes.concurrent_each do |node|
         node.disable_monitoring

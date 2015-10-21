@@ -268,13 +268,13 @@ module Jetpants
         end
       end
 
-      spares_needed.map do |role, needed|
+      spares_needed.each do |role, needed|
         next if needed == 0
         available = Jetpants.topology.count_spares(role:  "#{role}_slave".to_sym, like: compare)
         raise "Not enough spare machines with role of #{role} slave! Requested #{needed} but only have #{available} available." if needed > available
       end
 
-      spares_needed.map do |role, needed|
+      spares_needed.each do |role, needed|
         next if needed == 0
         targets.concat Jetpants.topology.claim_spares(needed, role: "#{role}_slave".to_sym, like: compare)
       end
@@ -407,10 +407,17 @@ module Jetpants
     method_option :max_id, :desc => 'Maximum ID of parent shard to split'
     method_option :ranges, :desc => 'Optional comma-separated list of ranges per child ie "1000-1999,2000-2499" (default if omitted: split evenly)'
     method_option :count,  :desc => 'How many child shards to split the parent into (only necessary if the ranges option is omitted)'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the split'
     def shard_split
       shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
       shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
-      s = Jetpants.topology.shard shard_min, shard_max
+
+      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the split (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
+      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
+
+      output "Using shard pool `#{shard_pool}`"
+
+      s = Jetpants.topology.shard(shard_min, shard_max, shard_pool)
       
       raise "Shard not found" unless s
       raise "Shard isn't in ready state" unless s.state == :ready
@@ -503,10 +510,14 @@ module Jetpants
     
     desc 'shard_cutover', 'truncate the current last shard range, and add a new shard after it'
     method_option :cutover_id, :desc => 'Minimum ID of new last shard being created'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the cutover'
     def shard_cutover
       cutover_id = options[:cutover_id] || ask('Please enter min ID of the new shard to be created: ')
       cutover_id = cutover_id.to_i
-      last_shard = Jetpants.topology.shards.select {|s| s.max_id == 'INFINITY' && s.in_config?}.first
+      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the split (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
+      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
+
+      last_shard = Jetpants.topology.shards(shard_pool).select {|s| s.max_id == 'INFINITY' && s.in_config?}.first
       last_shard_master = last_shard.master
       
       # Simple sanity-check that the cutover ID is greater than the current last shard's MIN id.
@@ -528,7 +539,7 @@ module Jetpants
       # has the same master/slaves but now has a non-infinity max ID.
       last_shard.state = :recycle
       last_shard.sync_configuration
-      last_shard_replace = Shard.new(last_shard.min_id, cutover_id - 1, last_shard_master)
+      last_shard_replace = Shard.new(last_shard.min_id, cutover_id - 1, last_shard_master, :ready, shard_pool)
       last_shard_replace.sync_configuration
       Jetpants.topology.add_pool last_shard_replace
       
@@ -557,12 +568,12 @@ module Jetpants
         end
       end
 
-      new_last_shard = Shard.new(cutover_id, 'INFINITY', new_last_shard_master)
+      new_last_shard = Shard.new(cutover_id, 'INFINITY', new_last_shard_master, :ready, shard_pool)
       new_last_shard.sync_configuration
       Jetpants.topology.add_pool new_last_shard
       
       # Create tables on the new shard's master, obtaining schema from previous last shard
-      tables = Table.from_config 'sharded_tables'
+      tables = Table.from_config('sharded_tables', shard_pool)
       last_shard_master.export_schemata tables
       last_shard_master.host.fast_copy_chain(Jetpants.export_location, new_last_shard_master.host, files: ["create_tables_#{last_shard_master.port}.sql"])
       new_last_shard_master.import_schemata!
@@ -581,9 +592,12 @@ module Jetpants
     method_option :min_id, :desc => 'Minimum ID of shard involved in master promotion'
     method_option :max_id, :desc => 'Maximum ID of shard involved in master promotion'
     method_option :new_master, :desc => 'New node to become master of the shard'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the promotion'
     def shard_promote_master
+      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the master promotion (enter for default, #{Jetpants.topology.default_shard_pool}): ")
+      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
       # find the shard we are going to do master promotion on
-      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id])
+      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id], shard_pool)
 
       new_master = ask_node "Please enter the IP of the new master for #{s}: ", options[:new_master]
       raise "New master node #{new_master} is not currently a slave in shard #{s}" unless s.slaves && s.slaves.include?(new_master)
@@ -610,9 +624,12 @@ module Jetpants
     desc 'shard_promote_master_reads', 'Lockless shard master promotion (step 2 of 4): move reads to new master'
     method_option :min_id, :desc => 'Minimum ID of shard involved in master promotion'
     method_option :max_id, :desc => 'Maximum ID of shard involved in master promotion'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the promotion'
     def shard_promote_master_reads
+      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the master promotion (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
+      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
       # find the shard we are going to do master promotion on
-      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id])
+      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id], shard_pool)
 
       # at this point we only have one slave, which is the new master
       new_master = s.master.slaves.last
@@ -637,8 +654,11 @@ module Jetpants
     end
 
     desc 'shard_promote_master_writes', 'Lockless shard master promotion (step 3 of 4): move writes to new master'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the promotion'
     def shard_promote_master_writes
-      s = ask_shard_being_promoted :writes
+      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the master promotion (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
+      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
+      s = ask_shard_being_promoted(:writes, nil, nil, shard_pool)
       if s.state != :child
         raise "Shard #{s} is in wrong state to perform this action! Expected :child, found #{s.state}"
       end
@@ -659,8 +679,11 @@ module Jetpants
     end
 
     desc 'shard_promote_master_cleanup', 'Lockless shard master promotion (step 4 of 4): clean up shard and eject old master'
+    method_option :shard_pool, :desc => 'The sharding pool for which to perform the promotion'
     def shard_promote_master_cleanup
-      s = ask_shard_being_promoted :cleanup
+      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the master promotion (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
+      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
+      s = ask_shard_being_promoted(:cleanup, nil, nil, shard_pool)
       if s.state != :needs_cleanup
         raise "Shard #{s} is in wrong state to perform this action! Expected :needs_cleanup, found #{s.state}"
       end
@@ -794,13 +817,17 @@ module Jetpants
         output 'Which shard would you like to perform this action on?'
         shard_min = ask('Please enter min ID of the shard: ')
         shard_max = ask('Please enter max ID of the shard: ')
-        s = Jetpants.topology.shard shard_min, shard_max
+        shard_pool = ask("Please enter the sharding pool which to perform the action on (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
+        shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
+        s = Jetpants.topology.shard(shard_min, shard_max, shard_pool)
         raise 'Shard not found' unless s
         s
       end
 
       def ask_shard_being_split
-        shards_being_split = Jetpants.shards.select {|s| s.children.count > 0}
+        shard_pool = ask("Enter shard pool to take action on (enter for default pool, #{Jetpants.topology.default_shard_pool}):")
+        shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
+        shards_being_split = Jetpants.shards(shard_pool).select {|s| s.children.count > 0}
         if shards_being_split.count == 0
           raise 'No shards are currently being split. You can only use this task after running "jetpants shard_split".'
         elsif shards_being_split.count == 1
@@ -814,9 +841,9 @@ module Jetpants
         s
       end
 
-      def ask_shard_being_promoted(stage = :prep, min_id = nil, max_id = nil)
+      def ask_shard_being_promoted(stage = :prep, min_id = nil, max_id = nil, shard_pool)
         if stage == :writes || stage == :cleanup
-          shards_being_promoted = Jetpants.shards.select do |s|
+          shards_being_promoted = Jetpants.shards(shard_pool).select do |s|
             [:reads, :child, :needs_cleanup].include?(s.state) && !s.parent && s.master.master
           end
 
@@ -836,7 +863,7 @@ module Jetpants
           max_id = ask("Enter max id of shard to perform master promotion: ")
           max_id = Integer(max_id) rescue max_id.upcase
 
-          s = Jetpants.topology.shard(min_id, max_id)
+          s = Jetpants.topology.shard(min_id, max_id, shard_pool)
         end
         raise "Invalid shard selected!" unless s.is_a? Shard
 

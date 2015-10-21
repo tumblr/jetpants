@@ -7,7 +7,7 @@ module Jetpants
     
     include Plugin::JetCollins
     
-    collins_attr_accessor :shard_min_id, :shard_max_id, :shard_state, :shard_parent
+    collins_attr_accessor :shard_min_id, :shard_max_id, :shard_state, :shard_parent, :shard_pool
     
     # Returns a Collins::Asset for this pool
     def collins_asset(create_if_missing=false)
@@ -15,9 +15,10 @@ module Jetpants
         operation:    'and',
         details:      true,
         type:         'CONFIGURATION', 
-        primary_role: 'MYSQL_SHARD',
+        primary_role: '^MYSQL_SHARD$',
         shard_min_id: "^#{@min_id}$",
         shard_max_id: "^#{@max_id}$",
+        shard_pool:   "^#{@shard_pool.name}$"
       }
       selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
       
@@ -45,7 +46,8 @@ module Jetpants
                     primary_role: 'MYSQL_SHARD', 
                     pool: @name.upcase,
                     shard_min_id: @min_id,
-                    shard_max_id: @max_id
+                    shard_max_id: @max_id,
+                    shard_pool: @shard_pool.name.upcase
         Plugin::JetCollins.get new_tag
       elsif results.count == 0 && !create_if_missing
         raise "Could not find configuration asset for pool #{name}"

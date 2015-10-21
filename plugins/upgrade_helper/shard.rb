@@ -5,11 +5,23 @@ module Jetpants
     def branched_upgrade_prep
       raise "Shard #{self} in wrong state to perform this action! expected :ready, found #{@state}" unless @state == :ready
       raise "Not enough standby slaves of this shard!" unless standby_slaves.size >= slaves_layout[:standby_slave]
-      source = standby_slaves.last
-      spares_available = Jetpants.topology.count_spares(role: :standby_slave, like: source, version: Plugin::UpgradeHelper.new_version)
-      raise "Not enough spares available!" unless spares_available >= 1 + slaves_layout[:standby_slave]
-      
-      targets = Jetpants.topology.claim_spares(1 + slaves_layout[:standby_slave], role: :standby_slave, like: source, version: Plugin::UpgradeHelper.new_version)
+      source = slave_for_clone
+
+      spares_needed = {'standby' => slaves_layout[:standby_slave] + 1, 'backup' => slaves_layout[:backup_slave]}
+
+      # Array to hold all the target nodes
+      targets = []
+
+      spares_needed.each do |role, needed|
+        next if needed == 0
+        available = Jetpants.topology.count_spares(role:  "#{role}_slave".to_sym, like: source, version: Plugin::UpgradeHelper.new_version)
+        raise "Not enough spare machines with role of #{role} slave! Requested #{needed} but only have #{available} available." if needed > available
+      end
+
+      spares_needed.each do |role, needed|
+        next if needed == 0
+        targets.concat Jetpants.topology.claim_spares(needed, role: "#{role}_slave".to_sym, like: source, version: Plugin::UpgradeHelper.new_version)
+      end
       
       # Disable fast shutdown on the source
       source.mysql_root_cmd 'SET GLOBAL innodb_fast_shutdown = 0'
@@ -28,11 +40,14 @@ module Jetpants
       # Make the 1st new slave be the "future master" which the other new
       # slaves will replicate from
       future_master = targets.shift
-      targets.each do |t|
-        future_master.pause_replication_with t
-        t.change_master_to future_master
-        [future_master, t].each {|db| db.resume_replication; db.catch_up_to_master}
+      future_master.pause_replication_with *targets
+      targets.concurrent_each do |slave|
+        slave.change_master_to future_master
+        slave.resume_replication
+        slave.catch_up_to_master
       end
+      future_master.resume_replication
+      future_master.catch_up_to_master
     end
     
     # Hack the pool configuration to send reads to the new master, but still send

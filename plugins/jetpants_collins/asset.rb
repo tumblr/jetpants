@@ -15,8 +15,16 @@ module Collins
       raise "Can only call to_host on SERVER_NODE assets, but #{self} has type #{type}" unless type.upcase == 'SERVER_NODE'
       backend_ip_address.to_host
     end
-    
-    
+
+    # Convert a Collins:Asset to a Jetpants::ShardPool
+    def to_shard_pool
+      raise "Can only call to_shard_pool on CONFIGURATION assets, but #{self} has type #{type}" unless type.upcase == 'CONFIGURATION'
+      raise "Unknown primary role #{primary_role} for configuration asset #{self}" unless primary_role.upcase == 'MYSQL_SHARD_POOL'
+      raise "No shard_pool attribute set on asset #{self}" unless shard_pool && shard_pool.length > 0
+
+      Jetpants::ShardPool.new(shard_pool)
+    end
+
     # Convert a Collins::Asset to either a Jetpants::Pool or a Jetpants::Shard, depending
     # on the value of PRIMARY_ROLE.  Requires asset TYPE to be CONFIGURATION.
     def to_pool
@@ -65,7 +73,8 @@ module Collins
         result = Jetpants::Shard.new(shard_min_id.to_i, 
                                    shard_max_id == 'INFINITY' ? 'INFINITY' : shard_max_id.to_i, 
                                    master_assets.first.to_db, 
-                                   shard_state.downcase.to_sym)
+                                   shard_state.downcase.to_sym,
+                                   shard_pool)
         
         # We'll need to set up the parent/child relationship if a shard split is in progress,
         # BUT we need to wait to do that later since the shards may have been returned by

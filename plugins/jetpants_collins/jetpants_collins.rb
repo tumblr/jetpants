@@ -303,4 +303,4 @@ end # module Jetpants
 
 
 # load all the monkeypatches for other Jetpants classes
-%w(monkeypatch asset host db pool shard topology commandsuite).each {|mod| require "jetpants_collins/#{mod}"}
+%w(monkeypatch asset host db pool shard topology shardpool commandsuite).each {|mod| require "jetpants_collins/#{mod}"}
