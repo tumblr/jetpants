@@ -121,7 +121,14 @@ module Jetpants
       cmd.each do |c|
         failures = 0
         begin
-          result = conn.exec! c
+          result = conn.exec! c do |ch, stream, data|
+            if stream == :stderr
+              output "SSH ERROR: #{data}"
+            end
+
+            ch[:result] ||= ''
+            ch[:result] << data
+          end
         rescue
           failures += 1
           raise if failures >= attempts
@@ -260,7 +267,7 @@ module Jetpants
         decompression_pipe = Jetpants.decompress_with ? "| #{Jetpants.decompress_with}" : ''
         decryption_pipe = (Jetpants.decrypt_with && should_encrypt) ? "| #{Jetpants.decrypt_with}" : ''
         if i == 0
-          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} #{decryption_pipe} #{decompression_pipe} | tar xv" }
+          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} #{decryption_pipe} #{decompression_pipe} | tar x" }
           t.confirm_listening_on_port port
           t.output "Listening with netcat."
         else
@@ -269,7 +276,7 @@ module Jetpants
           workers << Thread.new { t.ssh_cmd "cd #{dir} && mkfifo #{fifo} && nc #{tt.ip} #{port} <#{fifo} && rm #{fifo}" }
           checker_th = Thread.new { t.ssh_cmd "while [ ! -p #{dir}/#{fifo} ] ; do sleep 1; done" }
           raise "FIFO not found on #{t} after 10 tries" unless checker_th.join(10)
-          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} | tee #{fifo} #{decryption_pipe} #{decompression_pipe} | tar xv" }
+          workers << Thread.new { t.ssh_cmd "cd #{dir} && nc -l #{port} | tee #{fifo} #{decryption_pipe} #{decompression_pipe} | tar x" }
           t.confirm_listening_on_port port
           t.output "Listening with netcat, and chaining to #{tt}."
         end
@@ -280,7 +287,7 @@ module Jetpants
       output "Sending files over to #{targets[0]}: #{file_list}"
       compression_pipe = Jetpants.compress_with ? "| #{Jetpants.compress_with}" : ''
       encryption_pipe = (Jetpants.encrypt_with && should_encrypt) ? "| #{Jetpants.encrypt_with}" : ''
-      ssh_cmd "cd #{base_dir} && tar vc #{file_list} #{compression_pipe} #{encryption_pipe} | nc #{targets[0].ip} #{port}"
+      ssh_cmd "cd #{base_dir} && tar c #{file_list} #{compression_pipe} #{encryption_pipe} | nc #{targets[0].ip} #{port}"
       workers.each {|th| th.join}
       output "File copy complete."
 
