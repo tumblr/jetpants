@@ -69,9 +69,11 @@ module Jetpants
             :timeout => 5,
           }
           params[:keys] = Jetpants.ssh_keys if Jetpants.ssh_keys
+          params[:port] = Jetpants.ssh_port if Jetpants.ssh_port
+          user          = Jetpants.ssh_user if Jetpants.ssh_user
           begin
             @lock.synchronize do 
-              conn = Net::SSH.start(@ip, 'root', params)
+              conn = Net::SSH.start(@ip, user, params)
             end
           rescue => ex
             output "Unable to SSH on attempt #{attempt + 1}: #{ex.to_s}"
