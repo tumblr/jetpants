@@ -161,7 +161,11 @@ module Jetpants
           'Be especially careful if you are relying on SSH Agent Forwarding for your root key, since this is not screen-friendly.'
         )
         s = ask_shard_being_upgraded(:prep, shard_pool)
-        s.branched_upgrade_prep
+        upgrade_shard_master_ip = ask("Enter the IP address of the new master or press enter to select a spare:")
+        unless upgrade_shard_master_ip.empty?
+          raise "Node (#{upgrade_shard_master_ip.blue}) does not appear to be an IP address." unless is_ip? upgrade_shard_master_ip
+        end
+        s.branched_upgrade_prep(upgrade_shard_master_ip)
         self.class.reminders(
           'Proceed to next step: jetpants shard_upgrade --reads'
         )
