@@ -234,8 +234,10 @@ module Jetpants
           highest_table_key_value table
         end.max
         max_table_value = max_table_value * 1.2
+        infinity = true
       else
         max_table_value = @max_id
+        infinity = false
       end
       
       if @state == :initializing
@@ -246,7 +248,7 @@ module Jetpants
       if @state == :exporting
         stop_query_killer
         export_schemata tables
-        export_data tables, @min_id, max_table_value
+        export_data tables, @min_id, max_table_value, infinity
         @state = :importing
         sync_configuration
       end
@@ -257,7 +259,7 @@ module Jetpants
         alter_schemata if respond_to? :alter_schemata
         disable_monitoring
         restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
-        import_data tables, @min_id, max_table_value
+        import_data tables, @min_id, max_table_value, infinity
         restart_mysql # to clear out previous options '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
         enable_monitoring
         start_query_killer

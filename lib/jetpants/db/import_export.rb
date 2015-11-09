@@ -38,7 +38,7 @@ module Jetpants
     # data where at least one of the table's sharding keys falls within this range.
     # Creates a 'jetpants' db user with FILE permissions for the duration of the
     # export.
-    def export_data(tables, min_id=false, max_id=false)
+    def export_data(tables, min_id=false, max_id=false, infinity=false)
       pause_replication if @master && ! @repl_paused
       import_export_user = 'jetpants'
       create_user(import_export_user)
@@ -46,7 +46,7 @@ module Jetpants
       grant_privileges(import_export_user, '*', 'FILE')  # FILE global privs
       reconnect(user: import_export_user)
       @counts ||= {}
-      tables.each {|t| @counts[t.name] = export_table_data t, min_id, max_id}
+      tables.each {|t| @counts[t.name] = export_table_data t, min_id, max_id, infinity}
     ensure
       reconnect(user: app_credentials[:user])
       drop_user import_export_user
@@ -56,7 +56,7 @@ module Jetpants
     # within min_id and max_id. The export files will be located according
     # to the export_location configuration setting.
     # Returns the number of rows exported.
-    def export_table_data(table, min_id=false, max_id=false)
+    def export_table_data(table, min_id=false, max_id=false, infinity=false)
       unless min_id && max_id && table.chunks > 0
         output "Exporting all data", table
         rows_exported = query(table.sql_export_all)
@@ -92,6 +92,25 @@ module Jetpants
           retry
         end
       end
+
+      if infinity
+        attempts = 0
+        begin
+          infinity_rows_exported = query(table.sql_export_range(max_id+1, false))
+          rows_exported += infinity_rows_exported
+        rescue => ex
+          if attempts >= 10
+            output "EXPORT ERROR: #{ex.message}, chunk #{max_id+1}-INFINITY, giving up", table
+            raise
+          end
+          attempts += 1
+          output "EXPORT ERROR: #{ex.message}, chunk #{max_id+1}-INFINITY, attempt #{attempts}, re-trying after delay", table
+          ssh_cmd("rm -f " + table.export_file_path(max_id+1, false))
+          sleep(1.0 * attempts)
+          retry
+        end
+      end
+
       output "#{rows_exported} rows exported", table
       rows_exported
     end
@@ -117,7 +136,7 @@ module Jetpants
     # DB#restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
     # prior to importing data, and then clear those settings by calling
     # DB#restart_mysql with no params after done importing data.
-    def import_data(tables, min_id=false, max_id=false)
+    def import_data(tables, min_id=false, max_id=false, infinity=false)
       disable_read_only!
       import_export_user = 'jetpants'
       create_user(import_export_user)
@@ -131,7 +150,7 @@ module Jetpants
       reconnect(user: import_export_user, after_connect: disable_unique_checks_proc)
       
       import_counts = {}
-      tables.each {|t| import_counts[t.name] = import_table_data t, min_id, max_id}
+      tables.each {|t| import_counts[t.name] = import_table_data t, min_id, max_id, infinity}
       
       # Verify counts
       @counts ||= {}
@@ -150,7 +169,7 @@ module Jetpants
     
     # Imports the data subset previously dumped through export_data.
     # Returns number of rows imported.
-    def import_table_data(table, min_id=false, max_id=false)
+    def import_table_data(table, min_id=false, max_id=false, infinity=false)
       unless min_id && max_id && table.chunks > 0
         output "Importing all data", table
         rows_imported = query(table.sql_import_all)
@@ -187,6 +206,26 @@ module Jetpants
           retry
         end
       end
+
+      if infinity
+        attempts = 0
+        begin
+          infinity_rows_imported = query(table.sql_import_range(max_id+1, false))
+          chunk_file_name = table.export_file_path(max_id+1, false)
+          ssh_cmd "rm -f #{chunk_file_name}"
+          rows_imported += infinity_rows_imported
+        rescue => ex
+          if attempts >= 10
+            output "IMPORT ERROR: #{ex.message}, chunk #{max_id+1}-INFINITY, giving up", table
+            raise
+          end
+          attempts += 1
+          output "IMPORT ERROR: #{ex.message}, chunk #{max_id+1}-INFINITY, attempt #{attempts}, re-trying after delay", table
+          sleep(3.0 * attempts)
+          retry
+        end
+      end
+
       output "#{rows_imported} rows imported", table
       rows_imported
     end
