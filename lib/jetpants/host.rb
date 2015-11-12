@@ -70,7 +70,7 @@ module Jetpants
           }
           params[:keys] = Jetpants.ssh_keys if Jetpants.ssh_keys
           params[:port] = Jetpants.ssh_port if Jetpants.ssh_port
-          user          = Jetpants.ssh_user if Jetpants.ssh_user
+          user          = Jetpants.ssh_user
           begin
             @lock.synchronize do 
               conn = Net::SSH.start(@ip, user, params)
