@@ -115,7 +115,7 @@ module Jetpants
       rows_exported
     end
 
-    def highest_table_key_value(table, key=NULL)
+    def highest_table_key_value(table, key=nil)
       key = table.first_pk_col unless key
       return query_return_first_value("SELECT max(#{key}) from #{table.name};")
     end
