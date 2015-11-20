@@ -231,7 +231,7 @@ module Jetpants
 
       if @max_id == 'INFINITY'
         max_table_value = tables.map do |table|
-          @master.highest_table_key_value table
+          @master.highest_table_key_value table table.sharding_keys.first
         end.max
         max_table_value = max_table_value * 1.2
         infinity = true
