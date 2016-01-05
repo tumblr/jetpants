@@ -233,7 +233,7 @@ module Jetpants
         max_table_value = tables.map do |table|
           @master.highest_table_key_value(table,table.sharding_keys.first)
         end.max
-        max_table_value = max_table_value * 1.2
+        max_table_value = max_table_value * Jetpants.max_table_multiplier
         infinity = true
       else
         max_table_value = @max_id

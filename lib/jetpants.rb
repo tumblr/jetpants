@@ -55,7 +55,8 @@ module Jetpants
     'ssl_client_key_path'     =>  '/var/lib/mysql/client-key.pem',
     'encrypt_with'            =>  false,      # command line stream encryption binary
     'decrypt_with'            =>  false,      # command line stream decryption binary
-    'encrypt_file_transfers'  =>  false       # flag to use stream encryption
+    'encrypt_file_transfers'  =>  false,      # flag to use stream encryption
+    'max_table_multiplier'    =>  1.2         # multiplier for infinity shard split of max value
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
