@@ -22,7 +22,7 @@ Gem::Specification.new do |s|
 
   s.add_runtime_dependency 'mysql2', '~> 0.3.0'
   s.add_runtime_dependency 'sequel', '~> 3.36'
-  s.add_runtime_dependency 'net-ssh', '~> 2.3'
+  s.add_runtime_dependency 'net-ssh', '~> 2.9.2'
   s.add_runtime_dependency 'pry', '~> 0.9.8'
   s.add_runtime_dependency 'pry-rescue', '~> 1.4.0'
   s.add_runtime_dependency 'thor', '~> 0.15'
