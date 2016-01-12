@@ -68,7 +68,7 @@ module Jetpants
           alias_method "#{name}_without_synchronization".to_sym, name
           define_method name do |*args|
             result = nil
-            lock = self.lock_for_method(name)
+            lock = Topology.lock_for_method(name)
             lock.synchronize {result = send "#{name}_without_synchronization".to_sym, *args}
             result
           end
