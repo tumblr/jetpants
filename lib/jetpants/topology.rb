@@ -44,7 +44,11 @@ module Jetpants
     # Metaprogramming hackery to create a "synchronized" method decorator
     # Note that all synchronized methods share the same mutex, so don't make one
     # synchronized method call another!
-    @lock = Mutex.new
+    def self.lock_for_method(method)
+      @method_locks ||= {}
+      @method_locks[method] ||= Mutex.new
+      @method_locks[method]
+    end
     @do_sync = false
     @synchronized_methods = {} # symbol => true
     class << self
@@ -59,12 +63,12 @@ module Jetpants
       
       def method_added(name)
         if @do_sync || @synchronized_methods[name]
-          lock = @lock
           @do_sync = false
           @synchronized_methods[name] = false # prevent infinite recursion from the following line
           alias_method "#{name}_without_synchronization".to_sym, name
           define_method name do |*args|
             result = nil
+            lock = self.lock_for_method(name)
             lock.synchronize {result = send "#{name}_without_synchronization".to_sym, *args}
             result
           end
