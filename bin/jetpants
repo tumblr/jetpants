@@ -881,6 +881,7 @@ module Jetpants
             node.output "Failed to get command status: #{ex.message}"
             selects = "N/A"
             inserts = "N/A"
+            deletes = "N/A"
           end
 
           op_line += " S:%12s I:%12s D:%12s |" % [selects, inserts, deletes]
