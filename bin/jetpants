@@ -876,13 +876,14 @@ module Jetpants
           begin
             selects = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_select%'").first[:Value]
             inserts = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_insert%'").first[:Value]
+            deletes = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_delete'").first[:Value]
           rescue => ex
             node.output "Failed to get command status: #{ex.message}"
             selects = "N/A"
             inserts = "N/A"
           end
 
-          op_line += " S:%12s I:%12s |" % [selects, inserts]
+          op_line += " S:%12s I:%12s D:%12s |" % [selects, inserts, deletes]
         end
         output op_line
       end
