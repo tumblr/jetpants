@@ -42,8 +42,7 @@ module Jetpants
     ###### Class methods #######################################################
     
     # Metaprogramming hackery to create a "synchronized" method decorator
-    # Note that all synchronized methods share the same mutex, so don't make one
-    # synchronized method call another!
+    # Each method has as unique mutex
     def self.lock_for_method(method)
       @method_locks ||= {}
       @method_locks[method] ||= Mutex.new
