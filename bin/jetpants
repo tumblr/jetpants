@@ -874,8 +874,8 @@ module Jetpants
         op_line = ''
         nodes_array.map do |node|
           begin
-            selects = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_select%'").first[:Value]
-            inserts = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_insert%'").first[:Value]
+            selects = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_select'").first[:Value]
+            inserts = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_insert'").first[:Value]
             deletes = node.query_return_array("SHOW GLOBAL STATUS LIKE 'Com_delete'").first[:Value]
           rescue => ex
             node.output "Failed to get command status: #{ex.message}"
