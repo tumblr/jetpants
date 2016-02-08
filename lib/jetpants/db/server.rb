@@ -5,6 +5,10 @@ module Jetpants
   #++
   
   class DB
+
+    # options to pass to MySQL on start
+    attr_accessor :start_options
+
     # Shuts down MySQL, and confirms that it is no longer listening.
     # OK to use this if MySQL is already stopped; it's a no-op then.
     def stop_mysql
@@ -26,14 +30,15 @@ module Jetpants
       if @master
         @repl_paused = options.include?('--skip-slave-start')
       end
+      mysql_start_options = [ options, start_options ].flatten
       running = ssh_cmd "netstat -ln | grep ':#{@port}' | wc -l"
       raise "[#{@ip}] Failed to start MySQL: Something is already listening on port #{@port}" unless running.chomp == '0'
       if options.size == 0
         output "Attempting to start MySQL, no option overrides supplied"
       else
-        output "Attempting to start MySQL with options #{options.join(' ')}"
+        output "Attempting to start MySQL with options #{mysql_start_options.join(' ')}"
       end
-      output service(:start, 'mysql', options.join(' '))
+      output service(:start, 'mysql', mysql_start_options.join(' '))
       @options = options
       confirm_listening
       @running = true
