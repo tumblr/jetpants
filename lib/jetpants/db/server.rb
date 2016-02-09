@@ -33,7 +33,7 @@ module Jetpants
       mysql_start_options = [ options, start_options ].flatten
       running = ssh_cmd "netstat -ln | grep ':#{@port}' | wc -l"
       raise "[#{@ip}] Failed to start MySQL: Something is already listening on port #{@port}" unless running.chomp == '0'
-      if options.size == 0
+      if mysql_start_options.size == 0
         output "Attempting to start MySQL, no option overrides supplied"
       else
         output "Attempting to start MySQL with options #{mysql_start_options.join(' ')}"
