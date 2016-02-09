@@ -7,7 +7,22 @@ module Jetpants
   class DB
 
     # options to pass to MySQL on start
-    attr_accessor :start_options
+    attr_reader :start_options
+
+    # add a server start option for the instance
+    # will be combined with options passed into start_mysql
+    def add_start_option(option)
+      @start_options ||= []
+      @start_options << option unless @start_options.include? option
+    end
+
+    # remove a start option from the db instance
+    # will not prevent the option from being passed into
+    # start_mysql
+    def remove_start_option(option)
+      @start_options ||= []
+      @start_options.delete! option
+    end
 
     # Shuts down MySQL, and confirms that it is no longer listening.
     # OK to use this if MySQL is already stopped; it's a no-op then.
