@@ -21,7 +21,7 @@ module Jetpants
     # start_mysql
     def remove_start_option(option)
       @start_options ||= []
-      @start_options.delete! option
+      @start_options.delete option
     end
 
     # Shuts down MySQL, and confirms that it is no longer listening.
