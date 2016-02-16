@@ -37,6 +37,8 @@ module Jetpants
     'verify_replication'      =>  true,       # raise exception if the 2 repl threads are in different states, or if actual repl topology differs from Jetpants' understanding of it
     'plugins'                 =>  {},         # hash of plugin name => arbitrary plugin data (usually a nested hash of settings)
     'ssh_keys'                =>  nil,        # array of SSH key file locations
+    'ssh_port'                =>  false,      # port to use for remote SSH connections
+    'ssh_user'                =>  'root',     # user for SSH connections
     'sharded_tables'          =>  [],         # hash of {shard_pool => {name => {sharding_key=>X, chunks=>Y}} hashes
     'compress_with'           =>  false,      # command line to use for compression in large file transfers
     'decompress_with'         =>  false,      # command line to use for decompression in large file transfers
