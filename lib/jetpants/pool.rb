@@ -211,47 +211,68 @@ module Jetpants
         true
       end
     end
+   
     
-    # Displays a summary of the pool's members. This outputs immediately instead
-    # of returning a string, so that you can invoke something like:
-    #    Jetpants.topology.pools.each &:summary 
-    # to easily display a summary.
-    def summary(extended_info=false)
-      probe
-
-      alias_text = @aliases.count > 0 ? '  (aliases: ' + @aliases.join(', ') + ')' : ''
-      data_size = @master.running? ? "[#{master.data_set_size(true)}GB]" : ''
-      state_text = (respond_to?(:state) && state != :ready ? "  (state: #{state})" : '')
-      print "#{name}#{alias_text}#{state_text}  #{data_size}\n"
-      
+    # This function aids in providing the information about master/slaves discovered.
+    def summary_info(node, counter, tab, extended_info=false)
       if extended_info
         details = {}
-        nodes.concurrent_each do |s|
-          if !s.running?
-            details[s] = {coordinates: ['unknown'], lag: 'N/A'}
-          elsif s == @master
-            details[s] = {coordinates: s.binlog_coordinates(false), lag: 'N/A'}
+          if !node.running? or !node.is_slave?
+            details[node] = {coordinates: ['unknown'], lag: 'N/A'}
+            node == @master
+            details[node] = {coordinates: node.binlog_coordinates(false), lag: 'N/A'}
           else
-            lag = s.seconds_behind_master
+            lag = node.seconds_behind_master
             lag_str = lag.nil? ? 'NULL' : lag.to_s + 's'
-            details[s] = {coordinates: s.repl_binlog_coordinates(false), lag: lag_str}
+            details[node] = {coordinates: node.repl_binlog_coordinates(false), lag: lag_str}
+          end
+      end
+
+      # tabs below takes care of the indentation depending on the level of replication chain.
+      tabs = '    ' *  (tab + 1)
+      if node == @master and !node.is_slave?
+        # Preparing the data_set_size and pool alias text
+        alias_text = @aliases.count > 0 ? '  (aliases: ' + @aliases.join(', ') + ')' : ''
+        data_size = @master.running? ? "[#{master.data_set_size(true)}GB]" : ''
+        state_text = (respond_to?(:state) && state != :ready ? "  (state: #{state})" : '')
+        print "#{name}#{alias_text}#{state_text}  #{data_size}\n"
+
+        # Retrieving the binlog coordinates for master server
+        binlog_pos = extended_info ? node.binlog_coordinates(false).join(':') : ''
+        print "\tmaster          = %-15s %-32s %s\n" % [node.ip, node.hostname, binlog_pos]
+      else
+        # Preparing the extended_info for the slave node.
+        binlog_pos = extended_info ? details[node][:coordinates].join(':') : ''
+        slave_lag = extended_info ? "lag=#{details[node][:lag]}" : ''
+        # Some tumblrism used over her with node.collins_secondary_role
+        print "%s%-7s slave #{counter + 1} = %-15s %-32s %-26s %s\n" % [tabs, node.collins_secondary_role.split('_').first, node.ip, node.hostname, binlog_pos, slave_lag]
+      end
+    end
+
+    # Displays a summary of the pool's members. This outputs immediately instead
+    # of returning a string, so that you can invoke something like:
+    #    Jetpants.topology.pools.each &:summary
+    # to easily display a summary.
+    def summary(extended_info=false, depth=1)
+      probe
+
+      i = 0
+      summary_info(@master, i, depth, extended_info)
+      slave_list = slaves
+      slave_list.sort.each_with_index do |s, i|
+        summary_info(s, i, depth, extended_info)
+        if s.has_slaves?
+          s.slaves.sort.each_with_index do |slave|
+          @master = slave
+          summary(extended_info, depth + 1)
           end
         end
-      end
-      
-      binlog_pos = extended_info ? details[@master][:coordinates].join(':') : ''
-      print "\tmaster          = %-15s %-32s %s\n" % [@master.ip, @master.hostname, binlog_pos]
-      
-      [:active, :standby, :backup].each do |type|
-        slave_list = slaves(type)
-        slave_list.sort.each_with_index do |s, i|
-          binlog_pos = extended_info ? details[s][:coordinates].join(':') : ''
-          slave_lag = extended_info ? "lag=#{details[s][:lag]}" : ''
-          print "\t%-7s slave #{i + 1} = %-15s %-32s %-26s %s\n" % [type, s.ip, s.hostname, binlog_pos, slave_lag]
-        end
+        # Reset the depth back to previous iteration. Also the @master variable back to original master
+        depth - 1
+        @master = s.master
       end
       true
-    end
+    end 
     
     # Demotes the pool's existing master, promoting a slave in its place.
     # The old master will become a slave of the new master if enslave_old_master is true,
