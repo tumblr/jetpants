@@ -217,15 +217,15 @@ module Jetpants
     def summary_info(node, counter, tab, extended_info=false)
       if extended_info
         details = {}
-          if !node.running? or !node.is_slave?
-            details[node] = {coordinates: ['unknown'], lag: 'N/A'}
-            node == @master
-            details[node] = {coordinates: node.binlog_coordinates(false), lag: 'N/A'}
-          else
-            lag = node.seconds_behind_master
-            lag_str = lag.nil? ? 'NULL' : lag.to_s + 's'
-            details[node] = {coordinates: node.repl_binlog_coordinates(false), lag: lag_str}
-          end
+        if !node.running? or !node.is_slave?
+          details[node] = {coordinates: ['unknown'], lag: 'N/A'}
+          node == @master
+          details[node] = {coordinates: node.binlog_coordinates(false), lag: 'N/A'}
+        else
+          lag = node.seconds_behind_master
+          lag_str = lag.nil? ? 'NULL' : lag.to_s + 's'
+          details[node] = {coordinates: node.repl_binlog_coordinates(false), lag: lag_str}
+        end
       end
 
       # tabs below takes care of the indentation depending on the level of replication chain.
