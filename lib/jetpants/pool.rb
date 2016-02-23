@@ -253,23 +253,21 @@ module Jetpants
     # of returning a string, so that you can invoke something like:
     #    Jetpants.topology.pools.each &:summary
     # to easily display a summary.
-    def summary(extended_info=false, depth=1)
+    def summary(node=@master, extended_info=false, depth=1)
       probe
 
       i = 0
-      summary_info(@master, i, depth, extended_info)
+      summary_info(node, i, depth, extended_info)
       slave_list = slaves
       slave_list.sort.each_with_index do |s, i|
         summary_info(s, i, depth, extended_info)
         if s.has_slaves?
           s.slaves.sort.each_with_index do |slave|
-          @master = slave
-          summary(extended_info, depth + 1)
+          summary(slave, extended_info, depth + 1)
           end
         end
         # Reset the depth back to previous iteration. Also the @master variable back to original master
         depth - 1
-        @master = s.master
       end
       true
     end 
