@@ -263,15 +263,15 @@ module Jetpants
       i = 0
       summary_info(node, i, depth, extended_info)
       slave_list = node.slaves
-      slave_list.sort.each_with_index do |s, i|
+      slave_roles = Hash.new
+      slave_list.each { |slave| slave_roles[slave] = slave.role }
+      Hash[slave_roles.sort_by{ |k, v| v }].keys.each_with_index do |s, i|
         summary_info(s, i, depth, extended_info)
         if s.has_slaves?
           s.slaves.sort.each_with_index do |slave|
             summary(extended_info, slave, depth + 1)
           end
         end
-        # Reset the depth back to previous iteration. Also the @master variable back to original master
-        depth - 1
       end
       true
     end
