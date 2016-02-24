@@ -211,8 +211,8 @@ module Jetpants
         true
       end
     end
-   
-    
+
+
     # This function aids in providing the information about master/slaves discovered.
     def summary_info(node, counter, tab, extended_info=false)
       if extended_info
@@ -231,6 +231,7 @@ module Jetpants
       # tabs below takes care of the indentation depending on the level of replication chain.
       tabs = '    ' *  (tab + 1)
       if node == @master and !node.is_slave?
+
         # Preparing the data_set_size and pool alias text
         alias_text = @aliases.count > 0 ? '  (aliases: ' + @aliases.join(', ') + ')' : ''
         data_size = @master.running? ? "[#{master.data_set_size(true)}GB]" : ''
@@ -241,11 +242,14 @@ module Jetpants
         binlog_pos = extended_info ? node.binlog_coordinates(false).join(':') : ''
         print "\tmaster          = %-15s %-32s %s\n" % [node.ip, node.hostname, binlog_pos]
       else
+
         # Preparing the extended_info for the slave node.
         binlog_pos = extended_info ? details[node][:coordinates].join(':') : ''
         slave_lag = extended_info ? "lag=#{details[node][:lag]}" : ''
-        # Some tumblrism used over her with node.collins_secondary_role
-        print "%s%-7s slave #{counter + 1} = %-15s %-32s %-26s %s\n" % [tabs, node.collins_secondary_role.split('_').first, node.ip, node.hostname, binlog_pos, slave_lag]
+
+        # Determine the slave type below
+        type = node.role.to_s.split('_').first
+        print "%s%-7s slave #{counter + 1} = %-15s %-32s %-26s %s\n" % [tabs, type, node.ip, node.hostname, binlog_pos, slave_lag]
       end
     end
 
@@ -253,25 +257,25 @@ module Jetpants
     # of returning a string, so that you can invoke something like:
     #    Jetpants.topology.pools.each &:summary
     # to easily display a summary.
-    def summary(node=@master, extended_info=false, depth=1)
+    def summary(extended_info=false, node=@master, depth=1)
       probe
 
       i = 0
       summary_info(node, i, depth, extended_info)
-      slave_list = slaves
+      slave_list = node.slaves
       slave_list.sort.each_with_index do |s, i|
         summary_info(s, i, depth, extended_info)
         if s.has_slaves?
           s.slaves.sort.each_with_index do |slave|
-          summary(slave, extended_info, depth + 1)
+            summary(extended_info, slave, depth + 1)
           end
         end
         # Reset the depth back to previous iteration. Also the @master variable back to original master
         depth - 1
       end
       true
-    end 
-    
+    end
+
     # Demotes the pool's existing master, promoting a slave in its place.
     # The old master will become a slave of the new master if enslave_old_master is true,
     # unless the old master is unavailable/crashed.
