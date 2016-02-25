@@ -217,8 +217,7 @@ module Jetpants
     def summary_info(node, counter, tab, extended_info=false)
       if extended_info
         details = {}
-        if !node.running? or !node.is_slave?
-          details[node] = {coordinates: ['unknown'], lag: 'N/A'}
+        if !node.is_slave?
           node == @master
           details[node] = {coordinates: node.binlog_coordinates(false), lag: 'N/A'}
         else
