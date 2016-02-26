@@ -217,8 +217,9 @@ module Jetpants
     def summary_info(node, counter, tab, extended_info=false)
       if extended_info
         details = {}
-        if !node.is_slave?
-          node == @master
+	if !node.running?
+	  details[node] = {coordinates: ['unknown'], lag: 'N/A'}
+        elsif node ==@master and !node.is_slave?
           details[node] = {coordinates: node.binlog_coordinates(false), lag: 'N/A'}
         else
           lag = node.seconds_behind_master
@@ -267,7 +268,7 @@ module Jetpants
       Hash[slave_roles.sort_by{ |k, v| v }].keys.each_with_index do |s, i|
         summary_info(s, i, depth, extended_info)
         if s.has_slaves?
-          s.slaves.sort.each_with_index do |slave|
+          s.slaves.sort.concurrent_each do |slave|
             summary(extended_info, with_children, slave, depth + 1)
           end
         end
