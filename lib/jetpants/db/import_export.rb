@@ -96,8 +96,10 @@ module Jetpants
       if infinity
         attempts = 0
         begin
+          output("Exporting infinity range.", table)
           infinity_rows_exported = query(table.sql_export_range(max_id+1, false))
           rows_exported += infinity_rows_exported
+          output("Export of infinity range complete.", table)
         rescue => ex
           if attempts >= 10
             output "EXPORT ERROR: #{ex.message}, chunk #{max_id+1}-INFINITY, giving up", table
@@ -211,9 +213,11 @@ module Jetpants
         attempts = 0
         begin
           infinity_rows_imported = query(table.sql_import_range(max_id+1, false))
+          output("Importing infinity range", table)
           chunk_file_name = table.export_file_path(max_id+1, false)
           ssh_cmd "rm -f #{chunk_file_name}"
           rows_imported += infinity_rows_imported
+          output("Import of infinity range complete", table)
         rescue => ex
           if attempts >= 10
             output "IMPORT ERROR: #{ex.message}, chunk #{max_id+1}-INFINITY, giving up", table
