@@ -268,7 +268,7 @@ module Jetpants
       Hash[slave_roles.sort_by{ |k, v| v }].keys.each_with_index do |s, i|
         summary_info(s, i, depth, extended_info)
         if s.has_slaves?
-          s.slaves.sort.concurrent_each do |slave|
+          s.slaves.sort.each do |slave|
             summary(extended_info, with_children, slave, depth + 1)
           end
         end
