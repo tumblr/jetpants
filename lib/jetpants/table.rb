@@ -193,10 +193,14 @@ module Jetpants
     # Returns the SQL necessary to load the table's data.
     # Note that we use an IGNORE on multi-sharding-key tables. This is because
     # we get duplicate rows between export chunk files in this case.
-    def sql_import_range(min_id=false, max_id=false)
+    def sql_import_range(min_id=false, max_id=false, extra_opts=nil)
       outfile = export_file_path min_id, max_id
-      ignore = (@sharding_keys.count > 1 && (min_id || max_id) ? ' IGNORE' : '')
-      sql = "LOAD DATA INFILE '#{outfile}'#{ignore} INTO TABLE #{@name} CHARACTER SET binary"
+      option = ""
+      unless extra_opts.nil?
+        option = " IGNORE" if extra_opts.strip.upcase == "IGNORE" || (@sharding_keys.count > 1 && (min_id || max_id))
+        option = " REPLACE" if extra_opts.strip.upcase == "REPLACE"
+      end
+      sql = "LOAD DATA INFILE '#{outfile}'#{option} INTO TABLE #{@name} CHARACTER SET binary"
     end
     alias sql_import_all sql_import_range
     
