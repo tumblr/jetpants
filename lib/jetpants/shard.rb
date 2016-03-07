@@ -367,8 +367,8 @@ module Jetpants
     end
 
     # Displays information about the shard
-    def summary(extended_info=false, with_children=false)
-      super(extended_info)
+    def summary(extended_info=false, with_children=false, node=@master, depth=1)
+      super(extended_info, with_children, node, depth)
       if with_children
         children.each {|c| c.summary}
       end
