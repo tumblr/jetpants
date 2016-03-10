@@ -43,9 +43,11 @@ module Jetpants
         ssl_ca_path = option_hash[:ssl_ca_path] || Jetpants.ssl_ca_path
         ssl_client_cert_path = option_hash[:ssl_client_cert_path] || Jetpants.ssl_client_cert_path
         ssl_client_key_path = option_hash[:ssl_client_key_path] || Jetpants.ssl_client_key_path
+        ssl_master_cipher = option_hash[:ssl_master_cipher] || Jetpants.ssl_master_cipher
 
         cmd_str += ", MASTER_SSL=1"
         cmd_str += ", MASTER_SSL_CA='#{ssl_ca_path}'" if ssl_ca_path
+        cmd_str += ", MASTER_SSL_CIPHER = '#{ssl_master_cipher}'" if ssl_master_cipher
 
         if ssl_client_cert_path && ssl_client_key_path
             cmd_str +=
