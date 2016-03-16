@@ -55,7 +55,7 @@ module Jetpants
     'ssl_ca_path'             =>  '/var/lib/mysql/ca.pem',
     'ssl_client_cert_path'    =>  '/var/lib/mysql/client-cert.pem',
     'ssl_client_key_path'     =>  '/var/lib/mysql/client-key.pem',
-    'ssl__master_cipher'      =>  false,      # global master cipher list to use when changes master
+    'ssl_master_cipher'       =>  false,      # global master cipher list to use when changes master
     'encrypt_with'            =>  false,      # command line stream encryption binary
     'decrypt_with'            =>  false,      # command line stream decryption binary
     'encrypt_file_transfers'  =>  false       # flag to use stream encryption
