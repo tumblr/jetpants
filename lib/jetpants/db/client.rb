@@ -68,7 +68,7 @@ module Jetpants
       }
       conn_opts[:sslca] = Jetpants.client_ssl_ca if Jetpants.client_ssl_ca
       conn_opts[:sslcipher] = Jetpants.client_ssl_cipher if Jetpants.client_ssl_cipher
-      puts conn_opts
+
       @db = Sequel.connect(conn_opts)
       @user = options[:user]
       @schema = options[:schema]
