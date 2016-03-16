@@ -58,7 +58,9 @@ module Jetpants
     'ssl_master_cipher'       =>  false,      # global master cipher list to use when changes master
     'encrypt_with'            =>  false,      # command line stream encryption binary
     'decrypt_with'            =>  false,      # command line stream decryption binary
-    'encrypt_file_transfers'  =>  false       # flag to use stream encryption
+    'encrypt_file_transfers'  =>  false,      # flag to use stream encryption
+    'client_ssl_ca'           =>  false,      # location of the client ssl ca
+    'client_ssl_cipher'       =>  false,      # list of client ssl ciphers
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
