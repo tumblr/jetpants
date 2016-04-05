@@ -11,7 +11,7 @@ module Jetpants
       # try IP first; failing that, try hostname
       selector = {ip_address: ip, details: true}
       selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
-      assets = Plugin::JetCollins.find selector
+      assets = Plugin::JetCollins.find selector, true
 
       if (!assets || assets.count == 0) && available?
         selector = {hostname: "^#{hostname}$", details: true}
