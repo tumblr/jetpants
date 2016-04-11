@@ -220,7 +220,7 @@ module Jetpants
     end
 
     # This is a lot of copypasta, punting on it for now until if/when we integrate more with core
-    def aggregate_catch_up_to_master(node, timeout=3600, threshold=3, poll_frequency=5)
+    def aggregate_catch_up_to_master(node, timeout=21600, threshold=3, poll_frequency=5)
       raise "Attempting to catch up aggregate replication for a node which is not in the aggregation list" unless aggregating_for? node
       aggregate_resume_replication(node) if replication_states[node] == :paused
 
