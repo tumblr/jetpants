@@ -16,7 +16,7 @@ module Jetpants
       if (!assets || assets.count == 0) && available?
         selector = {hostname: "^#{hostname}$", details: true}
         selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
-        assets = Plugin::JetCollins.find selector
+        assets = Plugin::JetCollins.find selector, true
       end
       
       raise "Multiple assets found for #{self}" if assets.count > 1
