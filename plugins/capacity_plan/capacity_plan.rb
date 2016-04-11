@@ -27,12 +27,14 @@ module Jetpants
         end
 
         store_data(storage_sizes, timestamp)
+        snapshot_autoinc(timestamp)
       end
 
       ## generate the capacity plan and if email is true also send it to the email address listed
       def plan(email=false)
         history = get_history
         mount_stats_storage = all_mounts
+        auto_inc_stats = get_auto_inc_history
         now = Time.now.to_i
         output = ''
 
@@ -103,6 +105,17 @@ module Jetpants
             out_array << per_day(bytes_to_gb(value))+0
           end
           output += "%30s %10s %10s %10s %10s %11s\n" % [name, (out_array.reverse[0] ? "%.2f" % out_array.reverse[0] : 'N/A'), (out_array.reverse[1] ? "%.2f" % out_array.reverse[1] : 'N/A'), (out_array.reverse[2] ? "%.2f" % out_array.reverse[2] : 'N/A'), (out_array.reverse[7] ? "%.2f" % out_array.reverse[7] : 'N/A'), (out_array.reverse[14] ? "%.2f" % out_array.reverse[14] : 'N/A')]
+        end
+
+        date = Time.now.to_date.to_s
+        autoinc_history = get_autoinc_history(date)
+        output += "\n________________________________________________________________________________________________________\nAuto-Increment Checker\n\n"
+        output += "Top 5 pools with Auto-Increment filling up are: \n"
+        output += "%30s %10s %10s %10s %10s %11s\n" % ["Pool name", "Table name", "Column name", "Column type", "Fill ratio", "Current Max val"]
+        autoinc_history.each do |pool, timestamp|
+          timestamp.each do |time, data|
+            output += "%30s %10s %10s %10s %10s %11s\n" % [pool, data["table_name"], data["column_name"], data["column_type"], data["ratio"], data["max_val"]]
+          end
         end
 
         output += outliers
@@ -356,6 +369,58 @@ module Jetpants
         history
       end
 
+      def max_value(type)
+        case type.downcase
+          when "tinyint" then 2**8
+          when "smallint" then 2**16
+          when "mediumint" then 2**24
+          when "int" then 2**32
+          when "bigint" then 2**64
+        end
+      end
+
+      ## get the auto_inc ratios for all pools
+      def snapshot_autoinc(timestamp)
+        date = Time.at(timestamp).to_date.to_s
+        Jetpants.topology.pools.each do |p|
+          slave = p.standby_slaves.first
+          if !slave.nil?
+            slave.query_return_array("SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema') AND LOCATE('auto_increment', EXTRA) > 0 and TABLE_SCHEMA = 'tumblr3'").each do |row|
+              table_name = row[:TABLE_NAME]
+              schema_name = row[:TABLE_SCHEMA]
+              column_name = row[:COLUMN_NAME]
+              column_type = row[:COLUMN_TYPE]
+              data_type = row[:DATA_TYPE]
+              data_type_max_value = max_value(data_type)
+              unless column_type.split.last == "signed"
+                data_type_max_value = (data_type_max_value / 2) - 1
+              end
+              sql = "SELECT MAX(#{column_name}) as max_value FROM #{schema_name}.#{table_name}"
+              max_val = ''
+              slave.query_return_array(sql).each do |row|
+                max_val = row[:max_value]
+              end
+              @@db.query('INSERT INTO auto_inc_checker (`timestamp`, `pool`, `table_name`, `column_name`, `column_type`, `max_val`, `data_type_max`) values (?, ?, ?, ?, ?, ?, ?, ?)', date, slave.pool.to_s, table_name, column_name, data_type,  max_val, data_type_max_value)
+            end
+          end
+        end
+      end
+
+      def get_autoinc_history(date)
+        autoinc_history = {}
+        autoinc_sql = "select timestamp, pool, table_name, column_name, column_type, max_val, data_type_max, (max_val / data_type_max) as ratio from tumblr3.auto_inc_checkeri where timestamp = #{date} order by ratio desc limit 5"
+        @@db.query_return_array(autoinc_sql).each do |row|
+          auto_inc_history[row[:pool]] ||= {}
+          auto_inc_history[row[:pool]][row[:timestamp]] ||= {}
+          auto_inc_history[row[:pool]][row[:timestamp]]['table_name'] = row[:table_name]
+          auto_inc_history[row[:pool]][row[:timestamp]]['column_name'] = row[:column_name]
+          auto_inc_history[row[:pool]][row[:timestamp]]['column_type'] = row[:column_type]
+          auto_inc_history[row[:pool]][row[:timestamp]]['max_val'] = row[:max_val]
+          auto_inc_history[row[:pool]][row[:timestamp]]['data_type_max'] = row[:data_type_max]
+          auto_inc_history[row[:pool]][row[:timestamp]]['ratio'] = row[:ratio]
+        end
+        return autoinc_history
+      end
     end
   end
 end
