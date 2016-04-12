@@ -138,7 +138,7 @@ module Jetpants
     # DB#restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
     # prior to importing data, and then clear those settings by calling
     # DB#restart_mysql with no params after done importing data.
-    def import_data(tables, min_id=false, max_id=false, infinity=false)
+    def import_data(tables, min_id=false, max_id=false, infinity=false, extra_opts=nil)
       disable_read_only!
       import_export_user = 'jetpants'
       create_user(import_export_user)
@@ -152,7 +152,8 @@ module Jetpants
       reconnect(user: import_export_user, after_connect: disable_unique_checks_proc)
 
       import_counts = {}
-      tables.each {|t| import_counts[t.name] = import_table_data t, min_id, max_id, infinity}
+
+      tables.each {|t| import_counts[t.name] = import_table_data t, min_id, max_id, infinity, extra_opts}
 
       # Verify counts
       @counts ||= {}
@@ -171,7 +172,7 @@ module Jetpants
 
     # Imports the data subset previously dumped through export_data.
     # Returns number of rows imported.
-    def import_table_data(table, min_id=false, max_id=false, infinity=false)
+    def import_table_data(table, min_id=false, max_id=false, infinity=false, extra_opts=nil)
       unless min_id && max_id && table.chunks > 0
         output "Importing all data", table
         rows_imported = query(table.sql_import_all)
@@ -187,7 +188,7 @@ module Jetpants
       (min_id..max_id).in_chunks(table.chunks) do |min, max|
         attempts = 0
         begin
-          sql = table.sql_import_range(min, max)
+          sql = table.sql_import_range(min, max, extra_opts)
           result = query sql
           lock.synchronize do
             rows_imported += result

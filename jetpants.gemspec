@@ -20,7 +20,7 @@ Gem::Specification.new do |s|
   s.has_rdoc = true
   s.rdoc_options = ["--line-numbers", "--title", s.summary, "--main", "README.rdoc"]
 
-  s.add_runtime_dependency 'mysql2', '~> 0.3.0'
+  s.add_runtime_dependency 'mysql2', '~> 0.4'
   s.add_runtime_dependency 'sequel', '~> 3.36'
   s.add_runtime_dependency 'net-ssh', '~> 2.9.2'
   s.add_runtime_dependency 'pry', '~> 0.9.8'

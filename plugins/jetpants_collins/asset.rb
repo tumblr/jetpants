@@ -43,7 +43,7 @@ module Collins
       end
 
       if master_assets.count > 1
-        results = master_assets.select {|a| a.location.nil? || a.location.upcase == Plugin::JetCollins.datacenter}
+        results = master_assets.select {|a| a.location.nil? || a.location.upcase == Jetpants::Plugin::JetCollins.datacenter}
         master_assets = results if results.count > 0
       end
       puts "WARNING: multiple masters found for pool #{pool}; using first match" if master_assets.count > 1
@@ -63,7 +63,7 @@ module Collins
         # We intentionally only look for active slaves in the current datacenter, since we
         # treat other datacenters' slaves as backup slaves to prevent promotion or cross-DC usage
         active_slave_assets = Jetpants.topology.server_node_assets(pool.downcase, :active_slave)
-        active_slave_assets.reject! {|a| a.location && a.location.upcase != Plugin::JetCollins.datacenter}
+        active_slave_assets.reject! {|a| a.location && a.location.upcase != Jetpants::Plugin::JetCollins.datacenter}
         active_slave_assets.each do |asset|
           weight = asset.slave_weight && asset.slave_weight.to_i > 0 ? asset.slave_weight.to_i : 100
           result.has_active_slave(asset.to_db, weight)

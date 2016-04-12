@@ -56,7 +56,7 @@ module Jetpants
       
       disconnect if @db
       
-      @db = Sequel.connect(
+      conn_opts = {
         :adapter          =>  'mysql2',
         :host             =>  @ip,
         :port             =>  @port,
@@ -64,7 +64,12 @@ module Jetpants
         :password         =>  options[:pass] || app_credentials[:pass],
         :database         =>  options[:schema],
         :max_connections  =>  options[:max_conns] || Jetpants.max_concurrency,
-        :after_connect    =>  options[:after_connect] )
+        :after_connect    =>  options[:after_connect]
+      }
+      conn_opts[:sslca] = Jetpants.client_ssl_ca if Jetpants.client_ssl_ca
+      conn_opts[:sslcipher] = Jetpants.client_ssl_cipher if Jetpants.client_ssl_cipher
+
+      @db = Sequel.connect(conn_opts)
       @user = options[:user]
       @schema = options[:schema]
       @db.convert_tinyint_to_bool = false
