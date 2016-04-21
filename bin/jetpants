@@ -409,22 +409,25 @@ module Jetpants
     method_option :count,  :desc => 'How many child shards to split the parent into (only necessary if the ranges option is omitted)'
     method_option :shard_pool, :desc => 'The sharding pool for which to perform the split'
     def shard_split
-      shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
-      shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
-
       shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the split (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
-
       output "Using shard pool `#{shard_pool}`"
+
+      shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
+      shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
 
       s = Jetpants.topology.shard(shard_min, shard_max, shard_pool)
       
       raise "Shard not found" unless s
       raise "Shard isn't in ready state" unless s.state == :ready
-      raise "Cannot split the last shard (max ID of infinity), use \"jetpants shard_cutover\" instead" if s.max_id == 'INFINITY'
       
-      ranges = options[:ranges] || ask('Optionally enter comma-separated list of ranges per child ie "1000-1999,2000-2499" [default=even split]: ')
-      ranges = false if ranges.strip == ''
+      if s.max_id == 'INFINITY'
+        ranges = options[:ranges] || ask('Enter comma-separated list of ranges per child ie "1000-1999,2000-INFINITY" [REQUIRED]: ')
+        raise "Must enter a range for a max ID of infinity" if ranges.strip == ''
+      else
+        ranges = options[:ranges] || ask('Optionally enter comma-separated list of ranges per child ie "1000-1999,2000-2499" [default=even split]: ')
+        ranges = false if ranges.strip == ''
+      end
       
       if ranges
         supply_ranges = []
@@ -432,12 +435,12 @@ module Jetpants
           my_range.strip!
           my_min, my_max = my_range.split('-', 2)
           my_min = my_min.strip.to_i
-          my_max = my_max.strip.to_i
+          my_max = my_max.strip == 'INFINITY' ? my_max.strip : my_max.strip.to_i
           raise "Supplied range list has gaps!" if supply_ranges.last && supply_ranges.last[1] + 1 != my_min
           supply_ranges << [my_min, my_max]
         end
         children = supply_ranges.count
-        raise "Supplied range does not cover parent completely!" if supply_ranges.first[0] != shard_min.to_i || supply_ranges.last[1] != shard_max.to_i
+        raise "Supplied range does not cover parent completely!" if supply_ranges.first[0] != shard_min.to_i || ((supply_ranges.last[1] != shard_max.to_i) && (supply_ranges.last[1] != 'INFINITY' &&  shard_max != 'INFINITY'))
         s.split!(children, supply_ranges)
       else
         children = options[:count] || ask('Optionally enter how many children to split into [default=2]: ')

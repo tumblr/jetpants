@@ -5,7 +5,7 @@ require 'pool'
 
 
 module Jetpants
-  
+
   # a Shard in Jetpants is a range-based Pool.  All Shards have the exact same
   # set of tables, just they only contain data that falls within within their
   # range.
@@ -14,16 +14,16 @@ module Jetpants
 
     # min ID for this shard
     attr_reader :min_id
-    
+
     # max ID for this shard, or string "INFINITY"
     attr_reader :max_id
-    
+
     # if this shard is being split, this is an array of "child" Shard objects.
     attr_reader :children
-    
+
     # if this shard is a child of one being split, this links back to the parent Shard.
     attr_accessor :parent
-    
+
     # A symbol representing the shard's state. Possible state values include:
     #   :ready          --  Normal shard, online / in production, optimal condition, no current operation/maintenance.
     #   :read_only      --  Online / in production but not currently writable due to maintenance or emergency.
@@ -40,7 +40,7 @@ module Jetpants
 
     # the sharding pool to which this shard belongs
     attr_reader :shard_pool
-    
+
     # Constructor for Shard --
     # * min_id: int
     # * max_id: int or the string "INFINITY"
@@ -55,23 +55,23 @@ module Jetpants
       @parent = nil
       shard_pool_name = Jetpants.topology.default_shard_pool if shard_pool_name.nil?
       @shard_pool = Jetpants.topology.shard_pool(shard_pool_name)
-      
+
       super(generate_name, master)
     end
-    
+
     # Generates a string containing the shard's min and max IDs. Plugin may want to override.
     def generate_name
       prefix = (@shard_pool.nil?) ? 'anon' : @shard_pool.name.downcase
       "#{prefix}-#{min_id}-#{max_id.to_s.downcase}"
     end
-    
+
     # Returns true if the shard state is one of the values that indicates it's
     # a live / in-production shard. These states include :ready, :child,
     # :needs_cleanup, :read_only, and :offline.
     def in_config?
       [:ready, :child, :needs_cleanup, :read_only, :offline].include? @state
     end
-    
+
     # In default Jetpants, we assume each Shard has 1 master and N standby slaves;
     # we never have active (read) slaves for shards. So calling mark_slave_active
     # on a Shard generates an exception. Plugins may override this behavior, which
@@ -79,7 +79,7 @@ module Jetpants
     def mark_slave_active(slave_db, weight=100)
       raise "Shards do not support active slaves"
     end
-    
+
     # Returns an empty array, because we assume that shard pools have no active
     # slaves. (If your read volume would require active slaves, think about
     # splitting your shard instead...)
@@ -88,7 +88,7 @@ module Jetpants
     def active_slaves
      []
     end
-    
+
     # Returns the master's standby slaves, ignoring any child shards since they
     # are a special case of slaves.
     def standby_slaves
@@ -101,7 +101,7 @@ module Jetpants
         result
       end
     end
-    
+
     # Returns the Jetpants::DB object corresponding to the requested access
     # mode (either :read or :write).  Ordinarily this will be the shard's
     # @master, unless this shard is still a child, in which case we send
@@ -137,7 +137,7 @@ module Jetpants
       @children << shard
       shard.parent = self
     end
-    
+
     # Removes a Jetpants::Shard from this shard's array of children, and sets
     # the child's parent to nil.
     def remove_child(shard)
@@ -145,7 +145,7 @@ module Jetpants
       @children.delete shard
       shard.parent = nil
     end
-    
+
     # Splits a shard into <pieces> child shards.  The children will still be slaving
     # from the parent after this point; you need to do additional things to fully
     # complete the shard split.  See the command suite tasks shard_split_move_reads,
@@ -158,7 +158,7 @@ module Jetpants
     def split!(pieces=2, id_ranges=false)
       raise "Cannot split a shard that is still a child!" if @parent
       raise "Cannot split a shard into #{pieces} pieces!" if pieces < 2
-      
+
       # We can resume partially-failed shard splits if all children made it past
       # the :initializing stage. (note: some manual cleanup may be required first,
       # depending on where/how the split failed though.)
@@ -166,14 +166,14 @@ module Jetpants
       if (@children.size > 0 && @children.size != pieces) || (num_children_post_init > 0 && num_children_post_init != pieces)
         raise "Previous shard split died at an unrecoverable stage, cannot automatically restart"
       end
-      
+
       # Set up the child shard masters, unless we're resuming a partially-failed
       # shard split
       if num_children_post_init == 0
         id_ranges ||= even_split_id_range(pieces)
         init_child_shard_masters(id_ranges)
       end
-      
+
       shards_with_errors = []
       @children.concurrent_each do |c|
         c.prune_data! if [:initializing, :exporting, :importing].include? c.state
@@ -189,14 +189,14 @@ module Jetpants
         shards_with_errors.each{|info| info[:shard].output info[:error]}
         raise "Error splitting shard #{self}."
       end
-      
+
       output "Initial split complete."
     end
 
     # puts the shard in a state that triggers reads to move to child shards
     def move_reads_to_children
       @state = :deprecated
-      
+
       @children.concurrent_each do |c|
         raise "Child shard #{c}  not in :replicating state!" if c.state != :replicating
       end
@@ -207,18 +207,18 @@ module Jetpants
       end
       sync_configuration
     end
-    
+
     # Transitions the shard's children into the :needs_cleanup state. It is the
     # responsibility of an asset tracker plugin / config generator to implement
     # config generation in a way that actually makes writes go to shards
     # in the :needs_cleanup state.
     def move_writes_to_children
-      @children.each do |c| 
+      @children.each do |c|
         c.state = :needs_cleanup
         c.sync_configuration
       end
     end
-    
+
     # Exports data that should stay on this shard, drops and re-creates tables,
     # and then re-imports the data
     def prune_data!
@@ -226,35 +226,46 @@ module Jetpants
       unless [:initializing, :exporting, :importing].include? @state
         raise "Shard #{self} is not in a state compatible with calling prune_data! (current state=#{@state})"
       end
-      
+
       tables = Table.from_config('sharded_tables', shard_pool.name)
-      
+
+      if @max_id == 'INFINITY'
+        max_table_value = tables.map do |table|
+          @master.highest_table_key_value(table,table.sharding_keys.first)
+        end.max
+        max_table_value = max_table_value * Jetpants.max_table_multiplier
+        infinity = true
+      else
+        max_table_value = @max_id
+        infinity = false
+      end
+
       if @state == :initializing
         @state = :exporting
         sync_configuration
       end
-      
+
       if @state == :exporting
         stop_query_killer
         export_schemata tables
-        export_data tables, @min_id, @max_id
+        export_data tables, @min_id, max_table_value, infinity
         @state = :importing
         sync_configuration
       end
-      
+
       if @state == :importing
         stop_query_killer
         import_schemata!
         alter_schemata if respond_to? :alter_schemata
         disable_monitoring
         restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
-        import_data tables, @min_id, @max_id
+        import_data tables, @min_id, max_table_value, infinity
         restart_mysql # to clear out previous options '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
         enable_monitoring
         start_query_killer
       end
     end
-    
+
     # Creates standby slaves for a shard by cloning the master.
     # Only call this on a child shard that isn't in production yet, or on
     # a production shard that's been marked as offline.
@@ -294,21 +305,21 @@ module Jetpants
       else
         raise "Shard #{self} is not in a state compatible with calling clone_slaves_from_master! (current state=#{@state})"
       end
-      
+
       standby_slaves = Jetpants.topology.claim_spares(standby_slaves_needed, role: :standby_slave, like: master, for_pool: master.pool)
       backup_slaves = Jetpants.topology.claim_spares(backup_slaves_needed, role: :backup_slave, for_pool: master.pool)
       enslave!([standby_slaves, backup_slaves].flatten)
       [standby_slaves, backup_slaves].flatten.each &:resume_replication
       [self, standby_slaves, backup_slaves].flatten.each { |db| db.catch_up_to_master }
-      
+
       @children
     end
-    
+
     # Cleans up the state of a shard. This has two use-cases:
     # A. Run this on a parent shard after the rest of a shard split is complete.
     #    Sets this shard's master to read-only; removes the application user from
     #    self (without replicating this change to children); disables replication
-    #    between the parent and the children; and then removes rows from the 
+    #    between the parent and the children; and then removes rows from the
     #    children that replicated to the wrong shard.
     # B. Run this on a shard that just underwent a two-step promotion process which
     #    moved all reads, and then all writes, to a slave that has slaves of its own.
@@ -329,7 +340,7 @@ module Jetpants
           child_shard.master.disable_replication! # stop slaving from parent
           child_shard.prune_data_to_range tables, child_shard.min_id, child_shard.max_id
         end
-      
+
         # We have to iterate over a copy of the @children array, rather than the array
         # directly, since Array#each skips elements when you remove elements in-place,
         # which Shard#remove_child does...
@@ -353,16 +364,16 @@ module Jetpants
 
         # We need to update the asset tracker to no longer consider the ejected
         # nodes as part of this pool. This includes ejecting the old master, which
-        # might be handled by Pool#after_master_promotion! instead 
+        # might be handled by Pool#after_master_promotion! instead
         # of Shard#sync_configuration.
         after_master_promotion!(@master, false) if respond_to? :after_master_promotion!
-        
+
         @state = :ready
 
       else
         raise "Shard #{self} is not in a state compatible with calling cleanup! (state=#{state}, child count=#{@children.size}"
       end
-      
+
       sync_configuration
     end
 
@@ -374,11 +385,11 @@ module Jetpants
       end
       true
     end
-    
-    
+
+
     ###### Private methods #####################################################
     private
-    
+
     # Splits self's ID range into num_children pieces
     # Returns an array of [low_id, high_id] arrays, suitable for
     # passing to Shard#init_child_shard_masters
@@ -395,7 +406,7 @@ module Jetpants
       end
       id_ranges
     end
-    
+
     # Early step of shard split process: initialize child shard pools, pull boxes from
     # spare list to use as masters for these new shards, and then populate them with the
     # full data set from self (the shard being split).
@@ -413,7 +424,7 @@ module Jetpants
       raise 'Shard split functionality requires Jetpants config setting "standby_slaves_per_pool" is at least 1' if Jetpants.standby_slaves_per_pool < 1
       raise "Must have at least #{Jetpants.standby_slaves_per_pool} slaves of shard being split" if master.slaves.size < Jetpants.standby_slaves_per_pool
       raise "Shard #{self} already has #{@children.size} child shards" if @children.size > 0
-      
+
       # Set up the child shards, and give them masters
       id_ranges.each do |my_range|
         spare = Jetpants.topology.claim_spare(role: :master, like: master)
@@ -430,7 +441,7 @@ module Jetpants
       targets = @children.map &:master
       source.enslave_siblings! targets
     end
-    
+
   end
 end
 

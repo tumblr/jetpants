@@ -59,6 +59,7 @@ module Jetpants
     'encrypt_with'            =>  false,      # command line stream encryption binary
     'decrypt_with'            =>  false,      # command line stream decryption binary
     'encrypt_file_transfers'  =>  false,      # flag to use stream encryption
+    'max_table_multiplier'    =>  1.2,        # multiplier for infinity shard split of max value
     'client_ssl_ca'           =>  false,      # location of the client ssl ca
     'client_ssl_cipher'       =>  false,      # list of client ssl ciphers
   }

@@ -28,17 +28,17 @@ module Enumerable
     collect {|*item| Thread.new {yield *item}}.each {|th| th.join}
     self
   end
-  
+
   # Works like map but runs the block in a separate thread per item.
   def concurrent_map
     collect {|*item| Thread.new {yield *item}}.collect {|th| th.value}
   end
-  
+
   # Works like each_with_index but runs the block in a separate thread per item.
   def concurrent_each_with_index(&block)
     each_with_index.concurrent_each(&block)
   end
-  
+
   # Alternative for concurrent_map which also has the ability to limit how
   # many threads are used. Much less elegant :(
   def limited_concurrent_map(thread_limit=40)
@@ -47,7 +47,7 @@ module Enumerable
     items = to_a
     results = []
     pos = 0
-    
+
     # Number of concurrent threads is the lowest of: self length, supplied thread limit, global concurrency limit
     [items.length, thread_limit, Jetpants.max_concurrency].min.times do
       th = Thread.new do
@@ -74,7 +74,7 @@ class Object
   def to_host
     Jetpants::Host.new(self.to_s)
   end
-  
+
   # Converts self to a Jetpants::DB by way of to_s. Only really useful for
   # Strings containing IP addresses, or Objects whose to_string method returns
   # an IP address as a string.
