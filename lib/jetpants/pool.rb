@@ -363,6 +363,49 @@ module Jetpants
       replicas.all? {|r| r.replicating?}
     end
 
+    def repoint(slave_node, master_node)
+      # Find out the current master of the slave_node. This is usually a slave to the main master. After finding the master pause replication on it.
+      orig_master_node = slave_node.master
+      orig_master_node.pause_replication
+      # Retrieve the user, password, log and file from show slave status of orig_master_node for change master on slave_node.
+      if slave_node.catch_up_to_master == true
+        user, password = orig_master_node.replication_credentials.values
+        coordinates = []
+        # master_log_file and exec_master_log_pos are two important ingredients for repointing to a master one level up.
+        master_log_file = orig_master_node.slave_status[:master_log_file]
+        master_log_pos = orig_master_node.slave_status[:exec_master_log_pos]
+        coordinates << master_log_file
+        coordinates << master_log_pos.to_i
+      end
+
+      # Execute stop and reset replication only if we have coordinates as needed.
+      if coordinates.length == 2
+        slave_node.stop_replication
+        slave_node.reset_replication!
+      else
+        raise "Could'nt retrieve the necessary coordinates from SHOW SLAVE STATUS for repointing."
+      end
+
+      # Both the nodes involved further should not be slaving from anyone. This is temporary until we add the functionality to repoint any where in a cluster. 
+      if slave_node.is_slave? == false and master_node.is_slave? == false
+        slave_node.change_master_to master_node, user: user, password: password, log_file: coordinates.first, log_pos: coordinates.last
+      elsif master_node.is_slave? == true and slave_node.is_slave? == false
+        raise "This command cannot repoint slave to an existing slave, yet."
+      end
+      repointed_replication_config = {
+        master_host: master_node.ip,
+        master_user: user,
+        master_log_file: master_log_file,
+        exec_master_log_pos: master_log_pos
+      }
+      repointed_replication_config.each do |option, value|
+        raise "Unexpected slave status value for #{option} in replica #{slave_node} after promotion" unless slave_node.slave_status[option] == value
+      end
+      # Resume replication on slave_node once change master is completed and verified to be correct. Also verify the orig_master_node is resumed as well.
+      slave_node.resume_replication unless slave_node.replicating?
+      orig_master_node.resume_replication if slave.catch_up_to_master == true
+    end
+
     def slaves_layout
       {
         :standby_slave => Jetpants.standby_slaves_per_pool,
