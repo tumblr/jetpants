@@ -364,5 +364,54 @@ module Jetpants
       end
     end
 
+    def repoint_to(new_master_node)
+      # The repoint slave function works for two cases.
+      # Case 1: A tiered slave is re-pointed one level up, i.e. to be sibling of its current master.
+      # Case 2: A sibling slave is re-pointed one level down, i.e. to be replicating from one of its sibling.
+      raise "DB#repoint_to can only be called on a slave" unless is_slave?
+      # Case 1, we compare the master two levels up with the master_node provided as argument, if equals we can change the topology by pausing replication of slave's master and retrieving replication coordinates to set replication from new_master_node.
+      if master.master == new_master_node
+        orig_master_node = master
+        orig_master_node.pause_replication
+        unless seconds_behind_master == 0
+          catch_up_to_master
+        end
+        log, pos = orig_master_node.repl_binlog_coordinates
+        raise "No replication status found." if log.nil?
+        # If log.nil? returns true, it means replication is not set up on the orig_master_node hence pause_replication will fail and resume_replication will fail too.
+        orig_master_node.resume_replication
+      # Case 2, we compare master of both slave and new_master_node, if it equals then we determine that both slave and new_master_node are siblings and we can retrieve binlog coordinates of new_master_node to set up slave replicating from it
+      elsif master == new_master_node.master
+        pause_replication_with new_master_node
+        log, pos = new_master_node.binlog_coordinates
+        new_master_node.resume_replication
+        raise "Binary logging not enabled." if log.nil?
+        # If log.nil? returns true in this case, it means binary logging must not be enabled here. We cannot setup replication without it.
+      else
+        raise "DB#repoint_to can work only with cases where Node-to-repoint is a sibling with its future master OR where Node-to-repoint is a tiered slave one level down the future master"
+      end
+      stop_replication
+      reset_replication!
+      change_master_options = {
+        user: new_master_node.replication_credentials[:user],
+        password: new_master_node.replication_credentials[:pass],
+      }
+      if pool(true).global_variables[:gtid_mode].to_s.downcase == "on"
+        change_master_options[:auto_position] = 1
+      else
+        change_master_options[:log_file], change_master_options[:log_pos] = log, pos
+      end
+      # CHANGE MASTER TO .. command
+      change_master_to master_node, change_master_options
+
+      change_master_options[:master_host] = new_master_node.ip
+      change_master_options.each do |option, value|
+        raise "Unexpected slave status value for #{option} in replica #{self} after promotion" unless slave_status[option] == value
+      end
+      # Resume replication on slave_node once change master is completed and verified to be correct.
+      resume_replication unless replicating?
+      catch_up_to_master
+    end
+
   end
 end
