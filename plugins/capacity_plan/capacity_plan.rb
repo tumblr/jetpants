@@ -399,7 +399,7 @@ module Jetpants
               slave.query_return_array(sql).each do |row|
                 max_val = row[:max_value]
               end
-              @@db.query('INSERT INTO jetpants_capacity.auto_inc_checker (`timestamp`, `pool`, `table_name`, `column_name`, `column_type`, `max_val`, `data_type_max`) values (?, ?, ?, ?, ?, ?, ?)', timestamp, slave.pool.to_s, table_name, column_name, data_type,  max_val, data_type_max_value)
+              @@db.query('INSERT INTO auto_inc_checker (`timestamp`, `pool`, `table_name`, `column_name`, `column_type`, `max_val`, `data_type_max`) values (?, ?, ?, ?, ?, ?, ?)', timestamp, slave.pool.to_s, table_name, column_name, data_type,  max_val, data_type_max_value)
             end
           end
         end
