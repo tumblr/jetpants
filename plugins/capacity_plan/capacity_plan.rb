@@ -34,7 +34,6 @@ module Jetpants
       def plan(email=false)
         history = get_history
         mount_stats_storage = all_mounts
-        auto_inc_stats = get_auto_inc_history
         now = Time.now.to_i
         output = ''
 
@@ -107,14 +106,14 @@ module Jetpants
           output += "%30s %10s %10s %10s %10s %11s\n" % [name, (out_array.reverse[0] ? "%.2f" % out_array.reverse[0] : 'N/A'), (out_array.reverse[1] ? "%.2f" % out_array.reverse[1] : 'N/A'), (out_array.reverse[2] ? "%.2f" % out_array.reverse[2] : 'N/A'), (out_array.reverse[7] ? "%.2f" % out_array.reverse[7] : 'N/A'), (out_array.reverse[14] ? "%.2f" % out_array.reverse[14] : 'N/A')]
         end
 
-        date = Time.now.to_date.to_s
+        date = Time.now.strftime("%Y-%m-%d")
         autoinc_history = get_autoinc_history(date)
         output += "\n________________________________________________________________________________________________________\nAuto-Increment Checker\n\n"
         output += "Top 5 pools with Auto-Increment filling up are: \n"
-        output += "%30s %10s %10s %10s %10s %11s\n" % ["Pool name", "Table name", "Column name", "Column type", "Fill ratio", "Current Max val"]
+        output += "%30s %20s %20s %20s %10s %15s\n" % ["Pool name", "Table name", "Column name", "Column type", "Fill ratio", "Current Max val"]
         autoinc_history.each do |pool, timestamp|
           timestamp.each do |time, data|
-            output += "%30s %10s %10s %10s %10s %11s\n" % [pool, data["table_name"], data["column_name"], data["column_type"], data["ratio"], data["max_val"]]
+            output += "%30s %20s %20s %20s %10s %15s\n" % [pool, data["table_name"], data["column_name"], data["column_type"], data["ratio"], data["max_val"]]
           end
         end
 
@@ -381,7 +380,7 @@ module Jetpants
 
       ## get the auto_inc ratios for all pools
       def snapshot_autoinc(timestamp)
-        date = Time.at(timestamp).to_date.to_s
+        date = Time.now.strftime("%Y-%m-%d")
         Jetpants.topology.pools.each do |p|
           slave = p.standby_slaves.first
           if !slave.nil?
@@ -400,16 +399,15 @@ module Jetpants
               slave.query_return_array(sql).each do |row|
                 max_val = row[:max_value]
               end
-              @@db.query('INSERT INTO auto_inc_checker (`timestamp`, `pool`, `table_name`, `column_name`, `column_type`, `max_val`, `data_type_max`) values (?, ?, ?, ?, ?, ?, ?, ?)', date, slave.pool.to_s, table_name, column_name, data_type,  max_val, data_type_max_value)
+              @@db.query('INSERT INTO auto_inc_checker (`timestamp`, `pool`, `table_name`, `column_name`, `column_type`, `max_val`, `data_type_max`) values (?, ?, ?, ?, ?, ?, ?)', timestamp, slave.pool.to_s, table_name, column_name, data_type,  max_val, data_type_max_value)
             end
           end
         end
       end
 
       def get_autoinc_history(date)
-        autoinc_history = {}
-        autoinc_sql = "select timestamp, pool, table_name, column_name, column_type, max_val, data_type_max, (max_val / data_type_max) as ratio from tumblr3.auto_inc_checkeri where timestamp = #{date} order by ratio desc limit 5"
-        @@db.query_return_array(autoinc_sql).each do |row|
+        auto_inc_history = {}
+        @@db.query_return_array("select timestamp, pool, table_name, column_name, column_type, max_val, data_type_max, (max_val / data_type_max) as ratio from auto_inc_checker where from_unixtime(timestamp, '%Y-%m-%d') = '#{date}' order by ratio desc limit 5").each do |row|
           auto_inc_history[row[:pool]] ||= {}
           auto_inc_history[row[:pool]][row[:timestamp]] ||= {}
           auto_inc_history[row[:pool]][row[:timestamp]]['table_name'] = row[:table_name]
@@ -419,7 +417,7 @@ module Jetpants
           auto_inc_history[row[:pool]][row[:timestamp]]['data_type_max'] = row[:data_type_max]
           auto_inc_history[row[:pool]][row[:timestamp]]['ratio'] = row[:ratio]
         end
-        return autoinc_history
+        return auto_inc_history
       end
     end
   end
