@@ -407,8 +407,7 @@ module Jetpants
 
       def get_autoinc_history(date)
         auto_inc_history = {}
-        autoinc_sql = "select timestamp, pool, table_name, column_name, column_type, max_val, data_type_max, (max_val / data_type_max) as ratio from jetpants_capacity.auto_inc_checker where from_unixtime(timestamp, '%Y-%m-%d') = '#{date}' order by ratio desc limit 5"
-        @@db.query_return_array(autoinc_sql).each do |row|
+        @@db.query_return_array("select timestamp, pool, table_name, column_name, column_type, max_val, data_type_max, (max_val / data_type_max) as ratio from auto_inc_checker where from_unixtime(timestamp, '%Y-%m-%d') = '#{date}' order by ratio desc limit 5").each do |row|
           auto_inc_history[row[:pool]] ||= {}
           auto_inc_history[row[:pool]][row[:timestamp]] ||= {}
           auto_inc_history[row[:pool]][row[:timestamp]]['table_name'] = row[:table_name]
