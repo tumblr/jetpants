@@ -379,6 +379,7 @@ module Jetpants
         log, pos = orig_master_node.repl_binlog_coordinates
         raise "No replication status found." if log.nil?
         # If log.nil? returns true, it means replication is not set up on the orig_master_node hence pause_replication will fail and resume_replication will fail too.
+        stop_replication
         orig_master_node.resume_replication
       # Case 2, we compare master of both slave and new_master_node, if it equals then we determine that both slave and new_master_node are siblings and we can retrieve binlog coordinates of new_master_node to set up slave replicating from it
       elsif master == new_master_node.master
@@ -386,27 +387,46 @@ module Jetpants
         log, pos = new_master_node.binlog_coordinates
         new_master_node.resume_replication
         raise "Binary logging not enabled." if log.nil?
+        stop_replication
         # If log.nil? returns true in this case, it means binary logging must not be enabled here. We cannot setup replication without it.
       else
         raise "DB#repoint_to can work only with cases where Node-to-repoint is a sibling with its future master OR where Node-to-repoint is a tiered slave one level down the future master"
       end
-      stop_replication
-      reset_replication!
+      old_master, old_log, old_pos = slave_status.values_at(:master_host, :master_log_file, :exec_master_log_pos)
+      old_change_master_options = {
+        user: replication_credentials[:user],
+        password: replication_credentials[:pass],
+      }
       change_master_options = {
         user: new_master_node.replication_credentials[:user],
         password: new_master_node.replication_credentials[:pass],
       }
       if pool(true).global_variables[:gtid_mode].to_s.downcase == "on"
+        old_change_master_options[:auto_position] = 1
         change_master_options[:auto_position] = 1
       else
+        old_change_master_options[:log_file], change_master_options[:log_pos] = old_log, old_pos.to_i
         change_master_options[:log_file], change_master_options[:log_pos] = log, pos
       end
       # CHANGE MASTER TO .. command
-      change_master_to master_node, change_master_options
+      reset_replication!
+      begin
+        change_master_to new_master_node, change_master_options
 
-      change_master_options[:master_host] = new_master_node.ip
-      change_master_options.each do |option, value|
-        raise "Unexpected slave status value for #{option} in replica #{self} after promotion" unless slave_status[option] == value
+        change_master_options[:master_host] = new_master_node.ip
+        change_master_options[:master_user] = change_master_options.delete :user
+        change_master_options[:master_log_file] = change_master_options.delete :log_file
+        change_master_options[:exec_master_log_pos] = change_master_options.delete :log_pos
+        change_master_options[:exec_master_log_pos] = change_master_options[:exec_master_log_pos].to_s
+        change_master_options.delete :password
+        change_master_options.each do |option, value|
+          raise "Unexpected slave status value for #{option} in replica #{self} after promotion" unless slave_status[option] == value
+        end
+      rescue
+        # If the above exception is raised we want to rollback using previous replication master.
+        # We will need another reset_replication! since the above exception might be raised after change_master_to has completed.
+        reset_replication!
+        change_master_to old_master, old_change_master_options
       end
       # Resume replication on slave_node once change master is completed and verified to be correct.
       resume_replication unless replicating?
