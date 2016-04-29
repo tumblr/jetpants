@@ -417,8 +417,6 @@ module Jetpants
           auto_inc_history[row[:table_name]][row[:timestamp]]['data_type_max'] = row[:data_type_max]
           auto_inc_history[row[:table_name]][row[:timestamp]]['ratio'] = row[:ratio].to_f
         end
-        # We delete data older than a day as we do not need it.
-        @@db.query("delete from auto_inc_checker where timestamp < unix_timestamp(date_sub(now(), interval 1 day))")
         return auto_inc_history
       end
     end
