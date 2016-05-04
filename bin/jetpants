@@ -131,7 +131,15 @@ module Jetpants
       )
     end
     
-    
+    desc 'repoint_slave', 'Re-point slave to another master'
+    method_option :slave_node, :desc => 'IP address of node to repoint'
+    method_option :master_node, :desc => 'IP address of node to repoint to'
+    def repoint_slave
+      slave_node = ask_node('Please enter IP of node to repoint: ', options[:slave_node])
+      master_node = ask_node('Please enter IP of node to repoint to: ', options[:master_node])
+      slave_node.repoint_to master_node
+    end
+
     desc 'summary', 'display information about a node in the context of its pool'
     method_option :node, :desc => 'IP address of node to query, or name of pool'
     def summary
