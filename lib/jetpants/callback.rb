@@ -97,13 +97,15 @@ module Jetpants
         define_method method_name do |*args|
           begin
             Callback.trigger(self, method_name, :before, *args)
-          rescue CallbackAbortError
+          rescue CallbackAbortError => ex
+            puts "Skipping call to #{for_class}##{method_name} because a #{for_class}#before_#{method_name} raised CallbackAbortError: #{ex.message}"
             return
           end
           result = send "#{method_name}_without_callbacks".to_sym, *args
           begin
             Callback.trigger(self, method_name, :after, *args)
-          rescue CallbackAbortError
+          rescue CallbackAbortError => ex
+            puts "Potentially skipping some after-callbacks, because a #{for_class}#after_#{method_name} raised CallbackAbortError: #{ex.message}"
           end
           result
         end
