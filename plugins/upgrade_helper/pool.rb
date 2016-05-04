@@ -167,9 +167,9 @@ module Jetpants
         node.grant_privileges username, '*', 'SUPER'
         node.grant_privileges username, node.app_schema, 'ALL PRIVILEGES'
         if pt_upgrade_version.to_f >= 2.2
-          node.mysql_root_cmd "CREATE DATABASE IF NOT EXISTS percona_schema;"
+          node.mysql_root_cmd "SET sql_log_bin = 0; CREATE DATABASE IF NOT EXISTS percona_schema;"
           node.grant_privileges username, 'percona_schema', 'ALL PRIVILEGES'
-          node.mysql_root_cmd "USE percona_schema;CREATE TABLE IF NOT EXISTS pt_upgrade ( id INT NOT NULL PRIMARY KEY );"
+          node.mysql_root_cmd "SET sql_log_bin = 0; USE percona_schema;CREATE TABLE IF NOT EXISTS pt_upgrade ( id INT NOT NULL PRIMARY KEY );"
         end
         
         # We only want to try this if (a) the node supports log_warnings_suppress,
@@ -218,7 +218,7 @@ module Jetpants
       
       # Drop the SUPER user and re-enable logging of warning 1592
       compare_nodes.each do |node|
-        node.mysql_root_cmd "DROP DATABASE IF EXISTS percona_schema;" if pt_upgrade_version.to_f >= 2.2
+        node.mysql_root_cmd "SET sql_log_bin = 0; DROP DATABASE IF EXISTS percona_schema;" if pt_upgrade_version.to_f >= 2.2
 
         node.drop_user username
       end
