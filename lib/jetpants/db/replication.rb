@@ -708,6 +708,22 @@ module Jetpants
     # Case 2: A sibling slave is re-pointed one level down, i.e. to be replicating from one of its sibling.
     def repoint_to(new_master_node)
       raise "DB#repoint_to can only be called on a slave" unless is_slave?
+      
+      # If the pool is using GTID, repointing is much simpler. Auto-positioning takes care of the logic for us.
+      my_pool = pool(true)
+      if my_pool.gtid_mode?
+        # We don't even need to differentiate between the two cases, all we need is a sanity-check on same pool
+        raise "DB#repoint_to must be called on nodes in the same pool" unless new_master_node.pool(true) == my_pool
+        raise "#{new_master_node} already purged transactions needed by #{self}" if new_master_node.purged_transactions_needed_by? self
+        change_master_to new_master_node, auto_position: true
+        if slave_status[:master_host] != new_master_node.ip || slave_status[:auto_position] != '1'
+          raise "Unexpected slave status values in replica #{self} after repointing"
+        end
+        resume_replication unless replicating?
+        catch_up_to_master
+        return
+      end
+      
       # Case 1, we compare the master two levels up with the master_node provided as argument, if equals we can change the topology by pausing replication of slave's master and retrieving replication coordinates to set replication from new_master_node.
       if master.master == new_master_node
         orig_master_node = master
@@ -729,17 +745,14 @@ module Jetpants
         stop_replication
         # If log.nil? returns true in this case, it means binary logging must not be enabled here. We cannot setup replication without it.
       else
-        raise "DB#repoint_to can work only with cases where Node-to-repoint is a sibling with its future master OR where Node-to-repoint is a tiered slave one level down the future master"
+        raise "Without GTID, DB#repoint_to can work only with cases where Node-to-repoint is a sibling with its future master OR where Node-to-repoint is a tiered slave one level down the future master"
       end
       change_master_options = {
         user: new_master_node.replication_credentials[:user],
         password: new_master_node.replication_credentials[:pass],
+        log_file: log,
+        log_pos: pos,
       }
-      if pool(true).global_variables[:gtid_mode].to_s.downcase == "on"
-        change_master_options[:auto_position] = 1
-      else
-        change_master_options[:log_file], change_master_options[:log_pos] = log, pos
-      end
       # CHANGE MASTER TO .. command
       reset_replication!
       change_master_to new_master_node, change_master_options
@@ -751,7 +764,7 @@ module Jetpants
       change_master_options[:exec_master_log_pos] = change_master_options[:exec_master_log_pos].to_s
       change_master_options.delete :password
       change_master_options.each do |option, value|
-        raise "Unexpected slave status value for #{option} in replica #{self} after promotion" unless slave_status[option] == value
+        raise "Unexpected slave status value for #{option} in replica #{self} after repointing" unless slave_status[option] == value
       end
       resume_replication unless replicating?
       catch_up_to_master
