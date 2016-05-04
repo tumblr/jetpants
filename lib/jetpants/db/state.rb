@@ -133,9 +133,18 @@ module Jetpants
     # Confirms the binlog of this node has not moved during a duration
     # of [interval] seconds.
     def taking_writes?(interval=5.0)
-      coords = binlog_coordinates
-      sleep(interval)
-      coords != binlog_coordinates
+      raise "DB#taking_writes? only works if binary logging enabled" unless binary_log_enabled?
+      # if using GTID, check gtid_executed instead of binlog_coordinates
+      # since DB#gtid_executed is slightly faster than DB#binlog_coordinates
+      if pool(true).gtid_mode?
+        executed = gtid_executed(true)
+        sleep(interval)
+        executed != gtid_executed(true)
+      else
+        coords = binlog_coordinates
+        sleep(interval)
+        coords != binlog_coordinates
+      end
     end
     
     # Returns true if this instance appears to be a standby slave,
@@ -164,24 +173,14 @@ module Jetpants
     end
 
     # Returns true if the node can be promoted to be the master of its pool,
-    # false otherwise (also false if node is ALREADY the master)
-    # Don't use this in hierarchical replication scenarios, result may be
-    # unexpected.
-    def promotable_to_master?(detect_version_mismatches=true)
-      # backup_slaves are non-promotable
-      return false if for_backups?
-      
-      # already the master
-      p = pool(true)
-      return false if p.master == self
-      
-      # ordinarily, cannot promote a slave that's running a higher version of
-      # MySQL than any other node in the pool.
-      if detect_version_mismatches
-        p.nodes.all? {|db| db == self || !db.available? || db.version_cmp(self) >= 0}
-      else
-        true
-      end
+    # false otherwise (also false if node is ALREADY the master).
+    # The enslaving_old_master arg just indicates whether or not the proposed
+    # promotion would keep the old master in the pool or not.
+    # Don't use this in hierarchical replication scenarios unless GTID in use
+    # and your asset tracker plugin handles cross-datacenter promotions properly
+    # (jetpants_collins doesn't yet, but support is planned to be added soon!)
+    def promotable_to_master?(enslaving_old_master=true)
+      pool(true).promotable_nodes(enslaving_old_master).include? self
     end
     
     # Returns a hash mapping global MySQL variables (as symbols)
@@ -252,6 +251,7 @@ module Jetpants
         result = Jetpants.topology.pool(master)
       elsif !result && create_if_missing
         pool_master = master || self
+        pool_master = pool_master.master while pool_master.master # handle hierarchical replication
         result = Pool.new('anon_pool_' + pool_master.ip.tr('.', ''), pool_master)
         def result.sync_configuration; end
       end

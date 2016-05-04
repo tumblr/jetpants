@@ -64,10 +64,13 @@ module Jetpants
       @tables = nil
       @probe_lock = Mutex.new
       @claimed_nodes = []
+      @gtid_mode = nil
+      @gtid_uuid = nil
     end
 
     def change_master_to! new_master
       @master = new_master
+      @master_uuid = nil # clear any memoized value
     end
 
     # Returns all slaves, or pass in :active, :standby, or :backup to receive slaves
@@ -212,44 +215,55 @@ module Jetpants
       end
     end
 
-
     # This function aids in providing the information about master/slaves discovered.
     def summary_info(node, counter, tab, extended_info=false)
       if extended_info
         details = {}
-	if !node.running?
-	  details[node] = {coordinates: ['unknown'], lag: 'N/A'}
-        elsif node ==@master and !node.is_slave?
-          details[node] = {coordinates: node.binlog_coordinates(false), lag: 'N/A'}
+        if !node.running?
+          details[node] = {coordinates: ['unknown'], lag: 'N/A', gtid_exec: 'unknown'}
+        elsif node == @master and !node.is_slave?
+          details[node] = {lag: 'N/A'}
+          if gtid_mode?
+            details[node][:gtid_exec] = node.gtid_executed_from_pool_master_string
+          else
+            details[node][:coordinates] = node.binlog_coordinates(false)
+          end
         else
           lag = node.seconds_behind_master
           lag_str = lag.nil? ? 'NULL' : lag.to_s + 's'
-          details[node] = {coordinates: node.repl_binlog_coordinates(false), lag: lag_str}
+          details[node] = {lag: lag_str}
+          if gtid_mode?
+            details[node][:gtid_exec] = node.gtid_executed_from_pool_master_string
+          else
+            details[node][:coordinates] = node.repl_binlog_coordinates(false)
+          end
         end
       end
 
       # tabs below takes care of the indentation depending on the level of replication chain.
       tabs = '    ' *  (tab + 1)
+      
+      # Prepare the extended_info if needed
+      binlog_pos = ''
+      slave_lag = ''
+      if extended_info
+        slave_lag = "lag=#{details[node][:lag]}" unless node == @master && !node.is_slave?
+        binlog_pos = gtid_mode? ? details[node][:gtid_exec] : details[node][:coordinates].join(':')
+      end
+      
       if node == @master and !node.is_slave?
-
         # Preparing the data_set_size and pool alias text
         alias_text = @aliases.count > 0 ? '  (aliases: ' + @aliases.join(', ') + ')' : ''
         data_size = @master.running? ? "[#{master.data_set_size(true)}GB]" : ''
         state_text = (respond_to?(:state) && state != :ready ? "  (state: #{state})" : '')
         print "#{name}#{alias_text}#{state_text}  #{data_size}\n"
-
-        # Retrieving the binlog coordinates for master server
-        binlog_pos = extended_info ? node.binlog_coordinates(false).join(':') : ''
         print "\tmaster          = %-15s %-32s %s\n" % [node.ip, node.hostname, binlog_pos]
+
       else
-
-        # Preparing the extended_info for the slave node.
-        binlog_pos = extended_info ? details[node][:coordinates].join(':') : ''
-        slave_lag = extended_info ? "lag=#{details[node][:lag]}" : ''
-
         # Determine the slave type below
         type = node.role.to_s.split('_').first
-        print "%s%-7s slave #{counter + 1} = %-15s %-32s %-26s %s\n" % [tabs, type, node.ip, node.hostname, binlog_pos, slave_lag]
+        format_str = "%s%-7s slave #{counter + 1} = %-15s %-32s " + (gtid_mode? ? "%-46s" : "%-26s") + " %s\n"
+        print format_str % [tabs, type, node.ip, node.hostname, binlog_pos, slave_lag]
       end
     end
 
@@ -276,6 +290,91 @@ module Jetpants
       true
     end
 
+    # Returns an array of DBs in this pool that are candidates for promotion to new master.
+    # NOTE: doesn't yet handle hierarchical replication scenarios. This method currently
+    # only considers direct slaves of the pool master, by virtue of how Pool#nodes works.
+    #
+    # The enslaving_old_master arg determines whether or not the current pool master would
+    # become a replica (enslaving_old_master=true) vs being removed from the pool
+    # (enslaving_old_master=false). This just determines whether it is included in
+    # version comparison logic, purged binlog logic, etc. The *result* of this method will
+    # always exclude the current master regardless, as it doesn't make sense to consider
+    # a node that's already the master to be "promotable".
+    def promotable_nodes(enslaving_old_master=true)
+      # Array of pool members, either including or excluding the old master as requested
+      comparisons = nodes.select &:running?
+      comparisons.delete master unless enslaving_old_master
+      
+      # Keep track of up to one "last resort" DB, which will only be promoted if
+      # there are no other candidates. The score int allows ranking of last resorts,
+      # to figure out the "least bad" promotion candidate in an emergency.
+      last_resort_candidate = nil
+      last_resort_score = 0
+      last_resort_warning = ""
+      consider_last_resort = Proc.new do |db, score, warning|
+        if last_resort_candidate.nil? || last_resort_score < score
+          last_resort_candidate = db
+          last_resort_score = score
+          last_resort_warning = warning
+        end
+      end
+      
+      # Build list of good candidates for promotion
+      candidates = nodes.reject {|db| db == master || db.for_backups? || !db.running?}
+      candidates.select! do |candidate|
+        others = comparisons.reject {|db| db == candidate}
+        
+        # Node isn't promotable if it's running a higher version of MySQL than any of its future replicas
+        next if others.any? {|db| candidate.version_cmp(db) > 0}
+        
+        if gtid_mode?
+          # Ordinarily if gtid_mode is already in use in the pool, gtid_deployment_step
+          # should not be enabled anywhere; this likely indicates either an incomplete
+          # GTID rollout occurred, or an automation bug elsewhere. Reject the candidate
+          # outright, unless the old master is dead, in which case we consider it as a
+          # last resort with low score.
+          if candidate.gtid_deployment_step?
+            unless master.running?
+              warning = "gtid_deployment_step is still enabled (indicating incomplete GTID rollout?), but there's no better candidate"
+              consider_last_resort.call(candidate, 0, warning)
+            end
+            next
+          end
+          
+          # See if any replicas would break if this candidate becomes master. If any will
+          # break, only allow promotion as a last resort, with the score based on what
+          # percentage will break
+          breaking_count = others.count {|db| candidate.purged_transactions_needed_by? db}
+          if breaking_count > 0
+            breaking_pct = (100.0 * (breaking_count.to_f / others.length.to_f)).to_int
+            score = 100 - breaking_pct
+            warning = "#{breaking_pct}% of replicas will break upon promoting this node, but there's no better candidate"
+            consider_last_resort.call(candidate, score, warning)
+            next
+          end
+        end # gtid_mode checks
+        
+        # Only consider active slaves to be full candidates if the old master
+        # is dead and we don't have GTID. In this situation, an active slave may
+        # have the furthest replication progress. But in any other situation,
+        # consider active slaves to be last resort, since promoting one would
+        # also require converting a standby to be an active slave.
+        if candidate.role == :active_slave && (gtid_mode? || master.running?)
+          consider_last_resort.call(candidate, 100, "only promotion candidate is an active slave, since no standby slaves are suitable")
+          next
+        end
+        
+        # If we didn't hit a "next" statement in any of the above checks, the node is promotable
+        true
+      end
+      
+      if candidates.length == 0 && !last_resort_candidate.nil?
+        last_resort_candidate.output "WARNING: #{last_resort_warning}"
+        candidates << last_resort_candidate
+      end
+      candidates
+    end
+
     # Demotes the pool's existing master, promoting a slave in its place.
     # The old master will become a slave of the new master if enslave_old_master is true,
     # unless the old master is unavailable/crashed.
@@ -285,29 +384,29 @@ module Jetpants
       raise "Promoted host is not in the right pool!" unless demoted.slaves.include?(promoted)
       
       output "Preparing to demote master #{demoted} and promote #{promoted} in its place."
+      live_promotion = demoted.running?
       
       # If demoted machine is available, confirm it is read-only and binlog isn't moving,
       # and then wait for slaves to catch up to this position
-      if demoted.running?
+      if live_promotion
         demoted.enable_read_only!
         raise "Unable to enable global read-only mode on demoted machine" unless demoted.read_only?
-        coordinates = demoted.binlog_coordinates
-        raise "Demoted machine still taking writes (from superuser or replication?) despite being read-only" unless coordinates == demoted.binlog_coordinates
+        raise "Demoted machine still taking writes (from superuser or replication?) despite being read-only" if taking_writes?(0.5)
+
         demoted.slaves.concurrent_each do |s|
-          while true do
+          while demoted.ahead_of? s do
+            s.output "Still catching up to demoted master"
             sleep 1
-            break if s.repl_binlog_coordinates == coordinates
-            output "Still catching up to coordinates of demoted master"
           end
         end
       
       # Demoted machine not available -- wait for slaves' binlogs to stop moving
       else
         demoted.slaves.concurrent_each do |s|
-          progress = s.repl_binlog_coordinates
-          while true do
-            sleep 1
-            break if s.repl_binlog_coordinates == progress
+          while s.taking_writes?(1.0) do
+            # Ensure we're not taking writes because a formerly dead master came back to life
+            # In this situation, a human should inspect the old master manually
+            raise "Dead master came back to life, aborting" if s.replicating?
             s.output "Still catching up on replication"
           end
         end
@@ -320,29 +419,56 @@ module Jetpants
       end
       raise "Unable to stop replication on all slaves" if replicas.any? {|s| s.replicating?}
       
-      user, password = promoted.replication_credentials.values
-      log,  position = promoted.binlog_coordinates
+      # Determine options for CHANGE MASTER
+      creds = promoted.replication_credentials
+      change_master_options = {
+        user:     creds[:user],
+        password: creds[:pass],
+      }
+      if gtid_mode?
+        change_master_options[:auto_position] = true
+        promoted.gtid_executed(true)
+      else
+        change_master_options[:log_file], change_master_options[:log_pos] = promoted.binlog_coordinates
+      end
       
-      # reset slave on promoted, and make sure read_only is disabled
+      # Reset slave on promoted, and make sure read_only and gtid_deployment_step are disabled.
+      # The latter is necessary since a master with gtid_deployment_step=ON will stop generating
+      # GTIDs for new transactions, which is catastrophic. This generally shouldn't be enabled
+      # on replicas anyway -- it indicates something went wrong with the GTID rollout process.
       promoted.disable_replication!
       promoted.disable_read_only!
+      if gtid_mode? && promoted.gtid_deployment_step?
+        promoted.output "WARNING: automatically disabling gtid_deployment_step."
+        promoted.output "After promotion, manually investigate why this was left enabled!"
+        promoted.disable_gtid_deployment_step!
+      end
       
       # gather our new replicas
       replicas.delete promoted
-      replicas << demoted if demoted.running? && enslave_old_master
+      replicas << demoted if live_promotion && enslave_old_master
       
-      # perform promotion
-      replicas.each do |r|
-        r.change_master_to promoted, user: user, password: password, log_file: log, log_pos: position
+      # If old master is dead and we're using GTID, try to catch up the new master
+      # from its siblings, in case one of them is further ahead. Currently using the
+      # default 5-minute timeout of DB#replay_missing_transactions, gives up after that.
+      if gtid_mode? && change_master_options[:auto_position] && !live_promotion
+        promoted.replay_missing_transactions(replicas, change_master_options)
       end
+      
+      # Repoint replicas to the new master
+      replicas.each {|r| r.change_master_to(promoted, change_master_options)}
 
       # ensure our replicas are configured correctly by comparing our staged values to current values of replicas
       promoted_replication_config = {
         master_host: promoted.ip,
-        master_user: user,
-        master_log_file:  log,
-        exec_master_log_pos: position.to_s
+        master_user: change_master_options[:user],
       }
+      if gtid_mode?
+        promoted_replication_config[:auto_position] = "1"
+      else
+        promoted_replication_config[:master_log_file] = change_master_options[:log_file]
+        promoted_replication_config[:exec_master_log_pos] = change_master_options[:log_pos].to_s
+      end
       replicas.each do |r|
         promoted_replication_config.each do |option, value|
           raise "Unexpected slave status value for #{option} in replica #{r} after promotion" unless r.slave_status[option] == value
@@ -355,19 +481,56 @@ module Jetpants
       # after_master_promotion! method which handles this case in configuration tracker
       @active_slave_weights.delete promoted # if promoting an active slave, remove it from read pool
       @master = promoted
+      @master_uuid = nil # clear any memoized value
       sync_configuration
       Jetpants.topology.write_config
       
       output "Promotion complete. Pool master is now #{promoted}."
-      
       replicas.all? {|r| r.replicating?}
     end
-
+    
     def slaves_layout
       {
         :standby_slave => Jetpants.standby_slaves_per_pool,
         :backup_slave  => Jetpants.backup_slaves_per_pool
       }
+    end
+    
+    # Returns true if the entire pool is using gtid_mode, false otherwise.
+    # Safe to use even if the master is dead. Memoizes the value on first use
+    # to avoid repeated querying.
+    def gtid_mode?
+      return @gtid_mode unless @gtid_mode.nil?
+      if master.running?
+        # If master is running, it is sufficient to just check it alone, since
+        # replicas must be using GTID if the master is
+        @gtid_mode = master.gtid_mode?
+      else
+        @gtid_mode = slaves.select(&:running?).all?(&:gtid_mode?)
+      end
+    end
+    
+    # Returns the server_uuid of the pool's master. Safe to use even if the master is dead,
+    # as long as the asset tracker populates the dead master's @slaves properly (as
+    # jetpants_collins already does). Memoizes the value to avoid repeated lookup; methods
+    # that modify the pool master clear the memoized value.
+    def master_uuid
+      return @master_uuid unless @master_uuid.nil?
+      raise "Pool#master_uuid requires gtid_mode" unless gtid_mode?
+      if master.running?
+        @master_uuid = master.server_uuid
+        return @master_uuid
+      end
+      slaves.select(&:running?).each do |s|
+        if s.master == master
+          master_uuid = s.slave_status[:master_uuid]
+          unless master_uuid.nil? || master_uuid == ''
+            @master_uuid = master_uuid
+            return @master_uuid
+          end
+        end
+      end
+      raise "Unable to determine the master_uuid for #{self}"
     end
     
     # Informs your asset tracker about any changes in the pool's state or members.

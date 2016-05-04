@@ -421,6 +421,12 @@ module Jetpants
       }.reject { |s|
         Jetpants.mysql_clone_ignore.include? s
       }
+      
+      # If using GTID, we need to remember the source's gtid_executed from the point-in-time of the copy
+      pause_replication unless @repl_paused
+      if gtid_mode?
+        source_gtid_executed = gtid_executed
+      end
 
       [self, targets].flatten.concurrent_each {|t| t.stop_query_killer; t.stop_mysql}
       targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_logfile*"}
@@ -435,6 +441,25 @@ module Jetpants
       [self, targets].flatten.concurrent_each do |t|
         t.start_mysql
         t.start_query_killer
+      end
+      
+      # If the source is using GTID, we need to set the targets' gtid_purged to equal the
+      # source's gtid_executed. This is needed because we do not copy binlogs, which are
+      # the source of truth for gtid_purged and gtid_executed. (Note, setting gtid_purged
+      # also inherently sets gtid_executed.)
+      unless source_gtid_executed.nil?
+        targets.concurrent_each do |t|
+          # If gtid_executed is non-empty on a fresh node, the node probably wasn't fully re-provisioned.
+          # This is bad since gtid_executed is set on startup based on the binlog contents, and we can't
+          # set gtid_purged unless it's empty. So we have to RESET MASTER to fix this.
+          if t.gtid_executed(true) != ''
+            t.output 'Node unexpectedly has non-empty gtid_executed! Probably leftover binlogs from previous life...'
+            t.output 'Attempting a RESET MASTER to nuke leftovers'
+            t.output t.mysql_root_cmd 'RESET MASTER'
+          end
+          t.gtid_purged = source_gtid_executed
+          raise "Expected gtid_executed on target #{t} to now match source, but it doesn't" unless t.gtid_executed == source_gtid_executed
+        end
       end
     end
 
