@@ -206,9 +206,11 @@ module Jetpants
         slave.cancel_downtime rescue nil
       }
 
-      # settings to improve import speed
+      # settings to improve import speed and prevent GTID problems
       data_nodes.each do |db|
-        db.start_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--innodb_flush_log_at_trx_commit=2', '--innodb-doublewrite=0'
+        opts = ['--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--innodb_flush_log_at_trx_commit=2', '--innodb-doublewrite=0']
+        opts << '--loose-gtid-mode=OFF' if db == new_shard_master
+        db.start_mysql opts
         db.import_schemata!
       end
 

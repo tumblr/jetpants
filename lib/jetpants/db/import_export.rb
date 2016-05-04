@@ -332,7 +332,7 @@ module Jetpants
 
       disable_monitoring
       stop_query_killer
-      restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
+      restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--loose-gtid-mode=OFF'
 
       # Automatically detect missing min/max. Assumes that all tables' primary keys
       # are on the same scale, so this may be non-ideal, but better than just erroring.
