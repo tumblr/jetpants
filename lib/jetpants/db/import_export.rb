@@ -131,14 +131,15 @@ module Jetpants
     # Creates a 'jetpants' db user with FILE permissions for the duration of the
     # import.
     #
-    # Note: import will be substantially faster if you disable binary logging
-    # before the import, and re-enable it after the import. You also must set
-    # InnoDB's autoinc lock mode to 2 in order to do a chunked import with
-    # auto-increment tables.  You can achieve all this by calling
-    # DB#restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
-    # prior to importing data, and then clear those settings by calling
-    # DB#restart_mysql with no params after done importing data.
+    # Note: the caller must disable binary logging (for speed reasons and to
+    # avoid potential GTID problems with complex operations) and set InnoDB
+    # autoinc lock mode to 2 (to support chunking of auto-inc tables) prior to
+    # calling DB#import_data. This is the caller's responsibility, and can be
+    # achieved by calling DB#restart_mysql with appropriate option overrides
+    # prior to importing data. After done importing, the caller can clear those
+    # settings by calling DB#restart_mysql again with no params.
     def import_data(tables, min_id=false, max_id=false, infinity=false, extra_opts=nil)
+      raise "Binary logging must be disabled prior to calling DB#import_data" if binary_log_enabled?
       disable_read_only!
       import_export_user = 'jetpants'
       create_user(import_export_user)
@@ -355,9 +356,16 @@ module Jetpants
 
       export_schemata tables
       export_data tables, min_id, max_id
+      
+      # We need to be paranoid and confirm nothing else has restarted mysql (re-enabling binary logging)
+      # out-of-band. Besides the obvious slowness of importing things while binlogging, this is outright
+      # dangerous if GTID is in-use. So we check before every method or statement that does writes
+      # (except for import_data, which already does its own check inside the method).
+      raise "Binary logging has somehow been re-enabled. Must abort for safety!" if binary_log_enabled?
       import_schemata!
       if respond_to? :alter_schemata
-        alter_schemata
+        raise "Binary logging has somehow been re-enabled. Must abort for safety!" if binary_log_enabled?
+        alter_schemata 
         # re-retrieve table metadata in the case that we alter the tables
         pool.probe_tables
         tables = pool.tables.select{|t| pool.tables.map(&:name).include?(t.name)}
@@ -371,6 +379,7 @@ module Jetpants
           index_list[t] = t.indexes
 
           t.indexes.each do |index_name, index_info|
+            raise "Binary logging has somehow been re-enabled. Must abort for safety!" if binary_log_enabled?
             drop_idx_cmd = t.drop_index_query(index_name)
             output "Dropping index #{index_name} from #{t.name} prior to import"
             mysql_root_cmd("#{db_prefix}#{drop_idx_cmd}")
@@ -383,7 +392,7 @@ module Jetpants
       if Jetpants.import_without_indices
         index_list.each do |table, indexes|
           next if indexes.keys.empty?
-
+          raise "Binary logging has somehow been re-enabled. Must abort for safety!" if binary_log_enabled?
           create_idx_cmd = table.create_index_query(indexes)
           index_names = indexes.keys.join(", ")
           output "Recreating indexes #{index_names} for #{table.name} after import"
