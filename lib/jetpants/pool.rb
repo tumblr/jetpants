@@ -363,6 +363,27 @@ module Jetpants
       replicas.all? {|r| r.replicating?}
     end
 
+    def rolling_restart(pool, reason)
+      pool.standby_slaves.each do |node|
+        reason.each do |r|
+          value = node.global_variables[reason.split('=').first.to_sym]
+          if value == reason.split('=').last
+            restart = false
+          else
+            restart = true
+          end
+        end
+        if restart == true
+          node.set_downtime 1
+          node. restart_mysql
+          node.catch_up_to_master unless !node.is_slave?
+          node.cancel_downtime
+        else
+          output "No need to restart MySQL on #{node}, since the condition is already satisfied. #{reason}"
+        end
+      end
+    end
+
     def slaves_layout
       {
         :standby_slave => Jetpants.standby_slaves_per_pool,
