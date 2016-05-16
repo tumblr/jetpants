@@ -375,8 +375,9 @@ module Jetpants
         end
         if restart == true
           node.set_downtime 1
-          node. restart_mysql
-          node.catch_up_to_master unless !node.is_slave?
+          node.pause_replication
+          node.restart_mysql
+          node.catch_up_to_master if node.is_slave?
           node.cancel_downtime
         else
           output "No need to restart MySQL on #{node}, since the condition is already satisfied. #{reason}"

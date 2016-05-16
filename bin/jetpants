@@ -154,14 +154,14 @@ module Jetpants
 
       if asset_type.downcase == "pools"
         asset_name.each do |asset|
-          output = pools.include? pool(asset)
-          raise 'Provide the correct asset_name list' unless output == true
+          consist_of = pools.include? pool(asset)
+          raise 'Provide the correct asset_name list' unless consist_of == true
           pool.rolling_restart(asset, reason)
         end
       elsif asset_type.downcase == "shards"
         asset_name.each do |asset|
-          output = shard_pools.include? shard_pool(asset)
-          raise 'Provide the correct asset_name list' unless output == true
+          consist_of = shard_pools.include? shard_pool(asset)
+          raise 'Provide the correct asset_name list' unless consist_of == true
           shards(asset).each do |pool|
             pool.rolling_restart(asset, reason)
           end
@@ -179,6 +179,7 @@ module Jetpants
           end
           if restart == true
             asset.set_downtime 1
+            asset.pause_replication
             asset.restart_mysql
             asset.catch_up_to_master unless !asset.is_slave?
             asset.cancel_downtime
