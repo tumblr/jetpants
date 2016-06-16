@@ -28,7 +28,6 @@ module Jetpants
     # settings.
     def change_master_to(new_master, option_hash={})
       return disable_replication! unless new_master   # change_master_to(nil) alias for disable_replication!
-      return if new_master == master                  # no change
       
       # Prevent trivial replication circles, i.e. a->b->a or the nonsensical a->a.
       # This isn't a comprehensive check since it doesn't catch 3+ node rings, but
@@ -39,12 +38,13 @@ module Jetpants
       raise "log_file and log_pos options must be supplied together" if (option_hash[:log_file] && !option_hash[:log_pos]) || (option_hash[:log_pos] && !option_hash[:log_file])
       
       # If no valid coords nor auto-position supplied, default behavior depends on
-      # whether or not the pool is using GTID
+      # whether or not the pool is using GTID. We also permit an explicit false value
+      # for :auto_position to mean "use coordinates even if gtid_mode is enabled"
       unless (option_hash[:log_file] && option_hash[:log_pos]) || option_hash[:auto_position]
-        if pool(true).gtid_mode?
+        if option_hash[:auto_position] != false && gtid_mode? && new_master.gtid_mode? && new_master.gtid_executed != ''
           option_hash[:auto_position] = true
         else
-          raise "Cannot use default coordinates of a new master that is receiving updates without GTID" if new_master.taking_writes?(0.5)
+          raise "Without GTID auto-positioning, cannot use default coordinates of a new master that is receiving updates" if new_master.taking_writes?(0.5)
           option_hash[:log_file], option_hash[:log_pos] = new_master.binlog_coordinates
         end
       end
@@ -52,11 +52,12 @@ module Jetpants
       if option_hash[:auto_position]
         raise "When using auto-positioning, do not supply coordinates to DB#change_master_to" if option_hash[:log_file] || option_hash[:log_pos]
         raise "Auto-positioning requires master and replica to be using gtid_mode" unless gtid_mode? && new_master.gtid_mode?
+        raise "Cannot use auto-positioning when new master has gtid_deployment_step=ON" if new_master.gtid_deployment_step?
         position_clause = "MASTER_AUTO_POSITION = 1, "
       else
         position_clause = "MASTER_LOG_FILE='#{option_hash[:log_file]}', MASTER_LOG_POS=#{option_hash[:log_pos]}, "
         if pool(true).gtid_mode?
-          output "WARNING: using coordinates in CHANGE MASTER despite GTID being available in this pool"
+          output "WARNING: using coordinates in CHANGE MASTER, despite GTID being available in this pool"
           position_clause += "MASTER_AUTO_POSITION = 0, " # necessary to work if auto-positioning was previously 1
         end
       end
@@ -118,7 +119,11 @@ module Jetpants
         @repl_paused = true
       end
       # Display and return the replication progress
-      gtid_mode? ? gtid_executed_from_pool_master_string(true) : repl_binlog_coordinates(true)
+      if gtid_mode? && gtid_executed != ''
+        gtid_executed_from_pool_master_string(true)
+      else
+        repl_binlog_coordinates(true)
+      end
     end
     alias stop_replication pause_replication
     
@@ -126,7 +131,11 @@ module Jetpants
     def resume_replication
       raise "This DB object has no master" unless master
       # Display the replication progress
-      gtid_mode? ? gtid_executed_from_pool_master_string(true) : repl_binlog_coordinates(true)
+      if gtid_mode? && gtid_executed != ''
+        gtid_executed_from_pool_master_string(true)
+      else
+        repl_binlog_coordinates(true)
+      end
       output "Resuming replication from #{@master}."
       output mysql_root_cmd "START SLAVE"
       @repl_paused = false
@@ -240,16 +249,15 @@ module Jetpants
       disable_monitoring
       targets.each {|t| t.disable_monitoring}
       pause_replication if master && ! @repl_paused
+      
+      # We intentionally omit position-related options here -- the default logic in
+      # change_master_to will do the right thing, depending on gtid_mode,
+      # gtid_executed, etc
       change_master_options = {
         user:     repl_user || replication_credentials[:user],
         password: repl_pass || replication_credentials[:pass],
       }
-      if pool(true).gtid_mode?
-        change_master_options[:auto_position] = true
-        gtid_executed_from_pool_master_string(true) # display gtid executed value
-      else
-        change_master_options[:log_file], change_master_options[:log_pos] = binlog_coordinates
-      end
+
       clone_to!(targets)
       targets.each do |t|
         t.enable_monitoring
@@ -511,43 +519,15 @@ module Jetpants
       global_variables[:gtid_deployment_step].to_s.downcase == 'on'
     end
     
-    # Returns true if the DB supports online GTID rollout (i.e. Percona Server >= 5.6.22-72.0), or
-    # false otherwise.
-    def supports_online_gtid_rollout?
-      global_variables.has_key? :gtid_deployment_step
-    end
-    
-    # Dynamically disables gtid_deployment_step. Intended for use by a GTID rollout script or shard merge.
-    # Nothing else should manipulate this variable, and ordinarily this variable should always be disabled.
-    # If ever accidentally left enabled on a DB that gets promoted to master, it will stop assigning
-    # GTIDs to new transactions.
-    def enable_gtid_deployment_step!
-      raise "Cannot enable gtid_deployment_step without gtid_mode" unless gtid_mode?
-      return if gtid_deployment_step?
-      raise "#{self} does not support gtid_deployment_step" unless supports_online_gtid_rollout?
-      toggle_gtid_deployment_step(true)
-    end
-    
-    # Dynamically disables gtid_deployment_step. Intended for use by a GTID rollout script or shard merge.
-    def disable_gtid_deployment_step!
-      return unless gtid_deployment_step?
-      raise "#{self} does not support gtid_deployment_step" unless supports_online_gtid_rollout?
-      toggle_gtid_deployment_step(false)
-    end
-    
-    # Helper for enable_gtid_deployment_step! / disable_gtid_deployment_step!
-    # Arg should only be a boolean, not 0/1 or "OFF"/"ON"
-    def toggle_gtid_deployment_step(enable)
-      value = (enable ? 1 : 0)
-      mysql_root_cmd "SET GLOBAL gtid_deployment_step = #{value}"
-    end
-
     # This intentionally executes a query instead of using SHOW GLOBAL VARIABLES, because the value
     # can get quite long, and SHOW GLOBAL VARIABLES truncates its output
     def gtid_executed(display_info=false)
       result = query_return_first_value "SELECT @@global.gtid_executed"
       result.gsub! "\n", ''
-      output "gtid_executed is #{result}" if display_info
+      if display_info
+        displayable_result = (result == '' ? '[empty]' : result)
+        output "gtid_executed is #{displayable_result}"
+      end
       result
     end
     

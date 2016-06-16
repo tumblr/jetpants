@@ -431,10 +431,20 @@ module Jetpants
         Jetpants.mysql_clone_ignore.include? s
       }
       
-      # If using GTID, we need to remember the source's gtid_executed from the point-in-time of the copy
+      # If using GTID, we need to remember the source's gtid_executed from the point-in-time of the copy.
+      # We also need to ensure that the targets match the same gtid-related variables as the source.
+      # Ordinarily this should be managed by my.cnf, but while a fleet-wide GTID rollout is still underway,
+      # claimed spares won't get the appropriate settings automatically since they aren't in a pool yet.
       pause_replication unless @repl_paused
       if gtid_mode?
         source_gtid_executed = gtid_executed
+        targets.each do |t|
+          t.add_start_option '--loose-gtid-mode=ON'
+          t.add_start_option '--enforce-gtid-consistency=1'
+        end
+      end
+      if gtid_deployment_step?
+        targets.each {|t| t.add_start_option '--loose-gtid-deployment-step=1'}
       end
 
       [self, targets].flatten.concurrent_each {|t| t.stop_query_killer; t.stop_mysql}
@@ -458,6 +468,10 @@ module Jetpants
       # also inherently sets gtid_executed.)
       unless source_gtid_executed.nil?
         targets.concurrent_each do |t|
+          # Restarts done by jetpants will preserve gtid_mode, but manual restarts might not,
+          # since the target isn't in a pool yet
+          raise "Target #{t} is not using gtid_mode as expected! Did something restart it out-of-band?" unless t.gtid_mode?
+
           # If gtid_executed is non-empty on a fresh node, the node probably wasn't fully re-provisioned.
           # This is bad since gtid_executed is set on startup based on the binlog contents, and we can't
           # set gtid_purged unless it's empty. So we have to RESET MASTER to fix this.

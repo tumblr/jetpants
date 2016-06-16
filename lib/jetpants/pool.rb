@@ -65,7 +65,7 @@ module Jetpants
       @probe_lock = Mutex.new
       @claimed_nodes = []
       @gtid_mode = nil
-      @gtid_uuid = nil
+      @master_uuid = nil
     end
 
     def change_master_to! new_master
@@ -387,13 +387,16 @@ module Jetpants
       live_promotion = demoted.running?
       
       # If demoted machine is available, confirm it is read-only and binlog isn't moving,
-      # and then wait for slaves to catch up to this position
+      # and then wait for slaves to catch up to this position. Or if using GTID, only need
+      # to wait for new_master to catch up; GTID allows us to repoint lagging slaves without
+      # issue.
       if live_promotion
         demoted.enable_read_only!
         raise "Unable to enable global read-only mode on demoted machine" unless demoted.read_only?
         raise "Demoted machine still taking writes (from superuser or replication?) despite being read-only" if taking_writes?(0.5)
+        must_catch_up = (gtid_mode? ? [promoted] : demoted.slaves)
 
-        demoted.slaves.concurrent_each do |s|
+        must_catch_up.concurrent_each do |s|
           while demoted.ahead_of? s do
             s.output "Still catching up to demoted master"
             sleep 1
@@ -432,17 +435,9 @@ module Jetpants
         change_master_options[:log_file], change_master_options[:log_pos] = promoted.binlog_coordinates
       end
       
-      # Reset slave on promoted, and make sure read_only and gtid_deployment_step are disabled.
-      # The latter is necessary since a master with gtid_deployment_step=ON will stop generating
-      # GTIDs for new transactions, which is catastrophic. This generally shouldn't be enabled
-      # on replicas anyway -- it indicates something went wrong with the GTID rollout process.
+      # reset slave on promoted, and make sure read_only is disabled
       promoted.disable_replication!
       promoted.disable_read_only!
-      if gtid_mode? && promoted.gtid_deployment_step?
-        promoted.output "WARNING: automatically disabling gtid_deployment_step."
-        promoted.output "After promotion, manually investigate why this was left enabled!"
-        promoted.disable_gtid_deployment_step!
-      end
       
       # gather our new replicas
       replicas.delete promoted
@@ -496,17 +491,32 @@ module Jetpants
       }
     end
     
-    # Returns true if the entire pool is using gtid_mode, false otherwise.
-    # Safe to use even if the master is dead. Memoizes the value on first use
-    # to avoid repeated querying.
+    # Returns true if the entire pool is using gtid_mode AND has executed at least
+    # one transaction with a GTID, false otherwise.
+    # The gtid_executed check allows this method to tell when GTIDs can actually be
+    # used (for auto-positioning, telling which node is ahead, etc) vs when we need
+    # to fall back to using coordinates despite @@global.gtid_executed being ON.
+    # This method is safe to use even if the master is dead.
+    # In most situations, this method memoizes the value on first use, to avoid
+    # repeated querying from subsequent calls.
     def gtid_mode?
       return @gtid_mode unless @gtid_mode.nil?
-      if master.running?
-        # If master is running, it is sufficient to just check it alone, since
-        # replicas must be using GTID if the master is
-        @gtid_mode = master.gtid_mode?
+      any_gtids_executed = false
+      # If master is running, it is sufficient to just check it alone, since
+      # replicas must be using GTID if the master is
+      nodes_to_examine = (master.running? ? [master] : slaves)
+      nodes_to_examine.each do |db|
+        row = db.query_return_first 'SELECT UPPER(@@global.gtid_mode) AS gtid_mode, @@global.gtid_executed AS gtid_executed'
+        unless row[:gtid_mode] == 'ON'
+          @gtid_mode = false
+          return @gtid_mode
+        end
+        any_gtids_executed = true unless row[:gtid_executed] == ''
+      end
+      if any_gtids_executed
+        @gtid_mode = true
       else
-        @gtid_mode = slaves.select(&:running?).all?(&:gtid_mode?)
+        false # intentionally avoid memoization for this situation -- no way to invalidate properly
       end
     end
     

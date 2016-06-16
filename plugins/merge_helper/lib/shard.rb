@@ -234,20 +234,11 @@ module Jetpants
         aggregate_node.add_node_to_aggregate slave, slave_coords[slave]
       end
       
-      # Point the new shard master at the aggregator using coordinates.
-      # We need to explicitly use coordinates here even if normally using GTID, since
-      # MariaDB's implementation differs from Oracle's. We also need to temporarily
-      # enable gtid_deployment_step if the bottom-level replica uses GTID, so that it
-      # can replicate from MariaDB without erroring about mismatched master/slave gtid_mode.
-      coords = aggregate_node.binlog_coordinates
-      change_master_options = {
-        user:     replication_credentials[:user],
-        password: replication_credentials[:pass],
-        log_file: coords[0],
-        log_pos:  coords[1],
-      }
-      new_shard_master.change_master_to aggregate_node, change_master_options
-      new_shard_master.enable_gtid_deployment_step! if new_shard_master.gtid_mode?
+      
+      # Set up replication from aggregator to new_master.
+      # We intentionally pass no options to change_master_to, since it's smart enough
+      # to do the right thing (in this case: use aggregator's current coordinates)
+      new_shard_master.change_master_to aggregate_node
     end
 
     def combined_shard

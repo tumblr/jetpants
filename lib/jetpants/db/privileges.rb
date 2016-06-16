@@ -25,7 +25,7 @@ module Jetpants
     def create_user(username=false, password=false)
       username ||= app_credentials[:user]
       password ||= app_credentials[:pass]
-      commands = ['SET sql_log_bin = 0']
+      commands = ['SET SESSION sql_log_bin = 0']
       Jetpants.mysql_grant_ips.each do |ip|
         commands << "CREATE USER '#{username}'@'#{ip}' IDENTIFIED BY '#{password}'"
       end
@@ -37,12 +37,10 @@ module Jetpants
       end
     end
     
-    # Drops a user. Can optionally make this statement skip replication, if you
-    # want to drop a user on master and not on its slaves. SEE NOTE ABOVE RE:
-    # ALWAYS SKIPS BINLOG
+    # Drops a user. SEE NOTE ABOVE RE: ALWAYS SKIPS BINLOG
     def drop_user(username=false)
       username ||= app_credentials[:user]
-      commands = ['SET sql_log_bin = 0']
+      commands = ['SET SESSION sql_log_bin = 0']
       Jetpants.mysql_grant_ips.each do |ip|
         commands << "DROP USER '#{username}'@'#{ip}'"
       end
@@ -78,7 +76,7 @@ module Jetpants
       database ||= app_schema
       privileges = Jetpants.mysql_grant_privs if privileges.empty?
       privileges = privileges.join(',')
-      commands = ['SET sql_log_bin = 0']
+      commands = ['SET SESSION sql_log_bin = 0']
       
       Jetpants.mysql_grant_ips.each do |ip|
         commands << "#{statement} #{privileges} ON #{database}.* #{preposition} '#{username}'@'#{ip}'"
