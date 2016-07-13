@@ -28,6 +28,20 @@ module Jetpants
     # OK to use this if MySQL is already stopped; it's a no-op then.
     def stop_mysql
       output "Attempting to shutdown MySQL"
+      
+      # Ensure GTID-related variables persist across a planned restart. This is needed regardless
+      # of any plugins rewriting my.cnf based on pool membership, since there are scenarios
+      # involving new nodes needing correct gtid_mode *prior* to Pool#sync_configuration being
+      # called. (Note: DB#start_mysql is smart enough to *temporarily* ignore gtid_mode if
+      # specifically starting with binlogging disabled.)
+      if gtid_mode?
+        add_start_option '--loose-gtid-mode=ON'
+        add_start_option '--enforce-gtid-consistency=1'
+      end
+      if gtid_deployment_step?
+        add_start_option '--loose-gtid-deployment-step=1'
+      end
+      
       disconnect if @db
       output service(:stop, 'mysql')
       running = ssh_cmd "netstat -ln | grep \":#{@port}\\s\" | wc -l"
@@ -46,6 +60,7 @@ module Jetpants
         @repl_paused = options.include?('--skip-slave-start')
       end
       mysql_start_options = [ options, start_options ].flatten
+      mysql_start_options.delete '--loose-gtid-mode=ON' if mysql_start_options.include? '--skip-log-bin'
       running = ssh_cmd "netstat -ln | grep ':#{@port}' | wc -l"
       raise "[#{@ip}] Failed to start MySQL: Something is already listening on port #{@port}" unless running.chomp == '0'
       if mysql_start_options.size == 0
@@ -66,6 +81,17 @@ module Jetpants
     def restart_mysql(*options)
       if @master
         @repl_paused = options.include?('--skip-slave-start')
+      end
+      
+      # Ensure that GTID-related variables persist across a planned restart. This is needed regardless
+      # of any Pool#rewrite_options_files_for_gtid_rollout implementation since there are scenarios
+      # involving new nodes needing correct gtid_mode *prior* to Pool#sync_configuration being
+      # called.
+      if gtid_mode? && !options.include?('--skip-log-bin')
+        options << '--loose-gtid-mode=ON' << '--enforce-gtid-consistency=1'
+      end
+      if gtid_deployment_step?
+        options << '--loose-gtid-deployment-step=1'
       end
       
       # Disconnect if we were previously connected

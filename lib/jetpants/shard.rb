@@ -255,12 +255,13 @@ module Jetpants
 
       if @state == :importing
         stop_query_killer
+        disable_monitoring
+        restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--loose-gtid-mode=OFF'
+        raise "Binary logging has somehow been re-enabled. Must abort for safety!" if binary_log_enabled?
         import_schemata!
         alter_schemata if respond_to? :alter_schemata
-        disable_monitoring
-        restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
         import_data tables, @min_id, max_table_value, infinity
-        restart_mysql # to clear out previous options '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
+        restart_mysql # to clear out previous option overrides disabling binlog etc
         enable_monitoring
         start_query_killer
       end

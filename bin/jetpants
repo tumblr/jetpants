@@ -104,25 +104,43 @@ module Jetpants
       inform "Summary of affected pool"
       inform "Binary log positions and slave lag shown below are just a snapshot taken at the current time." if demoted.running?
       output
-      demoted.pool(true).summary(true)
+      our_pool = demoted.pool(true)
+      our_pool.summary(true)
       output
 
+      candidates = our_pool.promotable_nodes
+      error "There are no suitable nodes to promote in this pool!" if candidates.empty?
+      if candidates != our_pool.standby_slaves
+        candidates_string = candidates.map {|db| db.port == 3306 ? db.ip : db.to_s}.join ', '
+        inform "Only these nodes are suitable for promotion: #{candidates_string}"
+      end
       unless promoted
-        if demoted.running?
-          inform "Recommendation: promote the standby slave with the highest binary log coordinates"
+        if !our_pool.gtid_mode? && !demoted.running?
+          if candidates == our_pool.standby_slaves
+            inform "Recommendation: promote the standby slave with the highest binary log coordinates"
+          else
+            inform "Recommendation: of the suitable nodes, promote the one with the highest binary log coordinates"
+          end
+        elsif candidates == our_pool.standby_slaves
+          inform "You may promote any of the standby slaves listed above."
         else
-          inform "Recommendation: promote the standby slave or active slave with the highest binary log coordinates"
+          inform "You may promote any of the suitable nodes listed above."
         end
         promoted = ask_node 'Please enter the IP address of the node to promote: '
       end
       
       error "Unable to determine a node to demote and a node to promote" unless demoted.kind_of?(Jetpants::DB) && promoted.kind_of?(Jetpants::DB)
-      error "Node to promote #{promoted} is not a slave of node to demote #{demoted}" unless promoted.master == demoted
-      error "The chosen node cannot be promoted. Please choose another." unless promoted.promotable_to_master?
+      if our_pool.gtid_mode?
+        error "Node to promote #{promoted} is not in the same pool as node to demote #{demoted}" unless promoted.pool(true) == our_pool
+      else
+        # If not using GTID, need a stricter check re: hierarchical replication
+        error "Node to promote #{promoted} is not a slave of node to demote #{demoted}" unless promoted.master == demoted
+      end
+      error "The chosen node cannot be promoted. Please choose another." unless candidates.include? promoted
       
       inform "Going to DEMOTE existing master #{demoted} and PROMOTE new master #{promoted}."
       error "Aborting." unless agree "Proceed? [yes/no]: "
-      demoted.pool(true).master_promotion! promoted
+      our_pool.master_promotion! promoted
     end
     def self.after_promotion
       reminders(
@@ -611,7 +629,8 @@ module Jetpants
       s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id], shard_pool)
 
       new_master = ask_node "Please enter the IP of the new master for #{s}: ", options[:new_master]
-      raise "New master node #{new_master} is not currently a slave in shard #{s}" unless s.slaves && s.slaves.include?(new_master)
+      error "New master node #{new_master} is not currently a slave in shard #{s}" unless s.slaves && s.slaves.include?(new_master)
+      error "The chosen node cannot be promoted. Please choose another." unless new_master.promotable_to_master?(false)
 
       targets = s.slaves.reject { |slave| slave == new_master }
       new_master.pause_replication_with *targets
