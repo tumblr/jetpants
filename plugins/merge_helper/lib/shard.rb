@@ -149,14 +149,14 @@ module Jetpants
       data_nodes = [ new_shard_master, aggregate_node ]
 
       # create and ship schema.  Mysql is stopped so that we can use buffer pool memory during network copy on destinations
-      slave = shards_to_merge.last.standby_slaves.last
+      slave = shards_to_merge.last.standby_slaves.reject{|s| s.in_remote_datacenter? }.last
       data_nodes.each do |db|
         db.stop_mysql
         slave.ship_schema_to db
       end
 
       # grab slave list to export data
-      slaves_to_replicate = shards_to_merge.map { |shard| shard.standby_slaves.last }
+      slaves_to_replicate = shards_to_merge.map { |shard| shard.standby_slaves.reject{|s| s.in_remote_datacenter? }.last }
 
       # sharded table list to ship
       tables = Plugin::MergeHelper.tables_to_merge(shards_to_merge.first.shard_pool.name)
