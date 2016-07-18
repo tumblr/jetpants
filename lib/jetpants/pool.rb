@@ -506,7 +506,11 @@ module Jetpants
       # replicas must be using GTID if the master is
       nodes_to_examine = (master.running? ? [master] : slaves)
       nodes_to_examine.each do |db|
-        row = db.query_return_first 'SELECT UPPER(@@global.gtid_mode) AS gtid_mode, @@global.gtid_executed AS gtid_executed'
+        begin
+          row = db.query_return_first 'SELECT UPPER(@@global.gtid_mode) AS gtid_mode, @@global.gtid_executed AS gtid_executed'
+        rescue
+          row = {gtid_mode: 'OFF', gtid_executed: ''}
+        end
         unless row[:gtid_mode] == 'ON'
           @gtid_mode = false
           return @gtid_mode
