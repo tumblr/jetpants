@@ -506,7 +506,13 @@ module Jetpants
       # replicas must be using GTID if the master is
       nodes_to_examine = (master.running? ? [master] : slaves)
       nodes_to_examine.each do |db|
-        row = db.query_return_first 'SELECT UPPER(@@global.gtid_mode) AS gtid_mode, @@global.gtid_executed AS gtid_executed'
+        begin
+          row = db.query_return_first 'SELECT UPPER(@@global.gtid_mode) AS gtid_mode, @@global.gtid_executed AS gtid_executed'
+        rescue
+          # Treat pre-5.6 MySQL, or MariaDB, as not having GTID enabled. These will
+          # raise an exception because the global vars in the query above don't exist.
+          row = {gtid_mode: 'OFF', gtid_executed: ''}
+        end
         unless row[:gtid_mode] == 'ON'
           @gtid_mode = false
           return @gtid_mode
