@@ -250,13 +250,16 @@ module Jetpants
       targets.each {|t| t.disable_monitoring}
       pause_replication if master && ! @repl_paused
       
-      # We intentionally omit position-related options here -- the default logic in
-      # change_master_to will do the right thing, depending on gtid_mode,
-      # gtid_executed, etc
       change_master_options = {
         user:     repl_user || replication_credentials[:user],
         password: repl_pass || replication_credentials[:pass],
       }
+      if pool(true).gtid_mode?
+        change_master_options[:auto_position] = true
+        gtid_executed_from_pool_master_string(true) # display gtid executed value
+      else
+        change_master_options[:log_file], change_master_options[:log_pos] = repl_binlog_coordinates
+      end
 
       clone_to!(targets)
       targets.each do |t|
