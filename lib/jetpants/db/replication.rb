@@ -258,7 +258,7 @@ module Jetpants
         change_master_options[:auto_position] = true
         gtid_executed_from_pool_master_string(true) # display gtid executed value
       else
-        change_master_options[:log_file], change_master_options[:log_pos] = repl_binlog_coordinates
+        change_master_options[:log_file], change_master_options[:log_pos] = binlog_coordinates
       end
 
       clone_to!(targets)
