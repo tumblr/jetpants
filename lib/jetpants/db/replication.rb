@@ -431,7 +431,12 @@ module Jetpants
     # is in use!
     def ahead_of?(node)
       my_pool = pool(true)
-      raise "Node #{node} is not in the same pool as #{self}" unless node.pool(true) == my_pool
+      target_pool = node.pool(true)
+      
+      if (my_pool.gtid_mode? && !target_pool.gtid_mode?) ||
+         (!my_pool.gtid_mode? && target_pool.gtid_mode?) then
+        raise "Pools for #{self} (#{my_pool}) and #{node} (#{target_pool}) are not in a compatible GTID state!"
+      end
       
       if my_pool.gtid_mode?
         # Ordinarily we only want to concern ourselves with transactions that came from the
