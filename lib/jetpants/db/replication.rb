@@ -426,19 +426,26 @@ module Jetpants
     end
     
     # Return true if this node's replication progress is ahead of the provided
-    # node, or false otherwise. The nodes must be in the same pool for coordinates
-    # to be comparable. Does not work in hierarchical replication scenarios unless GTID
-    # is in use!
+    # node, or false otherwise. The nodes must be in the same pool to be
+    # comparable. Without GTID, they must also be at most one level away from
+    # each other on the replication hierarchy.
     def ahead_of?(node)
+      # During a shard operation, nodes may be in different logical pools according to
+      # the asset tracker, but the same physical pool in reality. We only want to raise
+      # an exception if the nodes truly share no common ancestry.
       my_pool = pool(true)
       target_pool = node.pool(true)
-      
-      if (my_pool.gtid_mode? && !target_pool.gtid_mode?) ||
-         (!my_pool.gtid_mode? && target_pool.gtid_mode?) then
-        raise "Pools for #{self} (#{my_pool}) and #{node} (#{target_pool}) are not in a compatible GTID state!"
+      if my_pool != target_pool
+        my_pool_master = master || self
+        my_pool_master = my_pool_master.master while my_pool_master.master
+        target_pool_master = node.master || node
+        target_pool_master = target_pool_master.master while target_pool_master.master
+        raise "Cannot compare nodes with different pools and different top-level masters!" if my_pool_master != target_pool_master
       end
       
-      if my_pool.gtid_mode?
+      # Only use GTID if enabled and the nodes are in the same logical pool. Otherwise, methods
+      # like gtid_executed_from_pool_master will not work properly.
+      if my_pool.gtid_mode? && my_pool == target_pool
         # Ordinarily we only want to concern ourselves with transactions that came from the
         # current pool master. BUT if the target node hasn't executed any of those, then we need
         # to look at other things as a workaround. If self DOES have transactions from pool
@@ -454,16 +461,25 @@ module Jetpants
         else
           return ahead_of_gtid? node_gtid_exec
         end
+      end
+      
+      # If we get here, we must use coordinates instead of GTID. The correct coordinates
+      # to use, on self and on node, depend on their roles relative to each other.
+      if node == self.master
+        return repl_ahead_of_coordinates?(node.binlog_coordinates)
+      elsif self == node.master
+        return ahead_of_coordinates?(node.repl_binlog_coordinates)
+      elsif self.master == node.master
+        # This case also gets triggered if they're both false, but that never
+        # occurs -- they wouldn't be in the same pool in that case
+        return repl_ahead_of_coordinates?(node.repl_binlog_coordinates)
       else
-        # Checks if the master in the pool is self or another node in the pool
-        node_coords = (my_pool.master == node ? node.binlog_coordinates : node.repl_binlog_coordinates)
-        return ahead_of_coordinates?(node_coords)
+        raise "Cannot compare coordinates of nodes more than one level apart in replication hierarchy!"
       end
     end
 
-    def ahead_of_coordinates?(binlog_coord)
-      my_pool = pool(true)
-      my_coords = (my_pool.master == self ? binlog_coordinates : repl_binlog_coordinates)
+    def ahead_of_coordinates?(binlog_coord, compare_to_repl_coords=false)
+      my_coords = (compare_to_repl_coords ? repl_binlog_coordinates : binlog_coordinates)
 
       # Same coordinates: we're not "ahead"
       if my_coords == binlog_coord
@@ -479,6 +495,10 @@ module Jetpants
         binlog_coord_logfile_num = binlog_coord[0].match(/^[a-zA-Z.0]+(\d+)$/)[1].to_i
         my_logfile_num > binlog_coord_logfile_num
       end
+    end
+    
+    def repl_ahead_of_coordinates?(binlog_coord)
+      return ahead_of_coordinates?(binlog_coord, true)
     end
     
     # Returns true if self has executed at least one transaction past the supplied gtid_set
