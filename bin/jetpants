@@ -560,8 +560,13 @@ module Jetpants
       # must exist before we create the pool). The assumption is the hardware spec
       # of the new last shard and previous last shard will be the same.
       raise "Not enough total spare machines!" unless Jetpants.topology.count_spares(like: last_shard_master) >= last_shard.slaves_layout[:standby_slave] + last_shard.slaves_layout[:backup_slave] + 1
-      raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: last_shard_master) >= last_shard.slaves_layout[:standby_slave]
-      raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= last_shard.slaves_layout[:backup_slave]
+      if last_shard.slaves_layout[:standby_slave] > 0
+        raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: last_shard_master) >= last_shard.slaves_layout[:standby_slave]
+      end
+
+      if last_shard.slaves_layout[:backup_slave] > 0
+        raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= last_shard.slaves_layout[:backup_slave]
+      end
       raise "Cannot find a spare master-role machine!" unless Jetpants.topology.count_spares(role: :master, like: last_shard_master) >= 1
 
       # In asset tracker, remove the last shard pool and replace it with a new pool. The new pool
