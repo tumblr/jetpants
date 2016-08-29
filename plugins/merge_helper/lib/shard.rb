@@ -149,14 +149,14 @@ module Jetpants
       data_nodes = [ new_shard_master, aggregate_node ]
 
       # create and ship schema.  Mysql is stopped so that we can use buffer pool memory during network copy on destinations
-      slave = shards_to_merge.last.standby_slaves.last
+      slave = shards_to_merge.last.standby_slaves.reject{|s| s.in_remote_datacenter? }.last
       data_nodes.each do |db|
         db.stop_mysql
         slave.ship_schema_to db
       end
 
       # grab slave list to export data
-      slaves_to_replicate = shards_to_merge.map { |shard| shard.standby_slaves.last }
+      slaves_to_replicate = shards_to_merge.map { |shard| shard.standby_slaves.reject{|s| s.in_remote_datacenter? }.last }
 
       # sharded table list to ship
       tables = Plugin::MergeHelper.tables_to_merge(shards_to_merge.first.shard_pool.name)
@@ -206,9 +206,11 @@ module Jetpants
         slave.cancel_downtime rescue nil
       }
 
-      # settings to improve import speed
+      # settings to improve import speed and prevent GTID problems
       data_nodes.each do |db|
-        db.start_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--innodb_flush_log_at_trx_commit=2', '--innodb-doublewrite=0'
+        opts = ['--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--innodb_flush_log_at_trx_commit=2', '--innodb-doublewrite=0']
+        opts << '--loose-gtid-mode=OFF' if db == new_shard_master
+        db.start_mysql opts
         db.import_schemata!
       end
 
@@ -231,6 +233,11 @@ module Jetpants
       slaves_to_replicate.each do |slave|
         aggregate_node.add_node_to_aggregate slave, slave_coords[slave]
       end
+      
+      
+      # Set up replication from aggregator to new_master.
+      # We intentionally pass no options to change_master_to, since it's smart enough
+      # to do the right thing (in this case: use aggregator's current coordinates)
       new_shard_master.change_master_to aggregate_node
     end
 

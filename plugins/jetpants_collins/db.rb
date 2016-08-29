@@ -137,13 +137,13 @@ module Jetpants
     # Collins for pool information if it is already in one.
     def pool(create_if_missing=false)
       result = Jetpants.topology.pool(collins_pool || self)
-
-      if !result && master
-        result = Jetpants.topology.pool(master)
-      elsif !result && create_if_missing
-        pool_master = master || self
-        result = Pool.new('anon_pool_' + pool_master.ip.tr('.', ''), pool_master)
-        def result.sync_configuration; end
+      if !result
+        if master
+          result = master.pool(create_if_missing)
+        elsif create_if_missing
+          result = Pool.new('anon_pool_' + ip.tr('.', ''), self)
+          def result.sync_configuration; end
+        end
       end
       result
     end

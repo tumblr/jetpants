@@ -131,14 +131,15 @@ module Jetpants
     # Creates a 'jetpants' db user with FILE permissions for the duration of the
     # import.
     #
-    # Note: import will be substantially faster if you disable binary logging
-    # before the import, and re-enable it after the import. You also must set
-    # InnoDB's autoinc lock mode to 2 in order to do a chunked import with
-    # auto-increment tables.  You can achieve all this by calling
-    # DB#restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2'
-    # prior to importing data, and then clear those settings by calling
-    # DB#restart_mysql with no params after done importing data.
+    # Note: the caller must disable binary logging (for speed reasons and to
+    # avoid potential GTID problems with complex operations) and set InnoDB
+    # autoinc lock mode to 2 (to support chunking of auto-inc tables) prior to
+    # calling DB#import_data. This is the caller's responsibility, and can be
+    # achieved by calling DB#restart_mysql with appropriate option overrides
+    # prior to importing data. After done importing, the caller can clear those
+    # settings by calling DB#restart_mysql again with no params.
     def import_data(tables, min_id=false, max_id=false, infinity=false, extra_opts=nil)
+      raise "Binary logging must be disabled prior to calling DB#import_data" if binary_log_enabled?
       disable_read_only!
       import_export_user = 'jetpants'
       create_user(import_export_user)
@@ -331,7 +332,7 @@ module Jetpants
 
       disable_monitoring
       stop_query_killer
-      restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start'
+      restart_mysql '--skip-log-bin', '--skip-log-slave-updates', '--innodb-autoinc-lock-mode=2', '--skip-slave-start', '--loose-gtid-mode=OFF'
 
       # Automatically detect missing min/max. Assumes that all tables' primary keys
       # are on the same scale, so this may be non-ideal, but better than just erroring.
@@ -355,9 +356,16 @@ module Jetpants
 
       export_schemata tables
       export_data tables, min_id, max_id
+      
+      # We need to be paranoid and confirm nothing else has restarted mysql (re-enabling binary logging)
+      # out-of-band. Besides the obvious slowness of importing things while binlogging, this is outright
+      # dangerous if GTID is in-use. So we check before every method or statement that does writes
+      # (except for import_data, which already does its own check inside the method).
+      raise "Binary logging has somehow been re-enabled. Must abort for safety!" if binary_log_enabled?
       import_schemata!
       if respond_to? :alter_schemata
-        alter_schemata
+        raise "Binary logging has somehow been re-enabled. Must abort for safety!" if binary_log_enabled?
+        alter_schemata 
         # re-retrieve table metadata in the case that we alter the tables
         pool.probe_tables
         tables = pool.tables.select{|t| pool.tables.map(&:name).include?(t.name)}
@@ -371,6 +379,7 @@ module Jetpants
           index_list[t] = t.indexes
 
           t.indexes.each do |index_name, index_info|
+            raise "Binary logging has somehow been re-enabled. Must abort for safety!" if binary_log_enabled?
             drop_idx_cmd = t.drop_index_query(index_name)
             output "Dropping index #{index_name} from #{t.name} prior to import"
             mysql_root_cmd("#{db_prefix}#{drop_idx_cmd}")
@@ -383,7 +392,7 @@ module Jetpants
       if Jetpants.import_without_indices
         index_list.each do |table, indexes|
           next if indexes.keys.empty?
-
+          raise "Binary logging has somehow been re-enabled. Must abort for safety!" if binary_log_enabled?
           create_idx_cmd = table.create_index_query(indexes)
           index_names = indexes.keys.join(", ")
           output "Recreating indexes #{index_names} for #{table.name} after import"
@@ -421,6 +430,22 @@ module Jetpants
       }.reject { |s|
         Jetpants.mysql_clone_ignore.include? s
       }
+      
+      # If using GTID, we need to remember the source's gtid_executed from the point-in-time of the copy.
+      # We also need to ensure that the targets match the same gtid-related variables as the source.
+      # Ordinarily this should be managed by my.cnf, but while a fleet-wide GTID rollout is still underway,
+      # claimed spares won't get the appropriate settings automatically since they aren't in a pool yet.
+      pause_replication unless @repl_paused
+      if gtid_mode?
+        source_gtid_executed = gtid_executed
+        targets.each do |t|
+          t.add_start_option '--loose-gtid-mode=ON'
+          t.add_start_option '--enforce-gtid-consistency=1'
+        end
+      end
+      if gtid_deployment_step?
+        targets.each {|t| t.add_start_option '--loose-gtid-deployment-step=1'}
+      end
 
       [self, targets].flatten.concurrent_each {|t| t.stop_query_killer; t.stop_mysql}
       targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_logfile*"}
@@ -435,6 +460,29 @@ module Jetpants
       [self, targets].flatten.concurrent_each do |t|
         t.start_mysql
         t.start_query_killer
+      end
+      
+      # If the source is using GTID, we need to set the targets' gtid_purged to equal the
+      # source's gtid_executed. This is needed because we do not copy binlogs, which are
+      # the source of truth for gtid_purged and gtid_executed. (Note, setting gtid_purged
+      # also inherently sets gtid_executed.)
+      unless source_gtid_executed.nil?
+        targets.concurrent_each do |t|
+          # Restarts done by jetpants will preserve gtid_mode, but manual restarts might not,
+          # since the target isn't in a pool yet
+          raise "Target #{t} is not using gtid_mode as expected! Did something restart it out-of-band?" unless t.gtid_mode?
+
+          # If gtid_executed is non-empty on a fresh node, the node probably wasn't fully re-provisioned.
+          # This is bad since gtid_executed is set on startup based on the binlog contents, and we can't
+          # set gtid_purged unless it's empty. So we have to RESET MASTER to fix this.
+          if t.gtid_executed(true) != ''
+            t.output 'Node unexpectedly has non-empty gtid_executed! Probably leftover binlogs from previous life...'
+            t.output 'Attempting a RESET MASTER to nuke leftovers'
+            t.output t.mysql_root_cmd 'RESET MASTER'
+          end
+          t.gtid_purged = source_gtid_executed
+          raise "Expected gtid_executed on target #{t} to now match source, but it doesn't" unless t.gtid_executed == source_gtid_executed
+        end
       end
     end
 

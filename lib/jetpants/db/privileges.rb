@@ -2,53 +2,60 @@ module Jetpants
   
   #--
   # User / Grant manipulation methods ##########################################
+  #
+  # Note that we ALWAYS skip binary logging (via SQL_LOG_BIN=0) when creating
+  # or dropping users, or granting or revoking privileges. Two reasons for this:
+  #
+  # 1. Executing binlogged statements directly on replicas causes major problems
+  #    if GTID is in use. If the replica is later promoted to master, the other
+  #    replicas will break if the binlog with the statement was already purged
+  #    on the new master.
+  # 2. The grant system tables are still using MyISAM, which does not support
+  #    crash-safe replication.
+  #
+  # Overall, best practice in MySQL is only manage grants locally on each node,
+  # never via replication.
   #++
   
   class DB
     # Create a MySQL user. If you omit parameters, the defaults from Jetpants'
     # configuration will be used instead.  Does not automatically grant any
     # privileges; use DB#grant_privileges for that.  Intentionally cannot
-    # create a passwordless user. 
-    def create_user(username=false, password=false, skip_binlog=false)
+    # create a passwordless user. SEE NOTE ABOVE RE: ALWAYS SKIPS BINLOG
+    def create_user(username=false, password=false)
       username ||= app_credentials[:user]
       password ||= app_credentials[:pass]
-      commands = []
-      commands << 'SET sql_log_bin = 0' if skip_binlog
+      commands = ['SET SESSION sql_log_bin = 0']
       Jetpants.mysql_grant_ips.each do |ip|
         commands << "CREATE USER '#{username}'@'#{ip}' IDENTIFIED BY '#{password}'"
       end
       commands << "FLUSH PRIVILEGES"
       commands = commands.join '; '
-      mysql_root_cmd commands, schema: true
+      mysql_root_cmd commands
       Jetpants.mysql_grant_ips.each do |ip|
-        message = "Created user '#{username}'@'#{ip}'"
-        message += ' (only on this node - skipping binlog!)' if skip_binlog
-        output message
+        output "Created user '#{username}'@'#{ip}' (only on this node -- not binlogged)"
       end
     end
     
-    # Drops a user. Can optionally make this statement skip replication, if you
-    # want to drop a user on master and not on its slaves.
-    def drop_user(username=false, skip_binlog=false)
+    # Drops a user. SEE NOTE ABOVE RE: ALWAYS SKIPS BINLOG
+    def drop_user(username=false)
       username ||= app_credentials[:user]
-      commands = []
-      commands << 'SET sql_log_bin = 0' if skip_binlog
+      commands = ['SET SESSION sql_log_bin = 0']
       Jetpants.mysql_grant_ips.each do |ip|
         commands << "DROP USER '#{username}'@'#{ip}'"
       end
       commands << "FLUSH PRIVILEGES"
       commands = commands.join '; '
-      mysql_root_cmd commands, schema: true
+      mysql_root_cmd commands
       Jetpants.mysql_grant_ips.each do |ip|
-        message = "Dropped user '#{username}'@'#{ip}'"
-        message += ' (only on this node - skipping binlog!)' if skip_binlog
-        output message
+        output "Dropped user '#{username}'@'#{ip}' (only on this node -- not binlogged)"
       end
     end
     
     # Grants privileges to the given username for the specified database.
     # Pass in privileges as additional params, each as strings.
     # You may omit parameters to use the defaults in the Jetpants config file.
+    # SEE NOTE ABOVE RE: ALWAYS SKIPS BINLOG
     def grant_privileges(username=false, database=false, *privileges)
       grant_or_revoke_privileges('GRANT', username, database, privileges)
     end
@@ -56,29 +63,31 @@ module Jetpants
     # Revokes privileges from the given username for the specified database.
     # Pass in privileges as additional params, each as strings.
     # You may omit parameters to use the defaults in the Jetpants config file.
+    # SEE NOTE ABOVE RE: ALWAYS SKIPS BINLOG
     def revoke_privileges(username=false, database=false, *privileges)
       grant_or_revoke_privileges('REVOKE', username, database, privileges)
     end
     
     # Helper method that can do grants or revokes.
+    # SEE NOTE ABOVE RE: ALWAYS SKIPS BINLOG
     def grant_or_revoke_privileges(statement, username, database, privileges)
       preposition = (statement.downcase == 'revoke' ? 'FROM' : 'TO')
       username ||= app_credentials[:user]
       database ||= app_schema
       privileges = Jetpants.mysql_grant_privs if privileges.empty?
       privileges = privileges.join(',')
-      commands = []
+      commands = ['SET SESSION sql_log_bin = 0']
       
       Jetpants.mysql_grant_ips.each do |ip|
         commands << "#{statement} #{privileges} ON #{database}.* #{preposition} '#{username}'@'#{ip}'"
       end
       commands << "FLUSH PRIVILEGES"
       commands = commands.join '; '
-      mysql_root_cmd commands, schema: true
+      mysql_root_cmd commands
       Jetpants.mysql_grant_ips.each do |ip|
         verb = (statement.downcase == 'revoke' ? 'Revoking' : 'Granting')
         target_db = (database == '*' ? 'globally' : "on #{database}.*")
-        output "#{verb} privileges #{preposition.downcase} '#{username}'@'#{ip}' #{target_db}: #{privileges.downcase}"
+        output "#{verb} privileges #{preposition.downcase} '#{username}'@'#{ip}' #{target_db}: #{privileges.downcase} (only on this node -- not binlogged)"
       end
     end
     
@@ -88,7 +97,7 @@ module Jetpants
     def revoke_all_access!
       user_name = app_credentials[:user]
       enable_read_only!
-      drop_user(user_name, true) # drop the user without replicating the drop statement to slaves
+      drop_user(user_name) # never written to binlog, so no risk of it replicating
     end
     
     # Enables global read-only mode on the database.

@@ -60,10 +60,7 @@ module Collins
         result.slave_name = slave_pool_name if slave_pool_name
         result.master_read_weight = master_read_weight if master_read_weight
 
-        # We intentionally only look for active slaves in the current datacenter, since we
-        # treat other datacenters' slaves as backup slaves to prevent promotion or cross-DC usage
         active_slave_assets = Jetpants.topology.server_node_assets(pool.downcase, :active_slave)
-        active_slave_assets.reject! {|a| a.location && a.location.upcase != Jetpants::Plugin::JetCollins.datacenter}
         active_slave_assets.each do |asset|
           weight = asset.slave_weight && asset.slave_weight.to_i > 0 ? asset.slave_weight.to_i : 100
           result.has_active_slave(asset.to_db, weight)

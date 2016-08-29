@@ -17,7 +17,7 @@ module Jetpants
     end
 
     # Override Thor.dispatch to allow simple callbacks, which must be before_foo /
-    # after_foo *class* methods of Jetpants::CommandSuite. 
+    # after_foo *class* methods of Jetpants::CommandSuite.
     # These aren't as full-featured as normal Jetpants::Callback: you can only have
     # ONE before_foo or after_foo method (they override instead of stacking); no arg
     # passing; no callback abort exception type. Mostly useful for plugins overriding
@@ -40,7 +40,7 @@ module Jetpants
       end
     end
 
-    
+
     desc 'console', 'Jetpants interactive console'
     def console
       Jetpants.pry
@@ -54,8 +54,8 @@ module Jetpants
                 ].join "\n"
       print "\n#{message}\n\n"
     end
-    
-    
+
+
     desc 'promotion', 'perform a master promotion, changing which node is the master of a pool'
     method_option :demote,  :desc => 'node to demote'
     method_option :promote, :desc => 'node to promote'
@@ -63,16 +63,16 @@ module Jetpants
       # It's not uncommon for the demoted master to be an offline/unavailable node, so relax Jetpants' normal
       # checks regarding replication threads being in different states.
       Jetpants.verify_replication = false
-      
+
       promoted = options[:promote] ? options[:promote].to_db : nil
       demoted  = options[:demote]  ? options[:demote].to_db  : nil
-      
+
       if promoted && !demoted
         error "Node to promote #{promoted} is not a slave" unless promoted.is_slave?
         demoted = promoted.master
         inform "Will demote #{demoted}, the master of specified promoted node #{promoted}."
       end
-      
+
       if demoted
         demoted.probe
       else
@@ -84,7 +84,7 @@ module Jetpants
       else
         inform "Unable to connect to node #{demoted} to demote"
         error  "Unable to perform promotion" unless agree "Please confirm that #{demoted} is offline [yes/no]: "
-        
+
         # An asset-tracker plugin may have been populated the slave list anyway
         if demoted.slaves && demoted.slaves.count > 0
           demoted.slaves.each {|s| s.probe}
@@ -104,25 +104,43 @@ module Jetpants
       inform "Summary of affected pool"
       inform "Binary log positions and slave lag shown below are just a snapshot taken at the current time." if demoted.running?
       output
-      demoted.pool(true).summary(true)
+      our_pool = demoted.pool(true)
+      our_pool.summary(true)
       output
 
+      candidates = our_pool.promotable_nodes
+      error "There are no suitable nodes to promote in this pool!" if candidates.empty?
+      if candidates != our_pool.standby_slaves
+        candidates_string = candidates.map {|db| db.port == 3306 ? db.ip : db.to_s}.join ', '
+        inform "Only these nodes are suitable for promotion: #{candidates_string}"
+      end
       unless promoted
-        if demoted.running?
-          inform "Recommendation: promote the standby slave with the highest binary log coordinates"
+        if !our_pool.gtid_mode? && !demoted.running?
+          if candidates == our_pool.standby_slaves
+            inform "Recommendation: promote the standby slave with the highest binary log coordinates"
+          else
+            inform "Recommendation: of the suitable nodes, promote the one with the highest binary log coordinates"
+          end
+        elsif candidates == our_pool.standby_slaves
+          inform "You may promote any of the standby slaves listed above."
         else
-          inform "Recommendation: promote the standby slave or active slave with the highest binary log coordinates"
+          inform "You may promote any of the suitable nodes listed above."
         end
         promoted = ask_node 'Please enter the IP address of the node to promote: '
       end
-      
+
       error "Unable to determine a node to demote and a node to promote" unless demoted.kind_of?(Jetpants::DB) && promoted.kind_of?(Jetpants::DB)
-      error "Node to promote #{promoted} is not a slave of node to demote #{demoted}" unless promoted.master == demoted
-      error "The chosen node cannot be promoted. Please choose another." unless promoted.promotable_to_master?
-      
+      if our_pool.gtid_mode?
+        error "Node to promote #{promoted} is not in the same pool as node to demote #{demoted}" unless promoted.pool(true) == our_pool
+      else
+        # If not using GTID, need a stricter check re: hierarchical replication
+        error "Node to promote #{promoted} is not a slave of node to demote #{demoted}" unless promoted.master == demoted
+      end
+      error "The chosen node cannot be promoted. Please choose another." unless candidates.include? promoted
+
       inform "Going to DEMOTE existing master #{demoted} and PROMOTE new master #{promoted}."
       error "Aborting." unless agree "Proceed? [yes/no]: "
-      demoted.pool(true).master_promotion! promoted
+      our_pool.master_promotion! promoted
     end
     def self.after_promotion
       reminders(
@@ -130,7 +148,7 @@ module Jetpants
         'Deploy the configuration to all machines.'
       )
     end
-    
+
     desc 'repoint_slave', 'Re-point slave to another master'
     method_option :slave_node, :desc => 'IP address of node to repoint'
     method_option :master_node, :desc => 'IP address of node to repoint to'
@@ -206,14 +224,14 @@ module Jetpants
         pool.summary(true)
       end
     end
-    
-    
+
+
     desc 'pools', 'display a full summary of every pool in the topology'
     def pools
       Jetpants.functional_partitions.concurrent_each &:probe
       Jetpants.shards.reject {|s| s.parent}.concurrent_each &:probe
       Jetpants.pools.each &:summary
-      
+
       # We could do this more compactly using DB#role, but it would incorrectly
       # double-count nodes involved in a shard split
       counts = {master: 0, active_slave: 0, standby_slave: 0, backup_slave: 0}
@@ -230,7 +248,7 @@ module Jetpants
       output "---- --------------"
       output "%4d total pools" % Jetpants.pools.count
       output
-      
+
       total = 0
       counts.each do |role, count|
         output "%4d %ss" % [count, role.to_s.tr('_', ' ')]
@@ -244,22 +262,22 @@ module Jetpants
     desc 'pools_compact', 'display a compact summary (master, name, and size) of every pool in the topology'
     def pools_compact
       output
-      Jetpants.shards.each do |s| 
+      Jetpants.shards.each do |s|
         output "[%-15s] %8s to %-11s = %4s GB" % [s.ip, s.min_id, s.max_id, s.data_set_size(true)]
       end
-      Jetpants.functional_partitions.each do |p| 
+      Jetpants.functional_partitions.each do |p|
         output "[%-15s] %-23s = %4s GB" % [p.ip, p.name, p.data_set_size(true)]
       end
       output
     end
-    
-    
+
+
     desc 'regen_config', 'regenerate the application configuration'
     def regen_config
       Jetpants.topology.write_config
     end
-    
-    
+
+
     desc 'clone_slave', 'clone a standby slave'
     method_option :source, :desc => 'IP of node to clone from'
     method_option :target, :desc => 'IP of node(s) to clone to'
@@ -352,8 +370,8 @@ module Jetpants
       output "Cloning complete."
       Jetpants.topology.write_config
     end
-    
-    
+
+
     desc 'activate_slave', 'turn a standby slave into an active slave'
     method_option :node, :desc => 'IP of standby slave to activate'
     def activate_slave
@@ -365,16 +383,16 @@ module Jetpants
       weight = 100 if weight == ''
       weight = weight.to_i
       error "Adding a slave of weight 0 makes no sense, use pull_slave instead" if weight == 0
-      
+
       node.pool.mark_slave_active(node, weight)
       Jetpants.topology.write_config
     end
-    
-    
+
+
     desc 'weigh_slave', 'change the weight of an active slave'
     alias :weigh_slave :activate_slave
-    
-    
+
+
     desc 'pull_slave', 'turn an active slave into a standby slave'
     method_option :node, :desc => 'IP of active slave to pull'
     def pull_slave
@@ -390,8 +408,8 @@ module Jetpants
       node.pool.mark_slave_standby(node)
       Jetpants.topology.write_config
     end
-    
-    
+
+
     desc 'destroy_slave', 'remove a standby slave from its pool'
     method_option :node, :desc => 'IP of standby slave to remove'
     def destroy_slave
@@ -410,8 +428,8 @@ module Jetpants
       node.pool.remove_slave!(node)
       node.revoke_all_access! if node.running? && node.available?
     end
-    
-    
+
+
     desc 'defrag_slave', 'export and re-import data set on a standby slave'
     method_option :node, :desc => 'IP of standby slave to defragment'
     def defrag_slave
@@ -422,8 +440,8 @@ module Jetpants
       raise "Cannot defragment non-shard slaves from command suite yet; use jetpants console instead" unless node.pool.is_a?(Shard)
       node.rebuild!
     end
-    
-    
+
+
     desc 'shard_read_only', 'mark a shard as read-only'
     method_option :min_id, :desc => 'Minimum ID of shard to mark as read-only'
     def shard_read_only
@@ -434,8 +452,8 @@ module Jetpants
       s.sync_configuration
       Jetpants.topology.write_config
     end
-    
-    
+
+
     desc 'shard_offline', 'mark a shard as offline (not readable or writable)'
     method_option :min_id, :desc => 'Minimum ID of shard to mark as offline'
     def shard_offline
@@ -446,8 +464,8 @@ module Jetpants
       s.sync_configuration
       Jetpants.topology.write_config
     end
-    
-    
+
+
     desc 'shard_online', 'mark a shard as fully online (readable and writable)'
     method_option :min_id, :desc => 'Minimum ID of shard to mark as fully online'
     def shard_online
@@ -458,8 +476,8 @@ module Jetpants
       s.sync_configuration
       Jetpants.topology.write_config
     end
-    
-    
+
+
     desc 'shard_split', 'Shard split (step 1 of 4): spin up child pools with different portions of data set'
     method_option :min_id, :desc => 'Minimum ID of parent shard to split'
     method_option :max_id, :desc => 'Maximum ID of parent shard to split'
@@ -475,10 +493,10 @@ module Jetpants
       shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
 
       s = Jetpants.topology.shard(shard_min, shard_max, shard_pool)
-      
+
       raise "Shard not found" unless s
       raise "Shard isn't in ready state" unless s.state == :ready
-      
+
       if s.max_id == 'INFINITY'
         ranges = options[:ranges] || ask('Enter comma-separated list of ranges per child ie "1000-1999,2000-INFINITY" [REQUIRED]: ')
         raise "Must enter a range for a max ID of infinity" if ranges.strip == ''
@@ -486,7 +504,7 @@ module Jetpants
         ranges = options[:ranges] || ask('Optionally enter comma-separated list of ranges per child ie "1000-1999,2000-2499" [default=even split]: ')
         ranges = false if ranges.strip == ''
       end
-      
+
       if ranges
         supply_ranges = []
         ranges.split(',').each do |my_range|
@@ -517,8 +535,8 @@ module Jetpants
         'Proceed to next step: jetpants shard_split_child_reads'
       )
     end
-    
-    
+
+
     # This step is only really necessary if asset-tracker changes don't immediately reflect in application configuration.
     # (ie, if app configuration is a static file that needs to be deployed to webs.)
     desc 'shard_split_child_reads', 'Shard split (step 2 of 4): move reads to child shards'
@@ -535,8 +553,8 @@ module Jetpants
         'Proceed to next step: jetpants shard_split_child_writes'
       )
     end
-    
-    
+
+
     desc 'shard_split_child_writes', 'Shard split (step 3 of 4): move writes to child shards'
     method_option :min_id, :desc => 'Minimum ID of parent shard being split'
     method_option :max_id, :desc => 'Maximum ID of parent shard being split'
@@ -553,8 +571,8 @@ module Jetpants
         'Proceed to next step: jetpants shard_split_cleanup'
       )
     end
-    
-    
+
+
     desc 'shard_split_cleanup', 'Shard split (step 4 of 4): clean up data that replicated to wrong shard'
     method_option :min_id, :desc => 'Minimum ID of parent shard being split'
     method_option :max_id, :desc => 'Maximum ID of parent shard being split'
@@ -567,8 +585,8 @@ module Jetpants
         'Review old nodes for hardware issues before re-using, or simply cancel them.',
       )
     end
-    
-    
+
+
     desc 'shard_cutover', 'truncate the current last shard range, and add a new shard after it'
     method_option :cutover_id, :desc => 'Minimum ID of new last shard being created'
     method_option :shard_pool, :desc => 'The sharding pool for which to perform the cutover'
@@ -580,22 +598,27 @@ module Jetpants
 
       last_shard = Jetpants.topology.shards(shard_pool).select {|s| s.max_id == 'INFINITY' && s.in_config?}.first
       last_shard_master = last_shard.master
-      
+
       # Simple sanity-check that the cutover ID is greater than the current last shard's MIN id.
       # (in a later release, this may be improved to also ensure it's greater than any sharding
       # key value in use on the last shard.)
       raise "Specified cutover ID is too low!" unless cutover_id > last_shard.min_id
-      
+
       # Ensure enough spare nodes are available before beginning.
       # We supply the *previous* last shard as context for counting spares
       # because the new last shard can't be created yet (chicken-and-egg problem -- master
       # must exist before we create the pool). The assumption is the hardware spec
       # of the new last shard and previous last shard will be the same.
       raise "Not enough total spare machines!" unless Jetpants.topology.count_spares(like: last_shard_master) >= last_shard.slaves_layout[:standby_slave] + last_shard.slaves_layout[:backup_slave] + 1
-      raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: last_shard_master) >= last_shard.slaves_layout[:standby_slave]
-      raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= last_shard.slaves_layout[:backup_slave]
+      if last_shard.slaves_layout[:standby_slave] > 0
+        raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: last_shard_master) >= last_shard.slaves_layout[:standby_slave]
+      end
+
+      if last_shard.slaves_layout[:backup_slave] > 0
+        raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= last_shard.slaves_layout[:backup_slave]
+      end
       raise "Cannot find a spare master-role machine!" unless Jetpants.topology.count_spares(role: :master, like: last_shard_master) >= 1
-      
+
       # In asset tracker, remove the last shard pool and replace it with a new pool. The new pool
       # has the same master/slaves but now has a non-infinity max ID.
       last_shard.state = :recycle
@@ -603,7 +626,7 @@ module Jetpants
       last_shard_replace = Shard.new(last_shard.min_id, cutover_id - 1, last_shard_master, :ready, shard_pool)
       last_shard_replace.sync_configuration
       Jetpants.topology.add_pool last_shard_replace
-      
+
       # Now put another new shard after that one. (See earlier comment as to why we're supplying
       # the pool from the old last shard. This param is just used to select the right type of hardware,
       # NOT to actually set the pool of the returned object.)
@@ -613,7 +636,7 @@ module Jetpants
         # Verify spare count again, now that we can actually supply the new master as the :like context
         raise "Not enough standby_slave role spare machines!" unless Jetpants.topology.count_spares(role: :standby_slave, like: new_last_shard_master) >= last_shard.slaves_layout[:standby_slave]
         new_last_shard_slaves = Jetpants.topology.claim_spares(last_shard.slaves_layout[:standby_slave], role: :standby_slave, like: new_last_shard_master, for_pool: last_shard_replace)
-        new_last_shard_slaves.each do |x| 
+        new_last_shard_slaves.each do |x|
           x.change_master_to new_last_shard_master
           x.resume_replication
         end
@@ -623,7 +646,7 @@ module Jetpants
       if last_shard.slaves_layout[:backup_slave] > 0
         raise "Not enough backup_slave role spare machines!" unless Jetpants.topology.count_spares(role: :backup_slave) >= last_shard.slaves_layout[:backup_slave]
         new_last_shard_backup_slaves = Jetpants.topology.claim_spares(last_shard.slaves_layout[:backup_slave], role: :backup_slave, for_pool: last_shard_replace)
-        new_last_shard_backup_slaves.each do |x| 
+        new_last_shard_backup_slaves.each do |x|
           x.change_master_to new_last_shard_master
           x.resume_replication
         end
@@ -632,13 +655,13 @@ module Jetpants
       new_last_shard = Shard.new(cutover_id, 'INFINITY', new_last_shard_master, :ready, shard_pool)
       new_last_shard.sync_configuration
       Jetpants.topology.add_pool new_last_shard
-      
+
       # Create tables on the new shard's master, obtaining schema from previous last shard
       tables = Table.from_config('sharded_tables', shard_pool)
       last_shard_master.export_schemata tables
       last_shard_master.host.fast_copy_chain(Jetpants.export_location, new_last_shard_master.host, files: ["create_tables_#{last_shard_master.port}.sql"])
       new_last_shard_master.import_schemata!
-      
+
       # regen config file
       Jetpants.topology.write_config
     end
@@ -661,7 +684,8 @@ module Jetpants
       s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id], shard_pool)
 
       new_master = ask_node "Please enter the IP of the new master for #{s}: ", options[:new_master]
-      raise "New master node #{new_master} is not currently a slave in shard #{s}" unless s.slaves && s.slaves.include?(new_master)
+      error "New master node #{new_master} is not currently a slave in shard #{s}" unless s.slaves && s.slaves.include?(new_master)
+      error "The chosen node cannot be promoted. Please choose another." unless new_master.promotable_to_master?(false)
 
       targets = s.slaves.reject { |slave| slave == new_master }
       new_master.pause_replication_with *targets
@@ -785,7 +809,7 @@ module Jetpants
 
           targets.each do |t|
             error "Target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
-            error "Target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0 
+            error "Target #{t} is running a different version of MySQL than source #{source}! Cannot proceed with clone operation." if t.version_cmp(source) != 0
             error "Target #{t} already has a pool!" if t.pool
           end
 
