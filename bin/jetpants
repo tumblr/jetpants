@@ -166,40 +166,38 @@ module Jetpants
       asset_type = options[:asset_type] || ask('Please enter the type of asset to restart: ')
       asset_name = options[:asset_name] || ask('Please enter the name or IP of the asset, comma-separated list')
       reason = options[:reason] || ask('Please enter comma-separated list of MySQL static variable=value, for eg: innodb_buffer_pool_size=93415538688')
-      raise 'Rolling restart cannot be invoked without a valid reason. Please specify a key=value, MySQL static variable change which requires a MySQL restart across specifed assets.' unless !reason.nil?
-      if asset_name.include? ',' ? asset_name = asset_name.split(',') : asset_name = asset_name.split
-      if reason.include? ',' ? reason = reason.split(',') : reason = reason.split
+      raise 'Rolling restart cannot be invoked without a valid reason. Please specify a key=value, MySQL static variable change which requires a MySQL restart across specifed assets.' if reason.nil? || reason.empty?
+      asset_name = asset_name.strip!.split(',')
+      reason = reason.strip!.split(',')
 
       if asset_type.downcase == "pools"
         asset_name.each do |asset|
           consist_of = pools.include? pool(asset)
           raise 'Provide the correct asset_name list' unless consist_of == true
-          pool.rolling_restart(asset, reason)
+          pool(asset).rolling_restart(reason)
         end
       elsif asset_type.downcase == "shards"
         asset_name.each do |asset|
           consist_of = shard_pools.include? shard_pool(asset)
           raise 'Provide the correct asset_name list' unless consist_of == true
           shards(asset).each do |pool|
-            pool.rolling_restart(asset, reason)
+            pool(asset).rolling_restart(reason)
           end
         end
       elsif asset_type.downcase == "servers"
         asset_name.each do |asset|
+          restart = 0
           asset = asset.to_db
           reason.each do |r|
             value = asset.global_variables[reason.split('=').first.to_sym]
-            if value == reason.split('=').last
-              restart = false
-            else
-              restart = true
+            if value != reason.split('=').last
+              restart += 1
             end
           end
-          if restart == true
+          if restart > 0
             asset.set_downtime 1
-            asset.pause_replication
             asset.restart_mysql
-            asset.catch_up_to_master unless !asset.is_slave?
+            asset.catch_up_to_master if asset.is_slave?
             asset.cancel_downtime
           else
             output "No need to restart MySQL on #{node}, since the condition is already satisfied. #{reason}"

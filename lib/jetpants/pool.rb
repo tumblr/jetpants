@@ -483,19 +483,18 @@ module Jetpants
       output "Promotion complete. Pool master is now #{promoted}."
       replicas.all? {|r| r.replicating?}
     end
-<<<<<<< HEAD
 
-    def rolling_restart(pool, reason)
-      pool.standby_slaves.each do |node|
+
+    def rolling_restart(reason)
+      pool(self).standby_slaves.each do |node|
+        restart = 0
         reason.each do |r|
           value = node.global_variables[reason.split('=').first.to_sym]
-          if value == reason.split('=').last
-            restart = false
-          else
-            restart = true
+          if value != reason.split('=').last
+            restart += 1
           end
         end
-        if restart == true
+        if restart > 0
           node.set_downtime 1
           node.pause_replication
           node.restart_mysql
@@ -507,9 +506,6 @@ module Jetpants
       end
     end
 
-=======
-    
->>>>>>> master
     def slaves_layout
       {
         :standby_slave => Jetpants.standby_slaves_per_pool,
