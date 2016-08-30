@@ -486,7 +486,7 @@ module Jetpants
 
 
     def rolling_restart(reason)
-      pool(self).standby_slaves.each do |node|
+      [standby_slaves, backup_slaves].each do |node|
         restart = 0
         reason.each do |r|
           value = node.global_variables[reason.split('=').first.to_sym]
@@ -496,8 +496,8 @@ module Jetpants
         end
         if restart > 0
           node.set_downtime 1
-          node.pause_replication
-          node.restart_mysql
+          # We do a fast restart here.
+          node.restart_mysql(true)
           node.catch_up_to_master if node.is_slave?
           node.cancel_downtime
         else
