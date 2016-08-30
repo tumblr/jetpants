@@ -61,6 +61,7 @@ module Jetpants
     'max_table_multiplier'    =>  1.2,        # multiplier for infinity shard split of max value
     'client_ssl_ca'           =>  false,      # location of the client ssl ca
     'client_ssl_cipher'       =>  false,      # list of client ssl ciphers
+    'mysql_fast_restart'      =>  40000,      # Value to set for innodb_io_capacity for fast mysql restarts, used in DB#Prepare_fast_shutdown, called in DB#Restart_mysql
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]

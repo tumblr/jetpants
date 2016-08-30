@@ -78,7 +78,7 @@ module Jetpants
     end
     
     # Restarts MySQL.
-    def restart_mysql(*options)
+    def restart_mysql(fast_restart=false, *options)
       if @master
         @repl_paused = options.include?('--skip-slave-start')
       end
@@ -94,6 +94,16 @@ module Jetpants
         options << '--loose-gtid-deployment-step=1'
       end
       
+      # DB#Restart_mysql has the ability to do a fast restart using mechanism specified at
+      # https://www.percona.com/blog/2009/04/15/how-to-decrease-innodb-shutdown-times/
+      # If called with an argument to DB#Restart_mysql, the function will use mysql_fast_restart 
+      # config to set innodb_io_capacity to the value. This speeds up the flushing process. The argument
+      # is roughly the number of IOPs your disk subsystem provides. Specify only if you 
+      # have very fast drives.
+      if fast_restart
+        prepare_fast_restart Jetpants.mysql_fast_restart.to_i 
+      end
+
       # Disconnect if we were previously connected
       user, schema = false, false
       if @db
