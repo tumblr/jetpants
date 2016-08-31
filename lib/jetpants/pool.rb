@@ -489,8 +489,8 @@ module Jetpants
       [standby_slaves, backup_slaves].each do |node|
         restart = 0
         reason.each do |r|
-          value = node.global_variables[reason.split('=').first.to_sym]
-          if value != reason.split('=').last
+          value = node.global_variables[r.split('=').first.to_sym]
+          if value != r.split('=').last
             restart += 1
           end
         end
