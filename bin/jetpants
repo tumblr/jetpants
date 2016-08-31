@@ -167,8 +167,8 @@ module Jetpants
       asset_name = options[:asset_name] || ask('Please enter the name or IP of the asset, comma-separated list')
       reason = options[:reason] || ask('Please enter comma-separated list of MySQL static variable=value, for eg: innodb_buffer_pool_size=93415538688')
       raise 'Rolling restart cannot be invoked without a valid reason. Please specify a key=value, MySQL static variable change which requires a MySQL restart across specifed assets.' if reason.nil? || reason.empty?
-      asset_name = asset_name.strip!.split(',')
-      reason = reason.strip!.split(',')
+      asset_name = asset_name.strip!.split(/\s*,\s*/)
+      reason = reason.strip!.split(/\s*,\s*/)
 
       if asset_type.downcase == "pools"
         asset_name.each do |asset|
