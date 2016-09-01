@@ -197,7 +197,8 @@ module Jetpants
           if restart > 0
             asset.set_downtime 1
             # We do a fast mysql restart
-            asset.restart_mysql(true)
+            asset.enable_flush_innodb_cache = true
+            asset.restart_mysql
             asset.catch_up_to_master if asset.is_slave?
             asset.cancel_downtime
           else

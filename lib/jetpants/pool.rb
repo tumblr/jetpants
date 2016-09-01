@@ -497,7 +497,8 @@ module Jetpants
         if restart > 0
           node.set_downtime 1
           # We do a fast restart here.
-          node.restart_mysql(true)
+          node.enable_flush_innodb_cache = true
+          node.restart_mysql
           node.catch_up_to_master if node.is_slave?
           node.cancel_downtime
         else
