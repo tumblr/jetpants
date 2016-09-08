@@ -381,8 +381,7 @@ module Jetpants
       ## get the auto_inc ratios for all pools
       def snapshot_autoinc(timestamp)
         date = Time.now.strftime("%Y-%m-%d")
-        ignore_list = Jetpants.plugins['capacity_plan']['autoinc_ignore_list'].split(/\s*,\s*/
-)
+        ignore_list = Jetpants.plugins['capacity_plan']['autoinc_ignore_list'].split(/\s*,\s*/)
         ignore_list.map! { |p| pool(p) }
         pools_list = Jetpants.topology.pools.reject! { |p| ignore_list.include? p }
         pools_list.each do |p|
