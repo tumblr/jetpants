@@ -381,7 +381,14 @@ module Jetpants
       ## get the auto_inc ratios for all pools
       def snapshot_autoinc(timestamp)
         date = Time.now.strftime("%Y-%m-%d")
-        Jetpants.topology.pools.each do |p|
+        if Jetpants.plugins['capacity_plan']['autoinc_ignore_list'].nil?
+          pools_list = Jetpants.topology.pools
+        else
+          ignore_list = Jetpants.plugins['capacity_plan']['autoinc_ignore_list']
+          ignore_list.map! { |p| Jetpants.topology.pool(p) }
+          pools_list = Jetpants.topology.pools.reject! { |p| ignore_list.include? p }
+        end
+        pools_list.each do |p|
           slave = p.standby_slaves.first
           if !slave.nil?
             slave.query_return_array("SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema') AND LOCATE('auto_increment', EXTRA) > 0 and TABLE_SCHEMA = 'tumblr3'").each do |row|
