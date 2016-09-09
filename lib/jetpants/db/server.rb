@@ -9,6 +9,9 @@ module Jetpants
     # options to pass to MySQL on start
     attr_reader :start_options
 
+    # options to pass to DB#restart_mysql for quick restarts
+    attr_accessor :enable_flush_innodb_cache
+
     # add a server start option for the instance
     # will be combined with options passed into start_mysql
     def add_start_option(option)
@@ -94,6 +97,14 @@ module Jetpants
         options << '--loose-gtid-deployment-step=1'
       end
       
+      # DB#Restart_mysql has the ability to do a fast restart using mechanism specified at
+      # https://www.percona.com/blog/2009/04/15/how-to-decrease-innodb-shutdown-times/
+      # If called with an argument to DB#Restart_mysql, the function will use innodb_flush_iops
+      # config to set innodb_io_capacity to the value. This speeds up the flushing process.
+      if @enable_flush_innodb_cache
+         flush_innodb_cache
+      end
+
       # Disconnect if we were previously connected
       user, schema = false, false
       if @db
@@ -116,6 +127,40 @@ module Jetpants
         # Reconnect if we were previously connected
         connect(user: user, schema: schema) if user || schema
       end
+    end
+
+    # DB#Flush_innodb_cache function flushes the dirty pages from Innodb
+    # buffer pool aggressively. This function should mostly be used in
+    # conjunction with DB#Restart_mysql where, flushing pages prior to 
+    # restart reduces the time require to shutdown MySQL there-by reducing
+    # the restart times.
+    def flush_innodb_cache(timeout=1800, poll_frequency=30)
+      # Before setting any variables we collect their current values to reset later on.
+      prev_innodb_max_dirty_pages_pct = global_variables[:innodb_max_dirty_pages_pct].to_i
+      prev_innodb_io_capacity_max = global_variables[:innodb_io_capacity_max].to_i
+      prev_innodb_io_capacity = global_variables[:innodb_io_capacity].to_i
+      # innodb_io_capacity can improve the performance of dirty page flushing in case faster storage is available, for eg on a flash storage increasing innodb_io_capacity to 50000 can result in innodb flushing more aggressively.
+      io_capacity = Jetpants.innodb_flush_iops.to_i
+      set_vars = "set global innodb_max_dirty_pages_pct = 0, global innodb_io_capacity_max = #{io_capacity + 2000}, global innodb_io_capacity =  #{io_capacity}"
+      mysql_root_cmd(set_vars)
+
+      total_bufferpool_pages = global_status[:Innodb_buffer_pool_pages_data].to_i
+      reset_vars = "set global innodb_io_capacity = #{prev_innodb_io_capacity}, global innodb_io_capacity_max = #{prev_innodb_io_capacity_max}, global innodb_max_dirty_pages_pct = #{prev_innodb_max_dirty_pages_pct}"
+      start = Time.now.to_i
+      output "Starting to flush dirty buffers to disk"
+      while (Time.now.to_i - start) < timeout
+        pages = global_status[:Innodb_buffer_pool_pages_dirty].to_i
+        if pages < (total_bufferpool_pages/100) * 1.5
+          output "Dirty buffers have been flushed to disk, only 1.5% remaining."
+          mysql_root_cmd(reset_vars)
+          return true
+        else
+          output "Number of dirty pages remaining to be flushed: #{pages}"
+          sleep poll_frequency
+        end
+      end
+      raise "This instance was not able to flush all the dirty buffers within #{timeout} seconds. Resetting themysql variables back to previous values."
+      mysql_root_cmd(reset_vars)
     end
     
     # Has no built-in effect. Plugins can override it, and/or implement
