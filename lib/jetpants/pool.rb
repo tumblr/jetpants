@@ -485,10 +485,10 @@ module Jetpants
     end
 
 
-    def rolling_restart(reason)
-      [standby_slaves, backup_slaves].each do |node|
+    def rolling_restart(reasons)
+      [standby_slaves, backup_slaves].flatten.each do |node|
         restart = 0
-        reason.each do |r|
+        reasons.each do |r|
           value = node.global_variables[r.split('=').first.to_sym]
           if value != r.split('=').last
             restart += 1
@@ -502,7 +502,7 @@ module Jetpants
           node.catch_up_to_master if node.is_slave?
           node.cancel_downtime
         else
-          output "No need to restart MySQL on #{node}, since the condition is already satisfied. #{reason}"
+          output "No need to restart MySQL on #{node}, since the condition is already satisfied. #{reasons}"
         end
       end
     end

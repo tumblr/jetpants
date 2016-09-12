@@ -160,35 +160,43 @@ module Jetpants
 
     desc 'rolling_restart', 'Restart MySQL to across many pools, shards or servers'
     method_option :asset_type, :desc => 'Type of asset to restart MySQL on, Pools|Shards|Servers'
-    method_option :asset_name, :desc => 'Name of the asset or IP to restart MySQL on, comma-separated list'
-    method_option :reason, :desc => 'Reason for rolling restart, most probably MySQL static variable change'
+    method_option :asset_names, :desc => 'Name of the asset or IP to restart MySQL on, comma-separated list'
+    method_option :reasons, :desc => 'Reason for rolling restart, most probably MySQL static variable change'
     def rolling_restart
       asset_type = options[:asset_type] || ask('Please enter the type of asset to restart: ')
-      asset_name = options[:asset_name] || ask('Please enter the name or IP of the asset, comma-separated list: ')
-      reason = options[:reason] || ask('Please enter comma-separated list of MySQL static variable=value, for eg, innodb_buffer_pool_size=93415538688: ')
-      raise 'Rolling restart cannot be invoked without a valid reason. Please specify a key=value, MySQL static variable change which requires a MySQL restart across specifed assets.' if reason.nil? || reason.empty?
-      asset_name = asset_name.split(/\s*,\s*/)
-      reason = reason.split(/\s*,\s*/)
+      asset_names = options[:asset_names] || ask('Please enter the name or IP of the asset, comma-separated list: ')
+      reasons = options[:reasons] || ask('Please enter comma-separated list of MySQL static variable=value, for eg, innodb_buffer_pool_size=93415538688: ')
+      raise 'Rolling restart cannot be invoked without a valid reason. Please specify a key=value, MySQL static variable change which requires a MySQL restart across specifed assets.' if reasons.nil? || reasons.empty?
+      asset_names = asset_names.split(/\s*,\s*/)
+      reasons = reasons.split(/\s*,\s*/)
 
       if asset_type.downcase == "pools"
-        asset_name.each do |asset|
-          consist_of = pools.include? pool(asset)
-          raise 'Provide the correct asset_name list' unless consist_of
-          pool(asset).rolling_restart(reason)
+        asset_names.each do |asset|
+          consist_of = Jetpants.pools.include? Jetpants.topology.pool(asset)
+          error 'Provide the correct asset_name list' unless consist_of
         end
       elsif asset_type.downcase == "shards"
-        asset_name.each do |asset|
-          consist_of = shard_pools.include? shard_pool(asset)
-          raise 'Provide the correct asset_name list' unless consist_of
-          shards(asset).each do |pool|
-            pool(asset).rolling_restart(reason)
+        asset_names.each do |asset|
+          consist_of = Jetpants.shard_pools.include? Jetpants.topology.shard_pool(asset)
+          error 'Provide the correct asset_name list' unless consist_of
+        end
+      end
+
+      if asset_type.downcase == "pools"
+        asset_names.each do |asset|
+          Jetpants.topology.pool(asset).rolling_restart(reasons)
+        end
+      elsif asset_type.downcase == "shards"
+        asset_names.each do |asset|
+          Jetpants.topology.shards(asset).each do |pool|
+            pool.rolling_restart(reasons)
           end
         end
       elsif asset_type.downcase == "servers"
-        asset_name.each do |asset|
+        asset_names.each do |asset|
           restart = 0
           asset = asset.to_db
-          reason.each do |r|
+          reasons.each do |r|
             value = asset.global_variables[r.split('=').first.to_sym]
             if value != r.split('=').last
               restart += 1
@@ -202,7 +210,7 @@ module Jetpants
             asset.catch_up_to_master if asset.is_slave?
             asset.cancel_downtime
           else
-            output "No need to restart MySQL on #{node}, since the condition is already satisfied. #{reason}"
+            output "No need to restart MySQL on #{node}, since the condition is already satisfied. #{reasons}"
           end
         end
       end
