@@ -95,8 +95,11 @@ module Jetpants
     # You can pass in :role to request spares with a particular secondary_role
     def claim_spares(count, options={})
       return [] if count == 0
+
+      spare_count = count_spares(options)
+      raise "Not enough spare machines available! Found #{spare_count}, needed #{count}" if spare_count < count
+
       assets = query_spare_assets(count, options)
-      raise "Not enough spare machines available! Found #{assets.count}, needed #{count}" if assets.count < count
       claimed_dbs = assets.map do |asset|
         db = asset.to_db
         db.claim!
@@ -125,6 +128,7 @@ module Jetpants
     # This method won't ever return a number higher than 100, but that's
     # not a problem, since no single operation requires that many spares
     def count_spares(options={})
+      options[:no_error_on_zero] = true
       query_spare_assets(100, options).count
     end
 
@@ -315,9 +319,10 @@ module Jetpants
       nodes = []
       until done do
         selector[:page] = page
+        error_on_zero = page == 0 || !options[:no_error_on_zero]
         # find() apparently alters the selector object now, so we dup it
         # also force JetCollins to retry requests to the Collins server
-        page_of_results = Plugin::JetCollins.find selector.dup, true, page == 0
+        page_of_results = Plugin::JetCollins.find selector.dup, true, error_on_zero
         nodes += page_of_results
         done = (page_of_results.count < per_page) || (page_of_results.count == 0 && page > 0)
         page += 1
