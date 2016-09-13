@@ -319,7 +319,7 @@ module Jetpants
       nodes = []
       until done do
         selector[:page] = page
-        error_on_zero = page == 0 || options[:no_error_on_zero]
+        error_on_zero = page == 0 && !options[:no_error_on_zero]
         # find() apparently alters the selector object now, so we dup it
         # also force JetCollins to retry requests to the Collins server
         page_of_results = Plugin::JetCollins.find selector.dup, true, error_on_zero
