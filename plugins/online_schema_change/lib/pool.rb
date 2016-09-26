@@ -13,6 +13,10 @@ module Jetpants
 
       raise "not enough space to run alter table on #{table}" unless master.has_space_for_alter?(table, database)
 
+      if skip_rename and Gem::Version.new(pt_osc_version) < Gem::Version.new('2.2.10')
+        raise "Cannot use skip_rename on #{pt_osc_version} -- must have >= 2.2.10"
+      end
+
       if Jetpants.plugin_enabled? 'jetpants_collins'
         raise "alter table already running on #{@name}" unless check_collins_for_alter
         update_collins_for_alter(database, table, alter)
