@@ -46,9 +46,6 @@ module Jetpants
           options.unshift("--no-drop-triggers")
         end
 
-        # the retries option is only needed for pt-online-schema-change version 2.1
-        options.unshift("--retries=10") if pt_osc_version.to_f == 2.1
-
         command = "pt-online-schema-change #{options.join(' ')}"
 
         output
