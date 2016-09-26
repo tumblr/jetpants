@@ -29,7 +29,7 @@ module Jetpants
           output "check #{shard.name} for errors during online schema change\n"
         end
       end
-    end 
+    end
 
     # will drop old table from the shards after a alter table
     # this is because we do not drop the old table in the osc

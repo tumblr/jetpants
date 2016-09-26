@@ -39,7 +39,7 @@ module Jetpants
     method_option :table, :desc => 'Table you ran the alter table on'
     method_option :database, :desc => 'Database you ran the alter table on'
     method_option :all_shards, :desc => 'To run on all the shards', :type => :boolean
-    method_option :shard_pool, :desc => 'The sharding pool for which to drop the old table' 
+    method_option :shard_pool, :desc => 'The sharding pool for which to drop the old table'
     def alter_table_drop
       unless options[:all_shards]
         pool_name = options[:pool] || ask('Please enter a name of a pool: ')
