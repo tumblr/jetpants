@@ -11,7 +11,7 @@ module Jetpants
     method_option :table, :desc => 'Table to run the alter table on'
     method_option :all_shards, :desc => 'To run on all the shards', :type => :boolean
     method_option :no_check_plan, :desc => 'Do not check the query execution plan', :type => :boolean
-    method_option :skip_rename, :desc => 'Perform the alter but do not replace the production table', :type => :boolean
+    method_option :skip_rename, :desc => 'Perform the alter but do not replace the production table (also leaves triggers in place!)', :type => :boolean
     method_option :shard_pool, :desc => 'The sharding pool for which to perform the alter'
     def alter_table
       unless options[:all_shards]
