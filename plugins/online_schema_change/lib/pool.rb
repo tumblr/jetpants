@@ -3,7 +3,7 @@
 module Jetpants
   class Pool
 
-    def alter_table(database, table, alter, dry_run=true, force=false, no_check_plan=false)
+    def alter_table(database, table, alter, dry_run=true, force=false, no_check_plan=false, skip_rename=false)
       database ||= app_schema
       error = false
 
@@ -41,6 +41,7 @@ module Jetpants
         ]
 
         options.unshift("--nocheck-plan") if no_check_plan
+        options.unshift("--no-swap-tables") if skip_rename
 
         # the retries option is only needed for pt-online-schema-change version 2.1
         options.unshift("--retries=10") if pt_osc_version.to_f == 2.1
