@@ -41,7 +41,10 @@ module Jetpants
         ]
 
         options.unshift("--nocheck-plan") if no_check_plan
-        options.unshift("--no-swap-tables") if skip_rename
+        if skip_rename
+          options.unshift("--no-swap-tables")
+          options.unshift("--no-drop-triggers")
+        end
 
         # the retries option is only needed for pt-online-schema-change version 2.1
         options.unshift("--retries=10") if pt_osc_version.to_f == 2.1
