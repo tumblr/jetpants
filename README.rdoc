@@ -39,6 +39,8 @@ For more information on the command suite, please see doc/commands.rdoc ({view o
 
 == ASSUMPTIONS AND REQUIREMENTS:
 
+Percona Toolkit of at least 2.2.10.
+
 The base classes of \Jetpants currently make a number of assumptions about your environment and database topology. Please see doc/requirements.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/requirements.rdoc]).
 
 

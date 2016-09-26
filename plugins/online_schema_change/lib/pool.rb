@@ -3,7 +3,7 @@
 module Jetpants
   class Pool
 
-    def alter_table(database, table, alter, dry_run=true, force=false, no_check_plan=false)
+    def alter_table(database, table, alter, dry_run=true, force=false, no_check_plan=false, skip_rename=false)
       database ||= app_schema
       error = false
 
@@ -12,6 +12,10 @@ module Jetpants
       raise "pt-online-schema-change executable is not available on the host" unless $?.exitstatus == 1
 
       raise "not enough space to run alter table on #{table}" unless master.has_space_for_alter?(table, database)
+
+      if skip_rename and Gem::Version.new(pt_osc_version) < Gem::Version.new('2.2.10')
+        raise "Cannot use skip_rename on #{pt_osc_version} -- must have >= 2.2.10"
+      end
 
       if Jetpants.plugin_enabled? 'jetpants_collins'
         raise "alter table already running on #{@name}" unless check_collins_for_alter
@@ -41,9 +45,10 @@ module Jetpants
         ]
 
         options.unshift("--nocheck-plan") if no_check_plan
-
-        # the retries option is only needed for pt-online-schema-change version 2.1
-        options.unshift("--retries=10") if pt_osc_version.to_f == 2.1
+        if skip_rename
+          options.unshift("--no-swap-tables")
+          options.unshift("--no-drop-triggers")
+        end
 
         command = "pt-online-schema-change #{options.join(' ')}"
 
