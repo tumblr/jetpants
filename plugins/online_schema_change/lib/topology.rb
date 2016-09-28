@@ -52,5 +52,22 @@ module Jetpants
       end
     end
 
+    def rename_table_shards(database, orig_table, copy_table, shard_pool=nil)
+      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.nil?
+      my_shards = shards(shard_pool).dup
+      first_shard = my_shards.shift
+      output "Will run on first shard and prompt before going on to the rest\n\n"
+      output "#{first_shard.pool.to_s}\n"
+      first_shard.rename_table(database, orig_table, copy_table)
+
+      continue = ask('First shard complete would you like to continue with the rest of the shards?: (YES/no) - YES has to be in all caps and fully typed')
+      if continue == 'YES'
+        my_shards.each do |shard|
+          print "#{shard.pool.to_s}\n"
+          shard.rename_table(database, orig_table, copy_table)
+        end
+      end
+    end
+
   end
 end
