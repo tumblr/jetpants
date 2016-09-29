@@ -50,11 +50,11 @@ module Jetpants
       rescue
         raise "Spare pool nodes need to have working MySQL root user!"
       end
-      Jetpants.topology.tracker.spares.each do |sp|
+      Jetpants.topology.class.tracker.spares.each do |sp|
         sp = (sp.is_a?(Hash) && sp['node'] ? sp['node'].to_db : sp.to_db)
         raise "This node is already on the spare list!" if sp == node
       end
-      Jetpants.topology.tracker.spares << node.to_s
+      Jetpants.topology.class.tracker.spares << node.to_s
       Jetpants.topology.update_tracker_data
       node.output 'Node added to spare pool successfully.'
     end
