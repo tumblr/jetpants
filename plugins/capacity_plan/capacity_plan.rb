@@ -414,7 +414,7 @@ module Jetpants
 
       def get_autoinc_history(date)
         auto_inc_history = {}
-        @@db.query_return_array("select timestamp, pool, table_name, column_name, column_type, max_val, data_type_max, round((max_val / data_type_max), 2) as ratio from auto_inc_checker where from_unixtime(timestamp, '%Y-%m-%d') = '#{date}' group by table_name order by ratio desc limit 5").each do |row|
+        @@db.query_return_array("select timestamp, pool, table_name, column_name, column_type, max_val, data_type_max, round((max_val / data_type_max), 2) as ratio from auto_inc_checker where from_unixtime(timestamp, '%Y-%m-%d') = '#{date}' group by table_name, pool order by ratio desc limit 5").each do |row|
           auto_inc_history[row[:table_name]] ||= {}
           auto_inc_history[row[:table_name]][row[:timestamp]] ||= {}
           auto_inc_history[row[:table_name]][row[:timestamp]]['pool'] = row[:pool]
