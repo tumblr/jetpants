@@ -21,6 +21,8 @@ module Jetpants
       username = PT_OSC_USERNAME
       password = DB.random_password
 
+
+      raise "Not all nodes are running, failing to continue." unless all_nodes_running?
       all_nodes_in_pool.each { |node|
         node.create_user username, password
         node.grant_privileges username, '*', 'PROCESS', 'REPLICATION CLIENT', 'REPLICATION SLAVE', 'SUPER'
@@ -212,12 +214,19 @@ module Jetpants
     end
 
     def wait_for_all_slaves msg=nil
+      raise "Not all nodes are running, failing to continue." unless all_nodes_running?
+
       until all_slaves_caught_up?
         output "Waiting on all slaves to catch up ..."
         output msg unless msg.empty?
 
         sleep 5
       end
+    end
+
+    def all_nodes_running?
+      running_status = all_nodes_in_pool.concurrent_map { |node| node.running? }
+      return running_status.reduce(true) { |status, slave_status| status &&= slave_status }
     end
 
     def all_nodes_in_pool
