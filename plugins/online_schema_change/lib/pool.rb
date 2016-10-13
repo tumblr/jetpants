@@ -212,7 +212,7 @@ module Jetpants
     end
 
     def wait_for_all_slaves msg=nil
-      until all_slaves_caught_up
+      until all_slaves_caught_up?
         output "Waiting on all slaves to catch up ..."
         output msg unless msg.empty?
 
@@ -226,7 +226,7 @@ module Jetpants
       nodes
     end
 
-    def all_slaves_caught_up
+    def all_slaves_caught_up?
       caught_up = true
 
       slaves_according_to_collins.each do |slave|
