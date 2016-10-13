@@ -227,31 +227,11 @@ module Jetpants
     end
 
     def all_slaves_caught_up?
-      caught_up = true
-
-      slaves_according_to_collins.each do |slave|
-        status = slave.slave_status
-
-        if status[:slave_io_running] != "Yes"
-          output "#{slave}: Slave IO thread not running".red
-          caught_up = false
-        end
-
-        if status[:slave_sql_running] != "Yes"
-          output "#{slave}: Slave SQL thread not running".red
-          caught_up = false
-        end
-
-        behind = status[:seconds_behind_master]
-        if behind == "NULL"
-          raise "#{slave}: Replication is NULL seconds behind. Broken replication? Quitting with cowardice!"
-        elsif behind.to_i > 0
-          output "#{slave}: Replication is behind by #{slave.slave_status[:seconds_behind_master]}!"
-          caught_up = false
-        end
+      caught_up = slaves_according_to_collins.concurrent_map do |slave|
+        catch_up_to_master
       end
 
-      return caught_up
+      return caught_up.reduce(true) { |status, slave_status| status &&= slave_status }
     end
   end
 end
