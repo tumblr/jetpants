@@ -1,9 +1,9 @@
 module Jetpants
-  
+
   #--
   # Replication and binlog-related methods #####################################
   #++
-  
+
   class DB
     # Changes the master for this instance. Does NOT automatically start
     # replication afterwards on self!
@@ -28,15 +28,15 @@ module Jetpants
     # settings.
     def change_master_to(new_master, option_hash={})
       return disable_replication! unless new_master   # change_master_to(nil) alias for disable_replication!
-      
+
       # Prevent trivial replication circles, i.e. a->b->a or the nonsensical a->a.
       # This isn't a comprehensive check since it doesn't catch 3+ node rings, but
       # at least this simple check will prevent human error.
       raise "Circular replication not supported" if new_master.master == self || new_master == self
-      
+
       # Either BOTH log_file and log_pos must be supplied, OR neither supplied
       raise "log_file and log_pos options must be supplied together" if (option_hash[:log_file] && !option_hash[:log_pos]) || (option_hash[:log_pos] && !option_hash[:log_file])
-      
+
       # If no valid coords nor auto-position supplied, default behavior depends on
       # whether or not the pool is using GTID. We also permit an explicit false value
       # for :auto_position to mean "use coordinates even if gtid_mode is enabled"
@@ -48,7 +48,7 @@ module Jetpants
           option_hash[:log_file], option_hash[:log_pos] = new_master.binlog_coordinates
         end
       end
-      
+
       if option_hash[:auto_position]
         raise "When using auto-positioning, do not supply coordinates to DB#change_master_to" if option_hash[:log_file] || option_hash[:log_pos]
         raise "Auto-positioning requires master and replica to be using gtid_mode" unless gtid_mode? && new_master.gtid_mode?
@@ -61,7 +61,7 @@ module Jetpants
           position_clause += "MASTER_AUTO_POSITION = 0, " # necessary to work if auto-positioning was previously 1
         end
       end
-      
+
       repl_user = option_hash[:user]     || replication_credentials[:user]
       repl_pass = option_hash[:password] || replication_credentials[:pass]
       use_ssl   = new_master.use_ssl_replication? && use_ssl_replication?
@@ -71,7 +71,7 @@ module Jetpants
         "MASTER_HOST='#{new_master.ip}', " +
         "MASTER_PORT=#{new_master.port}, " +
         position_clause +
-        "MASTER_USER='#{repl_user}', " + 
+        "MASTER_USER='#{repl_user}', " +
         "MASTER_PASSWORD='#{repl_pass}'"
 
       if use_ssl
@@ -86,12 +86,12 @@ module Jetpants
 
         if ssl_client_cert_path && ssl_client_key_path
             cmd_str +=
-              ", MASTER_SSL_CERT='#{ssl_client_cert_path}', " + 
+              ", MASTER_SSL_CERT='#{ssl_client_cert_path}', " +
               "MASTER_SSL_KEY='#{ssl_client_key_path}'"
         end
       end
 
-      result = mysql_root_cmd cmd_str 
+      result = mysql_root_cmd cmd_str
 
       msg = "Changing master to #{new_master}"
       msg += " using SSL" if use_ssl
@@ -107,7 +107,7 @@ module Jetpants
       @repl_paused = true
       new_master.slaves << self
     end
-    
+
     # Pauses replication
     def pause_replication
       raise "This DB object has no master" unless master
@@ -126,7 +126,7 @@ module Jetpants
       end
     end
     alias stop_replication pause_replication
-    
+
     # Starts replication, or restarts replication after a pause
     def resume_replication
       raise "This DB object has no master" unless master
@@ -153,7 +153,7 @@ module Jetpants
       else
         raise 'Without GTID, DB#pause_replication_with requires all nodes to have the same master!' unless db_list.all? {|db| db.master == master}
       end
-      
+
       db_list.unshift self unless db_list.include? self
 
       db_list.concurrent_each &:pause_replication
@@ -174,7 +174,7 @@ module Jetpants
       db_list.select {|db| furthest_replica.ahead_of? db}.concurrent_each do |db|
         db.resume_replication_until(binlog_coord, gtid_set)
       end
-      
+
       if db_list.any? {|db| furthest_replica.ahead_of?(db) || db.ahead_of?(furthest_replica)}
         raise 'Unexpectedly unable to stop slaves in the same position; perhaps something restarted replication?'
       end
@@ -182,7 +182,7 @@ module Jetpants
 
     # Resumes replication up to the specified binlog_coord (array of [logfile string, position int])
     # or gtid set (string). You must supply binlog_coord OR gtid_set, but not both; set the other
-    # one to nil. 
+    # one to nil.
     # This method blocks until the specified coordinates/gtids have been reached, up to a max of the
     # specified timeout, after which point it raises an exception.
     def resume_replication_until(binlog_coord, gtid_set=nil, timeout_sec=3600)
@@ -205,7 +205,7 @@ module Jetpants
       else
         raise "DB#resume_replication_until requires EXACTLY ONE of binlog_coord or gtid_set to be non-nil"
       end
-      
+
       # START SLAVE UNTIL will leave the slave io thread running, so we explicitly stop it
       output mysql_root_cmd "STOP SLAVE IO_THREAD"
       @repl_paused = true
@@ -217,27 +217,27 @@ module Jetpants
       stop_replication
       output "Disabling replication; this db is no longer a slave."
       ver = version_tuple
-      
+
       # MySQL < 5.5: allows master_host='', which clears out SHOW SLAVE STATUS
       if ver[0] == 5 && ver[1] < 5
         output mysql_root_cmd "CHANGE MASTER TO master_host=''; RESET SLAVE"
-      
+
       # MySQL 5.5.16+: allows RESET SLAVE ALL, which clears out SHOW SLAVE STATUS
       elsif ver[0] >= 5 && (ver[0] > 5 || ver[1] >= 5) && (ver[0] > 5 || ver[1] > 5 || ver[2] >= 16)
         output mysql_root_cmd "CHANGE MASTER TO master_user='test'; RESET SLAVE ALL"
-      
+
       # Other versions: no safe way to clear out SHOW SLAVE STATUS.  Still set master_user to 'test'
       # so that we know to ignore the slave status output.
       else
         output mysql_root_cmd "CHANGE MASTER TO master_user='test'; RESET SLAVE"
       end
-      
+
       @master.slaves.delete(self) rescue nil
       @master = nil
       @repl_paused = nil
     end
     alias reset_replication! disable_replication!
-    
+
     # Wipes out the target instances and turns them into slaves of self.
     # Resumes replication on self afterwards, but does NOT automatically start
     # replication on the targets.
@@ -249,7 +249,7 @@ module Jetpants
       disable_monitoring
       targets.each {|t| t.disable_monitoring}
       pause_replication if master && ! @repl_paused
-      
+
       change_master_options = {
         user:     repl_user || replication_credentials[:user],
         password: repl_pass || replication_credentials[:pass],
@@ -271,7 +271,7 @@ module Jetpants
       catch_up_to_master 21600
       enable_monitoring
     end
-    
+
     # Wipes out the target instances and turns them into slaves of self's master.
     # Resumes replication on self afterwards, but does NOT automatically start
     # replication on the targets.
@@ -294,7 +294,7 @@ module Jetpants
       end
 
       clone_to!(targets)
-      targets.each do |t| 
+      targets.each do |t|
         t.enable_monitoring
         t.change_master_to(master, change_master_options)
         t.enable_read_only!
@@ -303,12 +303,12 @@ module Jetpants
       [ self, targets ].flatten.concurrent_each{|n| n.catch_up_to_master 21600 }
       enable_monitoring
     end
-    
+
     # Shortcut to call DB#enslave_siblings! on a single target
     def enslave_sibling!(target)
       enslave_siblings!([target])
     end
-    
+
     # Use this on a slave to return [master log file name, position] for how far
     # this slave has executed (in terms of its master's binlogs) in its SQL replication thread.
     def repl_binlog_coordinates(display_info=true)
@@ -318,7 +318,7 @@ module Jetpants
       output "Has executed through master's binlog coordinates of (#{file}, #{pos})." if display_info
       [file, pos]
     end
-    
+
     # Returns a two-element array containing [log file name, position] for this
     # database. Only useful when called on a master. This is the current
     # instance's own binlog coordinates, NOT the coordinates of replication
@@ -329,7 +329,7 @@ module Jetpants
       output "Own binlog coordinates are (#{hash[:file]}, #{hash[:position].to_i})." if display_info
       [hash[:file], hash[:position].to_i]
     end
-    
+
     # Returns the number of seconds behind the master the replication execution is,
     # as reported by SHOW SLAVE STATUS.
     def seconds_behind_master
@@ -337,7 +337,7 @@ module Jetpants
       lag = slave_status[:seconds_behind_master]
       lag == 'NULL' ? nil : lag.to_i
     end
-    
+
     # Call this method on a replica to block until it catches up with its master.
     # If this doesn't happen within timeout (seconds), raises an exception.
     #
@@ -362,7 +362,7 @@ module Jetpants
         master_coords = master.binlog_coordinates(true)
         master_taking_writes = Proc.new {|db| db.binlog_coordinates != master_coords}
       end
-      
+
       times_at_zero = 0
       start = Time.now.to_i
       output "Waiting to catch up to master"
@@ -394,7 +394,7 @@ module Jetpants
       end
       raise "This instance did not catch up to its master within #{timeout} seconds"
     end
-    
+
     # Returns a hash containing the information from SHOW SLAVE STATUS
     def slave_status
       hash = mysql_root_cmd('SHOW SLAVE STATUS', :parse=>true)
@@ -406,7 +406,7 @@ module Jetpants
       end
       hash
     end
-    
+
     # Reads an existing master.info file on this db or one of its slaves,
     # propagates the info back to the Jetpants singleton, and returns it as
     # a hash containing :user and :pass.
@@ -424,7 +424,7 @@ module Jetpants
       end
       user && pass ? {user: user, pass: pass} : Jetpants.replication_credentials
     end
-    
+
     # Return true if this node's replication progress is ahead of the provided
     # node, or false otherwise. The nodes must be in the same pool to be
     # comparable. Without GTID, they must also be at most one level away from
@@ -442,7 +442,7 @@ module Jetpants
         target_pool_master = target_pool_master.master while target_pool_master.master
         raise "Cannot compare nodes with different pools and different top-level masters!" if my_pool_master != target_pool_master
       end
-      
+
       # Only use GTID if enabled and the nodes are in the same logical pool. Otherwise, methods
       # like gtid_executed_from_pool_master will not work properly.
       if my_pool.gtid_mode? && my_pool == target_pool
@@ -462,7 +462,7 @@ module Jetpants
           return ahead_of_gtid? node_gtid_exec
         end
       end
-      
+
       # If we get here, we must use coordinates instead of GTID. The correct coordinates
       # to use, on self and on node, depend on their roles relative to each other.
       if node == self.master
@@ -484,11 +484,11 @@ module Jetpants
       # Same coordinates: we're not "ahead"
       if my_coords == binlog_coord
         false
-      
+
       # Same logfile: simply compare position
       elsif my_coords[0] == binlog_coord[0]
         my_coords[1] > binlog_coord[1]
-        
+
       # Different logfile
       else
         my_logfile_num = my_coords[0].match(/^[a-zA-Z.0]+(\d+)$/)[1].to_i
@@ -496,24 +496,24 @@ module Jetpants
         my_logfile_num > binlog_coord_logfile_num
       end
     end
-    
+
     def repl_ahead_of_coordinates?(binlog_coord)
       return ahead_of_coordinates?(binlog_coord, true)
     end
-    
+
     # Returns true if self has executed at least one transaction past the supplied gtid_set
     # The arg should only contain one uuid, obtained from gtid_executed_from_pool_master.
     # (With a full gtid_executed containing multiple uuids, the notion of "ahead" could be
     # undefined, as there's no implied ordering of uuids)
     def ahead_of_gtid?(gtid_set)
       self_progress = gtid_executed_from_pool_master
-      
+
       # Don't try comparing to a node that hasn't executed any transactions from
       # current pool master. The definition of "ahead" in this situation could be
       # undefined, e.g. if self_progress is also nil. Instead in this case, use
       # another method like DB#has_extra_transactions_vs? to get a sane result.
       raise "Cannot call DB#ahead_of_gtid? with a nil arg" if gtid_set.nil?
-      
+
       if self_progress.nil?
         # self hasn't executed transactions from pool master but other node has: we know we're behind
         false
@@ -527,11 +527,11 @@ module Jetpants
         result == 1
       end
     end
-    
+
     def binary_log_enabled?
       global_variables[:log_bin].downcase == 'on'
     end
-    
+
     def gtid_mode?
       # to_s is needed because global_variables[:gtid_mode] is nil for mysql versions prior to 5.6
       global_variables[:gtid_mode].to_s.downcase == 'on'
@@ -546,7 +546,7 @@ module Jetpants
       # or for Percona Server versions prior to 5.6.22-72.0
       global_variables[:gtid_deployment_step].to_s.downcase == 'on'
     end
-    
+
     # This intentionally executes a query instead of using SHOW GLOBAL VARIABLES, because the value
     # can get quite long, and SHOW GLOBAL VARIABLES truncates its output
     def gtid_executed(display_info=false)
@@ -558,7 +558,7 @@ module Jetpants
       end
       result
     end
-    
+
     # Returns the portion of self's gtid_executed relevant to just the pool's current master.
     # This is useful for comparing replication progress without potentially getting tripped-up
     # by missing transactions from other server_uuids. (which shouldn't normally happen anyway,
@@ -580,7 +580,7 @@ module Jetpants
       end
       result
     end
-    
+
     # Like gtid_executed_from_pool_master, but instead of nil in the no-transactions case,
     # returns a user-friendly uuid:none string. In the cannot-determine-master-UUID case,
     # does not throw an exception.
@@ -595,7 +595,7 @@ module Jetpants
         result
       end
     end
-    
+
     def gtid_purged
       query_return_first_value "SELECT @@global.gtid_purged"
     end
@@ -609,7 +609,7 @@ module Jetpants
       raise "DB#gtid_purged= cannot be called on a node with replicas" if has_slaves?
       raise "gtid_purged may only be set if gtid_executed is empty" unless gtid_executed == ''
       mysql_root_cmd "SET GLOBAL gtid_purged = '#{gtid_set}'"
-      
+
       # To avoid potential problems with binlog_gtid_simple_recovery, immediately roll to
       # a new binlog file and then flush all previous binlog files. This ensures the oldest
       # binlog file contains the correct info to set gtid_purged upon restart.
@@ -631,7 +631,7 @@ module Jetpants
       my_pool = pool(true)
       raise "Node #{relative_to_node} is not in the same pool as #{self}" unless relative_to_node.pool(true) == my_pool
       raise "DB#has_extra_transactions_vs? requires gtid_mode" unless my_pool.gtid_mode?
-      
+
       # We specifically obtain gtid_executed for self BEFORE obtaining it for the
       # other node. That way, if writes are still occurring and the other node is
       # higher on the replication chain, we won't get thrown off by the new writes
@@ -643,7 +643,7 @@ module Jetpants
       # from other_gtid_exec
       result == 0
     end
-    
+
     # Returns true if self has already purged binlogs containing transactions
     # that the target node would need. This means that if we promoted self to
     # be the master of the target node, replication would break on the target
@@ -652,13 +652,13 @@ module Jetpants
       my_pool = pool(true)
       raise "Node #{node} is not in the same pool as #{self}" unless node.pool(true) == my_pool
       raise "DB#purged_transactions_needed_by? requires gtid_mode" unless my_pool.gtid_mode?
-      
+
       result = node.query_return_first_value("SELECT gtid_subset(?, @@global.gtid_executed)", gtid_purged)
       # a 0 result means "not a subset" which indicates there are transactions on self's
       # gtid_purged list that have not been executed on node
       result == 0
     end
-    
+
     # When a master dies and the new-master candidate is potentially not the
     # furthest-ahead replica, call this method on the new-master to have it
     # catch up on missing transactions from whichever sibling is further ahead.
@@ -716,7 +716,7 @@ module Jetpants
     # Case 2: A sibling slave is re-pointed one level down, i.e. to be replicating from one of its sibling.
     def repoint_to(new_master_node)
       raise "DB#repoint_to can only be called on a slave" unless is_slave?
-      
+
       # If the pool is using GTID, repointing is much simpler. Auto-positioning takes care of the logic for us.
       my_pool = pool(true)
       if my_pool.gtid_mode?
@@ -731,7 +731,7 @@ module Jetpants
         catch_up_to_master
         return
       end
-      
+
       # Case 1, we compare the master two levels up with the master_node provided as argument, if equals we can change the topology by pausing replication of slave's master and retrieving replication coordinates to set replication from new_master_node.
       if master.master == new_master_node
         orig_master_node = master
