@@ -1,4 +1,3 @@
-require 'pp'
 # JetCollins monkeypatches to add Collins integration
 
 module Jetpants
