@@ -39,7 +39,7 @@ module Jetpants
       end
 
       def schema
-        dsn = <<-DSNS
+        create_table_ddl = <<-DSNS
           CREATE TABLE #{SCHEMA_NAME}.#{TABLE_NAME} (
             id int(11) NOT NULL AUTO_INCREMENT,
             parent_id int(11) DEFAULT NULL,
@@ -47,7 +47,7 @@ module Jetpants
             PRIMARY KEY (id)
           )
         DSNS
-        dsn.gsub("\n", " ")
+        create_table_ddl.gsub("\n", " ")
       end
     end
   end
