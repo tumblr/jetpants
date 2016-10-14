@@ -225,8 +225,7 @@ module Jetpants
     end
 
     def all_nodes_running?
-      running_status = all_nodes_in_pool.concurrent_map { |node| node.running? }
-      return running_status.reduce(true) { |status, slave_status| status &&= slave_status }
+      all_nodes_in_pool.concurrent_map { |node| node.running? }.all?
     end
 
     def all_nodes_in_pool
@@ -236,11 +235,9 @@ module Jetpants
     end
 
     def all_slaves_caught_up?
-      caught_up = slaves_according_to_collins.concurrent_map do |slave|
+      slaves_according_to_collins.concurrent_map { |slave|
         catch_up_to_master
-      end
-
-      return caught_up.reduce(true) { |status, slave_status| status &&= slave_status }
+      }.all?
     end
   end
 end
