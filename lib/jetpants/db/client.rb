@@ -1,9 +1,9 @@
 module Jetpants
-  
+
   #--
   # Connection and query methods ###############################################
   #++
-  
+
   class DB
     # Runs the provided SQL statement as root, locally via an SSH command line, and
     # returns the response as a single string.
@@ -13,11 +13,14 @@ module Jetpants
     # :schema:: name of schema to use, or true to use this DB's default. This may have implications when used with filtered replication! (default: nil, meaning no schema)
     # :attempts:: by default, queries will be attempted up to 3 times. set this to 0 or false for non-idempotent queries.
     def mysql_root_cmd(cmd, options={})
+      raise 'mysql_root_cmd: cannot include "' if cmd.include? '"'
+      raise 'mysql_root_cmd: cannot include \n' if cmd.include? "\n"
+
       terminator = options[:terminator] || '\G'
       attempts = (options[:attempts].nil? ? 3 : (options[:attempts].to_i || 1))
       schema = (options[:schema] == true ? app_schema : options[:schema])
       failures = 0
-      
+
       begin
         raise "MySQL is not running" unless running?
         supply_root_pw = (Jetpants.mysql_root_password ? "-p#{Jetpants.mysql_root_password}" : '')
@@ -36,7 +39,7 @@ module Jetpants
         retry
       end
     end
-    
+
     # Returns a Sequel database object for use in sending queries to the DB remotely.
     # Initializes (or re-initializes) the connection pool upon first use or upon
     # requesting a different user or schema. Note that we only maintain one connection
@@ -48,14 +51,14 @@ module Jetpants
         output 'Skipping connection attempt because server started with --skip-networking'
         return nil
       end
-      
+
       options[:user]    ||= app_credentials[:user]
       options[:schema]  ||= app_schema
-      
+
       return @db if @db && @user == options[:user] && @schema == options[:schema]
-      
+
       disconnect if @db
-      
+
       conn_opts = {
         :adapter          =>  'mysql2',
         :host             =>  @ip,
@@ -75,7 +78,7 @@ module Jetpants
       @db.convert_tinyint_to_bool = false
       @db
     end
-    
+
     # Closes the database connection(s) in the connection pool.
     def disconnect
       if @db
@@ -85,20 +88,20 @@ module Jetpants
       @user = nil
       @schema = nil
     end
-    
+
     # Disconnects and reconnects to the database.
     def reconnect(options={})
       disconnect # force disconnection even if we're not changing user or schema
       connect(options)
     end
-    
+
     # Returns a Sequel database object representing the current connection. If no
     # current connection, this will automatically connect with default options.
     def connection
       @db || connect
     end
     alias mysql connection
-    
+
     # Returns a hash containing :user and :pass indicating how the application connects to
     # this database instance.  By default this just delegates to Jetpants.application_credentials,
     # which obtains credentials from the Jetpants config file. Plugins may override this
@@ -106,13 +109,13 @@ module Jetpants
     def app_credentials
       Jetpants.app_credentials
     end
-    
+
     # Returns the schema name ("database name" in MySQL parlance) to use for connections.
     # Defaults to just calling Jetpants.mysql_schema, but plugins may override.
     def app_schema
       Jetpants.mysql_schema
     end
-    
+
     # Execute a write (INSERT, UPDATE, DELETE, REPLACE, etc) query.
     # If the query is an INSERT, returns the last insert ID (if an auto_increment
     # column is involved).  Otherwise returns the number of affected rows.
@@ -120,22 +123,22 @@ module Jetpants
       ds = connection.fetch(sql, *binds)
       connection.execute_dui(ds.update_sql) {|c| return c.last_id > 0 ? c.last_id : c.affected_rows}
     end
-    
+
     # Execute a read (SELECT) query. Returns an array of hashes.
     def query_return_array(sql, *binds)
       connection.fetch(sql, *binds).all
     end
-    
+
     # Execute a read (SELECT) query. Returns a hash of the first row only.
     def query_return_first(sql, *binds)
       connection.fetch(sql, *binds).first
     end
-    
+
     # Execute a read (SELECT) query. Returns the value of the first column of the first row only.
     def query_return_first_value(sql, *binds)
       connection.fetch(sql, *binds).single_value
     end
-    
+
     # Parses the result of a MySQL query run with a \G terminator. Useful when
     # interacting with MySQL via the command-line client (for secure access to
     # the root user) instead of via the MySQL protocol.
@@ -151,6 +154,6 @@ module Jetpants
       end
       results
     end
-    
+
   end
 end
