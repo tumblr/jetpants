@@ -23,6 +23,10 @@ module Jetpants
       !! @opts[:delayed_rename]
     end
 
+    def arbitrary_options= options
+      @opts[:arbitrary_options] = options
+    end
+
     def exec!
       IO.popen([{}, exec_command].concat(exec_options), :err => [:child, :out]) do |io|
         yield io
@@ -67,13 +71,13 @@ module Jetpants
         opts << "--nodrop-new-table"
       end
 
-      if @opts[:no_check_plan]
-        opts << '--nocheck-plan'
-      end
-
       if @opts[:delayed_rename]
         opts << '--no-swap-tables'
         opts << '--no-drop-triggers'
+      end
+
+      if @opts[:arbitrary_options]
+        opts.concat(@opts[:arbitrary_options])
       end
 
       opts << "D=#{@database},t=#{@table},h=#{@pool.master.ip},u=#{@username},p=#{@password}"

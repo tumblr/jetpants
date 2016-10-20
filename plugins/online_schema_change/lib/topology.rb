@@ -5,13 +5,13 @@ module Jetpants
     # if you specify dry run it will run a dry run on all the shards
     # otherwise it will run on the first shard and ask if you want to
     # continue on the rest of the shards, 10 shards at a time
-    def alter_table_shards(database, table, alter, dry_run=true, no_check_plan=false, shard_pool = nil, skip_rename = false)
+    def alter_table_shards(database, table, alter, dry_run=true, shard_pool=nil, skip_rename=false, arbitrary_options=[])
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.nil?
       my_shards = shards(shard_pool).dup
       first_shard = my_shards.shift
       output "Will run on first shard and prompt for going past the dry run only on the first shard\n\n"
       output "#{first_shard.pool.to_s}\n"
-      unless first_shard.alter_table(database, table, alter, dry_run, false, skip_rename)
+      unless first_shard.alter_table(database, table, alter, dry_run, false, skip_rename, arbitrary_options)
         output "First shard had an error, please check output\n"
         return
       end
@@ -22,7 +22,7 @@ module Jetpants
 
         my_shards.limited_concurrent_map(10) do |shard|
           output "#{shard.pool.to_s}\n"
-          errors << shard unless shard.alter_table(database, table, alter, dry_run, true, no_check_plan, skip_rename)
+          errors << shard unless shard.alter_table(database, table, alter, dry_run, true, skip_rename, arbitrary_options)
         end
 
         errors.each do |shard|
