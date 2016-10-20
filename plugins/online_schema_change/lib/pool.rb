@@ -40,7 +40,7 @@ module Jetpants
       }
     end
 
-    def alter_table(database, table, alter, dry_run=true, force=false, no_check_plan=false, skip_rename=false)
+    def alter_table(database, table, alter, dry_run=true, force=false, skip_rename=false, arbitrary_options=[])
       database ||= app_schema
 
       # get the version of pt-online-schema-change
@@ -82,10 +82,13 @@ module Jetpants
 
         username, password = create_ptosc_user database
         ptosc = PTOSC.new(self, database, table, alter, username, password, {
-                            :no_check_plan => no_check_plan,
                             :delayed_rename => skip_rename,
                             :slave_monitor_dsn => dsn_table.dsn
                           })
+
+        unless arbitrary_options.empty?
+          ptosc.arbitrary_options = arbitrary_options
+        end
 
         ptosc.dry_run = true
         if ptosc_execute(ptosc)
