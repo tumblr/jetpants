@@ -12,6 +12,17 @@ module Jetpants
     # IP address of the Host, as a string.
     attr_reader :ip
 
+    # WIP:
+    # This is the host level attribute indicating whether to clone this host using
+    # multi-threaded (faster) approach or not.  This probably is a little ugly way to
+    # keep backward compatibility, but other ways (1.  passing the flag as an argument
+    # to fast_copy_chain or 2. completely rewrite clone_slave as clone_slave_fast) were
+    # uglier.  Hence, the host attribute.  I welcome more suggestions to retain backward
+    # compatibility.
+    #
+    # This is set when clone_slave is invoked with '--multi_threaded' flag.
+    attr_accessor :clone_multi_threaded
+
     @@all_hosts = {}
     @@all_hosts_mutex = Mutex.new
     
@@ -36,6 +47,7 @@ module Jetpants
       @connection_pool = [] # array of idle Net::SSH::Connection::Session objects
       @lock = Mutex.new
       @available = nil
+      @clone_multi_threaded = false	# default use fast_copy_chain
     end
     
     # Returns a Host object for the machine Jetpants is running on.
@@ -192,13 +204,23 @@ module Jetpants
     #             * hash mapping Host objects (or delegates) to destination base directory overrides (as string)
     # options::   is a hash that can contain --
     #             * :files            =>  only copy these filenames instead of entire base_dir. String, or Array of Strings.
+    #             * :exclude_files    =>  Exclude these filens while copying data from base_dir. String, or Array of Strings.
     #             * :port             =>  port number to use for netcat. defaults to 7000 if omitted.
     #             * :overwrite        =>  if true, don't raise an exception if the base_dir is non-empty or :files exist. default false.
     def fast_copy_chain(base_dir, targets, options={})
       # Normalize the filenames param so it is an array
       filenames = options[:files] || ['.']
       filenames = [filenames] unless filenames.respond_to?(:each)
-      
+
+      exclude_files = options[:exclude_files]
+      exclude_files = [exclude_files] unless exclude_files.respond_to?(:each)
+      exclude_str = ""
+      tar_options = ""
+      if exclude_files.count > 0
+        exclude_str = "Excluding: (#{exclude_files.join(",")})"
+        tar_options = exclude_files.map { |file, size| "--exclude='#{file}'".sub("./", "") }.join ' '
+      end
+
       # Normalize the targets param, so that targets is an array of Hosts and
       # destinations is a hash of hosts => dirs
       destinations = {}
@@ -284,18 +306,277 @@ module Jetpants
         end
         free_mem_managers << t.watch_free_mem(Jetpants.free_mem_min_mb || 0)
       end
-      
+
       # Start the copy chain.
-      output "Sending files over to #{targets[0]}: #{file_list}"
+      output "Sending files over to #{targets[0]}: #{file_list} #{exclude_str}"
       compression_pipe = Jetpants.compress_with ? "| #{Jetpants.compress_with}" : ''
       encryption_pipe = (Jetpants.encrypt_with && should_encrypt) ? "| #{Jetpants.encrypt_with}" : ''
-      ssh_cmd "cd #{base_dir} && tar c #{file_list} #{compression_pipe} #{encryption_pipe} | nc #{targets[0].ip} #{port}"
+      ssh_cmd "cd #{base_dir} && tar c #{tar_options} #{file_list} #{compression_pipe} #{encryption_pipe} | nc #{targets[0].ip} #{port}"
       workers.each {|th| th.join}
       output "File copy complete."
 
       free_mem_managers.each(&:exit)
 
       # Verify
+      output "Verifying file sizes and types on all destinations."
+      compare_dir base_dir, destinations, options
+      output "Verification successful."
+    end
+
+    # This is the method used by each thread to clone a part of file to targets.
+    # The work item has all the necessary information for the thread to setup the cloning chain
+    #
+    # The logic of copy chain remains the same as that of 'fast_copy_chain'.  Here, the source of data
+    # is the output of "dd" command, while in case of 'fast_copy_chain' it is "tar".  Rest of the
+    # chaining logic has been borrowed as it is from 'fast_copy_chain'
+    #
+    def clone_part(work_item, base_dir, targets)
+      block_count = work_item['size'] / Jetpants.clone_block_size
+      block_count += 1 if (work_item['size'] % Jetpants.clone_block_size != 0)
+      offset_block = work_item['offset'] / Jetpants.clone_block_size
+
+      send_filename = (base_dir + work_item['filename']).sub('/./', '/')
+      send_dd = "dd if=#{send_filename} bs=#{Jetpants.clone_block_size} count=#{block_count} skip=#{offset_block} 2>/dev/null"
+
+      should_encrypt = work_item['should_encrypt']
+      port = work_item['port']
+      destinations = targets
+      targets = targets.keys
+      workers = []
+
+      targets.reverse.each_with_index do |target, i|
+        dir = destinations[target]
+        raise "Directory #{t}:#{dir} looks suspicious" if dir.include?('..') || dir.include?('./') || dir == '/' || dir == ''
+
+        target.ssh_cmd "mkdir -p #{dir}"
+        recv_filename = (dir + work_item['filename']).sub('/./', '/')
+        recv_dd = "dd of=#{recv_filename} bs=#{Jetpants.clone_block_size} seek=#{offset_block} 2>/dev/null"
+
+        decompression_pipe = Jetpants.decompress_with ? "| #{Jetpants.decompress_with}" : ''
+        decryption_pipe = (Jetpants.decrypt_with && should_encrypt) ? "| #{Jetpants.decrypt_with}" : ''
+
+        if i == 0
+          workers << Thread.new { target.ssh_cmd "cd #{dir} && nc -l #{port} #{decryption_pipe} #{decompression_pipe} | #{recv_dd}" }
+          target.confirm_listening_on_port(port, timeout = 20)
+        else
+          chain_target = targets.reverse[i - 1]
+          fifo = "fifo#{port}"
+          workers << Thread.new { target.ssh_cmd "cd #{dir} && mkfifo #{fifo} && nc #{chain_target.ip} #{port} <#{fifo} && rm #{fifo}" }
+          checker_th = Thread.new { target.ssh_cmd "while [ ! -p #{dir}/#{fifo} ] ; do sleep 1; done" }
+          raise "FIFO #{fifo} not found on #{target.ip} after 10 tries" unless checker_th.join(10)
+          workers << Thread.new { target.ssh_cmd "cd #{dir} && nc -l #{port} | tee #{fifo} #{decryption_pipe} #{decompression_pipe} | #{recv_dd}" }
+          target.confirm_listening_on_port(port, timeout = 20)
+        end
+      end
+
+      compression_pipe = Jetpants.compress_with ? "| #{Jetpants.compress_with}" : ''
+      encryption_pipe = (Jetpants.encrypt_with && should_encrypt) ? "| #{Jetpants.encrypt_with}" : ''
+      ssh_cmd "#{send_dd} #{compression_pipe} #{encryption_pipe} | nc #{targets[0].ip} #{port}"
+      workers.each {|th| th.kill}
+    end
+
+    def watch_progress(workers, available_ports, progress)
+      sleep(1)   # Sleep now
+      workers.each do |worker, work_item|
+        unless worker.alive?
+          filename = work_item['filename']
+          progress[filename]['sent'] += work_item['size']
+          pct_progress = (progress[filename]['sent'] * 100) / progress[filename]['total_size']
+          output "#{filename}: #{pct_progress} % done"
+          available_ports << work_item['port']
+          worker.join()
+          workers.delete(worker)
+        end
+      end
+    end
+
+    #
+    # Method used to divide the work of sending large files.
+    #
+    # Parameters to method are exactly similar as that of 'fast_copy_chain'.
+    # :files option, however, include only the large files that we want
+    # to clone using multiple threads
+    #
+    # This method does not check whether compression and encryption binaries
+    # are installed or not.  This is because, most of the times, this will be
+    # preceeded by a call to 'fast_copy_chain' to send out small files.
+    # 'fast_copy_chain' does ensure the binaries are installed.
+    #
+    def faster_copy_chain(base_dir, targets, options={})
+      filenames = options[:files]
+      filenames = [filenames] unless filenames.respond_to?(:each)
+
+      progress = {}
+      destinations = targets
+      targets = targets.keys
+      targets.each do | target |
+        dir = destinations[target]
+        unless options[:overwrite]
+          all_paths = filenames.keys.map {|f| dir + f}.join ' '
+          dirlist = target.dir_list(all_paths)
+          dirlist.each {|name, size| raise "File #{name} exists on destination and has nonzero size!" if size.to_i > 0}
+        end
+      end
+
+      # Is encryption required?
+      should_encrypt = false
+      targets.each do |t|
+        should_encrypt = should_encrypt || should_encrypt_with?(t)
+      end
+
+      # Divide each large file into Jetpants.split_size work items.
+      # A thread will operate on each part independently.
+      # We do not physically divide the file, the illusion of dividing a file is
+      # created using the file offset the "dd" will operate on (man dd, skip and seek options)
+      work_items = Queue.new
+      filenames.each do |file, file_size|
+        remaining_size = file_size
+        num_parts = remaining_size / Jetpants.split_size
+        num_parts += 1 if (remaining_size % Jetpants.split_size != 0)
+        offset = 0
+        size = [remaining_size, Jetpants.split_size].min
+
+        for part in (1..num_parts)
+          work_item = {'filename' => file, 'offset' => offset, 'size' => size, 'part' => part, 'should_encrypt' => should_encrypt}
+          work_items << work_item
+          offset += size
+          remaining_size -= size
+          size = [remaining_size, Jetpants.split_size].min
+        end
+
+        progress[file] = {'total_size' => file_size, 'sent' => 0 }
+      end
+
+      # Deciding upon number of threads to use for the copy
+      # Based on the minimum core count of the node in the chain
+      core_counts = [cores]
+      targets.each do |target| core_counts << target.cores end
+      num_threads = core_counts.min - 2   # Leave 2 cores for OS
+      num_threads = num_threads > 16 ? 16 : num_threads   # Cap it somewhere, Flash will be HOT otherwise
+      output "Using #{num_threads} threads to clone the big files with #{work_items.size} parts"
+
+      # Each thread will operate using different port for "nc", build the port list
+      # We kind of assumed that port range (of typical size 16) is available on the nodes
+      start_port = (options[:port] || 7000).to_i
+      end_port = start_port + num_threads - 1
+      available_ports = Queue.new
+      for port in (start_port..end_port)
+        available_ports << port
+      end
+      output "Using Port range #{start_port}-#{end_port} for transfer"
+
+      # Feed each thread a work and watch them when they finish.
+      workers = {}
+      until work_items.empty?
+        sleep(1)
+        work_item = work_items.deq
+        port = available_ports.deq
+        work_item['port'] = port
+        worker = Thread.new { clone_part(work_item, base_dir, destinations) }
+        workers[worker] = work_item
+
+        while workers.count >= num_threads
+          watch_progress(workers, available_ports, progress)
+        end
+      end
+
+      # All work items have been submitted for processing now,
+      # Let us just wait for all of them to finish
+      until workers.count == 0
+        watch_progress(workers, available_ports, progress)
+      end
+
+      # Because we initiate the "dd" threads using root, the permissions of the
+      # files are lost (owner:group).  We fix them now by querying for the same
+      # at the source.
+      # RE for stats output to extract the mode, user, group of the file
+      re = /^Access:\s+\((?<mode>\d+)\/[rwx-]+\)\s+Uid:\s+\(\s+\d+\/\s+(?<user>\w+)\)\s+Gid:\s+\(\s+\d+\/\s+(?<group>\w+)\)$/x
+
+      filenames.each do |file, file_size|
+        source_file = (base_dir + file).sub('/./', '/')
+        result = ssh_cmd("stat #{source_file}").split("\n")[3]
+        tokens = result.match(re)
+        raise "Could not get stats for source #{source_file}.  Clone is almost done, you can fix it manually" if tokens.nil?
+        destinations.each do |target, dir|
+          target_file = (dir + file).sub('/./', '/')
+          raise "Invalid target file #{target_file} on Target #{target}.  Clone is almost done, you can fix it manually" if dir == '/' || dir == ''
+          target.ssh_cmd("chmod #{tokens['mode']} #{target_file}")
+          target.ssh_cmd("chown #{tokens['user']}:#{tokens['group']} #{target_file}")
+        end
+      end
+    end
+
+    # Quickly and efficiently recursively copies a directory to one or more target hosts using multiple threads
+    #
+    # This method first identifies the files that are larger than Jetpants.split_size (typical value: 10 GB),
+    # breaks them into multiple parts of size "Jetpants.split_size" and uses: "dd | compression | encryption | nc"
+    # for each part.  There are corresponding receivers at the targets.
+    #
+    # The files which are smaller in size than "Jetpants.split_size" are still sent using "fast_copy_chain"
+    #
+    # base_dir::  is base directory to copy from the source (self). Also the default destination base
+    #             directory on the targets, if not supplied via next param.
+    # targets::   is one of the following:
+    #             * Host object, or any object that delegates method_missing to a Host (such as DB)
+    #             * array of Host objects (or delegates)
+    #             * hash mapping Host objects (or delegates) to destination base directory overrides (as string)
+    # options::   is a hash that can contain --
+    #             * :files     =>  only copy these filenames instead of entire base_dir. String, or Array of Strings.
+    #             * :port      =>  port number to use for netcat. defaults to 7000 if omitted.
+    #             * :overwrite =>  if true, don't raise an exception if the base_dir is non-empty or :files exist. default false.
+    def multi_threaded_cloning(base_dir, targets, options={})
+      filenames = options[:files] || ['.']
+      filenames = [filenames] unless filenames.respond_to?(:each)
+
+      # Normalize the targets param, so that targets is an array of Hosts and
+      # destinations is a hash of hosts => dirs
+      destinations = {}
+      targets = [targets] unless targets.respond_to?(:each)
+      base_dir += '/' unless base_dir[-1] == '/'
+      if targets.is_a? Hash
+        destinations = targets
+        destinations.each {|t, d| destinations[t] += '/' unless d[-1] == '/'}
+        targets = targets.keys
+      else
+        destinations = targets.inject({}) {|memo, target| memo[target] = base_dir; memo}
+      end
+      raise "No target hosts supplied" if targets.count < 1
+
+      multi_threaded_files = {}
+
+      # Lets traverse the tree to find the files to send using multi-threaded approach
+      queue = filenames.map {|f| ['./', f]}
+      while (tuple = queue.shift)
+        subdir, filename = tuple
+
+        # Append the base_dir to all entries without '/', actually we can append it to all,
+        # because fast_copy_chain first 'cd' to the base_dir and then tar it.
+        dir_list = dir_list(base_dir + '/' + subdir + '/' + filename)
+
+        dir_list.each do |name, size|
+          if size == '/'
+            queue.concat([[subdir + filename + '/', name]])
+            next
+          elsif size.to_i > Jetpants.split_size
+            file_str = (subdir + filename + '/' + name).gsub("/./", "/")
+            multi_threaded_files[file_str] = size.to_i
+          end
+        end
+      end
+
+      # Send the directory structure out first (small files =< Jetpants.split_size)
+      fast_copy_chain(base_dir, destinations,
+                     :port          => options[:port],
+                     :overwrite     => options[:overwrite],
+                     :files         => options[:files],
+                     :exclude_files => multi_threaded_files)
+
+      # Then the huge files that needs splitting (large files > Jetpants.split_size)
+      faster_copy_chain(base_dir, destinations,
+                     :port      => options[:port],
+                     :overwrite => options[:overwrite],
+                     :files     => multi_threaded_files)
+
       output "Verifying file sizes and types on all destinations."
       compare_dir base_dir, destinations, options
       output "Verification successful."
@@ -385,7 +666,6 @@ module Jetpants
         false
       end
     end
-    
     
     ###### Misc methods ########################################################
     
