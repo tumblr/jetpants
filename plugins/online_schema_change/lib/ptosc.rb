@@ -91,9 +91,20 @@ module Jetpants
     end
 
     def critical_threads_running
-      # The running thread threshold to abort the alter. To absorb spikes, we want this number to
-      # be at least 500, but up to 2x the maximum running threads.
-      [500, 2 * max_running_threads].max
+      # Critical threads used to be calculated by 2x the max threads, and falling back to a minimum
+      # of 500. This behavior was changed to 9,000 in order to avoid any sort of abortion in the
+      # middle of an alter.
+      #
+      # The reasoning behind this change is due to an alter being aborted during
+      # the final few hours. The cause of the abort was a single datapoint of threads being too
+      # high.
+      #
+      # Note: The actual active alter process will be paused when #max_running_threads is reached,
+      # so triggering a critical error and failing may actually add to the load problem on the
+      # server.
+      #
+      # Important this is greater than the maximum clients / threads on the servers.
+      9000 # Obligatory DBZ reference.
     end
   end
 end
