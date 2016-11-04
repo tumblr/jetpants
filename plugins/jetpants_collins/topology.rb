@@ -175,7 +175,7 @@ module Jetpants
         operation:    'and',
         details:      true,
         size:         per_page,
-        query:        'primary_role = ^DATABASE$ AND type = ^SERVER_NODE$ AND status != ^DECOMMISSIONED$'
+        query:        'primary_role = ^DATABASE$ AND type = ^SERVER_NODE$ AND status != ^DECOMMISSIONED$ AND status !=^MAINTENANCE$'
       }
       selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
       selector[:query] += " AND pool = ^#{pool_name}$" if pool_name
