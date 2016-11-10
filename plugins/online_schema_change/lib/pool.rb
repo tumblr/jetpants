@@ -34,6 +34,13 @@ module Jetpants
     end
 
     def drop_ptosc_user
+      trigger_count = count_ptosc_triggers
+      if trigger_count > 0
+        output "WHOA BUDDY! There should be _no triggers_ for the ptosc user, and yet there are!".red
+        output "This indicates a bug in Jetpants, and we're giving right up.".red
+        raise "pt-osc has triggers, but we should have already dropped them!".red
+      end
+
       username = PT_OSC_USERNAME
       all_nodes_in_pool.reverse.each { |node|
         node.drop_user username
@@ -77,6 +84,8 @@ module Jetpants
           collins_set_being_altered!(database, table, alter, skip_rename)
         end
 
+        clean_up_tables_from_prior_ptosc_alter! database, table
+
         dsn_table = Percona::DSNTable.new(master)
         dsn_table.create_with_nodes(active_slaves)
 
@@ -107,14 +116,14 @@ module Jetpants
             output "    #{ptosc.exec_command_line.red}"
             output " "
 
-            unless ptosc_verify_continue('Would you like to continue?')
+            unless agree('Would you like to continue? (YES/no)')
               output "Skipping the execution! Cleaning up."
               return
             end
           end
 
           if not ptosc_execute ptosc
-            output "Failed to execute alter! Cleaning up."
+            output "Failed to execute alter! Cleaning up.".red
             return
           end
 
@@ -130,11 +139,11 @@ module Jetpants
         end
       ensure
         if clean_up_state
-          master.drop_online_schema_change_triggers database, table
-          dsn_table.destroy!
-          drop_ptosc_user
-          if Jetpants.plugin_enabled? 'jetpants_collins'
-            collins_set_can_be_altered!
+          begin
+            cleanup! database, table
+          rescue Exception => e
+            output "Captured error in cleanup: #{e}"
+            output "Swallowed to allow raising errors from ensure..."
           end
         end
       end
@@ -164,15 +173,36 @@ module Jetpants
       end
     end
 
-    def ptosc_verify_continue(question)
-      return ask("#{question} (YES/no)") == 'YES'
+    def clean_up_tables_from_prior_ptosc_alter!(database, table)
+      database ||= app_schema
+
+      cruft = list_tables_from_prior_ptosc_alter(database, table)
+      if cruft.length > 0
+        output "The following old tables exist and should be cleaned up before we continue:".red
+        output "Old tables: #{cruft.join(', ')}".red
+
+        cruft.each do |crufty_table|
+          catch_up_slaves_then "Drop crufty table '#{crufty_table}'" do
+            master.mysql_root_cmd("USE #{database}; DROP TABLE IF EXISTS #{crufty_table}")
+          end
+        end
+      end
     end
 
-    # drop old table after an alter, this is because
-    # we do not drop the table after an alter
-    def drop_old_alter_table(database, table)
-      database ||= app_schema
-      master.mysql_root_cmd("USE #{database}; DROP TABLE IF EXISTS _#{table}_old")
+    def list_tables_from_prior_ptosc_alter(database, table)
+      query = <<-END
+        SELECT TABLE_NAME
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA='#{database}'
+          AND (
+               TABLE_NAME LIKE '%#{table}_new'
+            OR TABLE_NAME = '_#{table}_old'
+            OR TABLE_NAME LIKE '%#{table}_new_tmp'
+          )
+        ;
+      END
+
+      master.query_return_array(query).map { |row| row[:TABLE_NAME] }
     end
 
     def rename_table(database, orig_table, copy_table)
@@ -180,35 +210,38 @@ module Jetpants
         raise "Collins doesn't indicate we need a rename? #{@name}" unless collins_check_needs_rename?
       end
 
-      wait_for_all_slaves "Note: At this point, no cleanup has taken place. You can safely Ctrl-C."
+      catch_up_slaves_then "Execute rename" do
+        master.mysql_root_cmd("USE #{database}; RENAME TABLE #{copy_table} TO #{copy_table}_tmp, #{orig_table} TO _#{orig_table}_old, #{copy_table}_tmp TO #{orig_table}")
+      end
 
+      cleanup! database, orig_table
+    end
+
+    def cleanup! database, table
       dsntable = Percona::DSNTable.new(master)
-      output "Note: The rename must complete three steps:".red
+      output "Note: The cleanup must complete the following steps:"
       output " - Drop #{Percona::DSNTable::SCHEMA_NAME}.#{Percona::DSNTable::TABLE_NAME}".red
-      output " - Execute the rename".red
-      output " - drop the triggers".red
-      output " - drop the ptosc users (Note: _AFTER_ all slaves are caught up!)".red
-      output " - clean up the collins state".red
+      output " - Drop the triggers".red
+      output " - Drop the ptosc users (Note: _AFTER_ all slaves are caught up!)".red
+      output " - Clean up the collins state".red
       output " "
-      output "If these three things don't happen due to error or Ctrl-C, please clean up manually"
-      database ||= app_schema
+      output "If these things don't happen due to error or Ctrl-C, please clean up manually"
 
-      dsntable.destroy!
-      output "Completed destruction of the dsns table".green
-      master.mysql_root_cmd("USE #{database}; RENAME TABLE #{copy_table} TO #{copy_table}_tmp, #{orig_table} TO _#{orig_table}_old, #{copy_table}_tmp TO #{orig_table}")
-      output "Completed the rename to be live".green
-      master.drop_online_schema_change_triggers database, orig_table
-      output "Completed the dropping of the pt-osc triggers".green
+      catch_up_slaves_then "Clean up the dsn table" do
+        dsntable.destroy!
+      end
 
-      # The following wait is very important to be certain all slaves are fully caught up and have
-      # already replicated the dropping of the triggers
-      wait_for_all_slaves <<-MSG
-        Note: rename is complete, remaining tasks:
-          - is to drop the pt-osc user on all nodes
-          - clean up the collins state, nilling out the state
-      MSG
-      drop_ptosc_user
-      output "Completed dropping the pt-osc user".green
+      catch_up_slaves_then "Drop triggers" do
+        master.drop_online_schema_change_triggers database, table
+      end
+
+      catch_up_slaves_then "Clean up pt-osc user" do
+        # The following wait is _very_ important to be certain all slaves are fully caught up and have
+        # already replicated the dropping of the triggers
+        drop_ptosc_user
+      end
+
+      clean_up_tables_from_prior_ptosc_alter! database, table
 
       if Jetpants.plugin_enabled? 'jetpants_collins'
         collins_set_can_be_altered!
@@ -216,9 +249,42 @@ module Jetpants
       output "Completed cleaning up collins".green
     end
 
-    def wait_for_all_slaves msg=nil
-      raise "Not all nodes are running, failing to continue." unless all_nodes_running?
+    def count_ptosc_triggers
+      query = <<-END
+        select count(*)
+        from INFORMATION_SCHEMA.TRIGGERS
+        where DEFINER LIKE "#{PT_OSC_USERNAME}@%"
+      END
 
+      master.query_return_first_value(query)
+    end
+
+    def catch_up_slaves_then msg
+      begin
+        wait_for_all_slaves "Carefully: #{msg}".red
+
+        unless agree("Do you want to immediately: #{msg}? (YES/no)")
+          raise "Definitely did not want to run this!"
+        end
+
+        yield
+
+        output "Finished: #{msg}".green
+      rescue
+        output "Failed to run #{msg}!".red
+        raise
+      end
+    end
+
+    def wait_for_all_slaves msg=nil
+      output "Checking to see if all nodes are running...".green
+      until all_nodes_running?
+        output "Waiting on all nodes to be running..."
+        output msg unless msg.empty?
+        sleep 5
+      end
+
+      output "Checking to see if all slaves are caught up...".green
       until all_slaves_caught_up?
         output "Waiting on all slaves to catch up ..."
         output msg unless msg.empty?
@@ -228,7 +294,12 @@ module Jetpants
     end
 
     def all_nodes_running?
-      all_nodes_in_pool.concurrent_map { |node| node.running? }.all?
+      all_nodes_in_pool.concurrent_map { |node|
+        ret = node.running?
+        output "Warning: #{node} not running!".red unless ret
+
+        ret
+      }.all?
     end
 
     def all_nodes_in_pool
@@ -239,7 +310,7 @@ module Jetpants
 
     def all_slaves_caught_up?
       slaves_according_to_collins.concurrent_map { |slave|
-        catch_up_to_master
+        slave.catch_up_to_master
       }.all?
     end
   end
