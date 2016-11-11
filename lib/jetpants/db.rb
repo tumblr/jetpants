@@ -26,7 +26,18 @@ module Jetpants
     
     # Jetpants::Host object that this MySQL instance runs on.
     attr_reader :host
-    
+
+    # WIP:
+    # This is the host level attribute indicating whether to clone this host using
+    # multi-threaded (faster) approach or not.  This probably is a little ugly way to
+    # keep backward compatibility, but other ways (1.  passing the flag as an argument
+    # to fast_copy_chain or 2. completely rewrite clone_slave as clone_slave_fast) were
+    # uglier.  Hence, the host attribute.  I welcome more suggestions to retain backward
+    # compatibility.
+    #
+    # This is set when clone_slave is invoked with '--multi_threaded' flag.
+    attr_accessor :clone_multi_threaded
+
     # We keep track of DB instances to prevent DB.new from every returning
     # duplicates.
     @@all_dbs = {}

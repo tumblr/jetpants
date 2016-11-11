@@ -12,17 +12,6 @@ module Jetpants
     # IP address of the Host, as a string.
     attr_reader :ip
 
-    # WIP:
-    # This is the host level attribute indicating whether to clone this host using
-    # multi-threaded (faster) approach or not.  This probably is a little ugly way to
-    # keep backward compatibility, but other ways (1.  passing the flag as an argument
-    # to fast_copy_chain or 2. completely rewrite clone_slave as clone_slave_fast) were
-    # uglier.  Hence, the host attribute.  I welcome more suggestions to retain backward
-    # compatibility.
-    #
-    # This is set when clone_slave is invoked with '--multi_threaded' flag.
-    attr_accessor :clone_multi_threaded
-
     @@all_hosts = {}
     @@all_hosts_mutex = Mutex.new
     
@@ -335,44 +324,101 @@ module Jetpants
       block_count += 1 if (work_item['size'] % Jetpants.clone_block_size != 0)
       offset_block = work_item['offset'] / Jetpants.clone_block_size
 
-      send_filename = (base_dir + work_item['filename']).sub('/./', '/')
-      send_dd = "dd if=#{send_filename} bs=#{Jetpants.clone_block_size} count=#{block_count} skip=#{offset_block} 2>/dev/null"
+      filename = (work_item['filename']).sub('/./', '/')
+      send_dd = "dd if=#{filename} bs=#{Jetpants.clone_block_size} count=#{block_count} skip=#{offset_block} 2>/dev/null"
+      recv_dd = "dd of=#{filename} bs=#{Jetpants.clone_block_size} seek=#{offset_block} 2>/dev/null"
 
-      should_encrypt = work_item['should_encrypt']
-      port = work_item['port']
+      options = {}
+      options[:should_encrypt] = work_item['should_encrypt']
+      options[:port] = work_item['port']
+
+      generic_copy_chain(targets, base_dir, send_dd, recv_dd, options)
+    end
+
+    # This is a generic copy chain that uses 'nc' and 'fifo' to transfer data from source to multiple targets
+    # It looks like we seem to have multiple use cases for the same, eg. multi-threaded cloning and online backup
+    #
+    # The user of the API needs to specify how they are going to read the data from source (send_cmd) and how
+    # they are going to write the data at targets(recv_cmd).  The logic of chaining will be managed by this method.
+    #
+    def generic_copy_chain(targets, base_dir, send_cmd, recv_cmd, options)
       destinations = targets
       targets = targets.keys
       workers = []
 
+      port = options[:port]
+      should_encrypt = options[:should_encrypt]
       targets.reverse.each_with_index do |target, i|
         dir = destinations[target]
         raise "Directory #{t}:#{dir} looks suspicious" if dir.include?('..') || dir.include?('./') || dir == '/' || dir == ''
 
+        if Jetpants.compress_with || Jetpants.decompress_with
+          decomp_bin = Jetpants.decompress_with.split(' ')[0]
+          target.confirm_installed decomp_bin
+        end
+
+        if Jetpants.encrypt_with && Jetpants.decrypt_with && should_encrypt
+          decrypt_bin = Jetpants.decrypt_with.split(' ')[0]
+          target.confirm_installed decrypt_bin
+        end
+
         target.ssh_cmd "mkdir -p #{dir}"
-        recv_filename = (dir + work_item['filename']).sub('/./', '/')
-        recv_dd = "dd of=#{recv_filename} bs=#{Jetpants.clone_block_size} seek=#{offset_block} 2>/dev/null"
 
         decompression_pipe = Jetpants.decompress_with ? "| #{Jetpants.decompress_with}" : ''
         decryption_pipe = (Jetpants.decrypt_with && should_encrypt) ? "| #{Jetpants.decrypt_with}" : ''
 
         if i == 0
-          workers << Thread.new { target.ssh_cmd "cd #{dir} && nc -l #{port} #{decryption_pipe} #{decompression_pipe} | #{recv_dd}" }
-          target.confirm_listening_on_port(port, timeout = 20)
+          cmd = "cd #{dir} && nc -l #{port} #{decryption_pipe} #{decompression_pipe} | #{recv_cmd}"
+          workers << target.set_receiver(port, cmd)
         else
           chain_target = targets.reverse[i - 1]
-          fifo = "fifo#{port}"
-          workers << Thread.new { target.ssh_cmd "cd #{dir} && mkfifo #{fifo} && nc #{chain_target.ip} #{port} <#{fifo} && rm #{fifo}" }
-          checker_th = Thread.new { target.ssh_cmd "while [ ! -p #{dir}/#{fifo} ] ; do sleep 1; done" }
-          raise "FIFO #{fifo} not found on #{target.ip} after 10 tries" unless checker_th.join(10)
-          workers << Thread.new { target.ssh_cmd "cd #{dir} && nc -l #{port} | tee #{fifo} #{decryption_pipe} #{decompression_pipe} | #{recv_dd}" }
-          target.confirm_listening_on_port(port, timeout = 20)
+          fifo = "#{dir}/fifo#{port}"
+          target.create_fifo(fifo)
+          workers << Thread.new { target.ssh_cmd "nc #{chain_target.ip} #{port} <#{fifo} && rm -f #{fifo}" }
+
+          cmd = "cd #{dir} && nc -l #{port} | tee #{fifo} #{decryption_pipe} #{decompression_pipe} | #{recv_cmd}"
+          workers << target.set_receiver(port, cmd)
         end
       end
 
       compression_pipe = Jetpants.compress_with ? "| #{Jetpants.compress_with}" : ''
       encryption_pipe = (Jetpants.encrypt_with && should_encrypt) ? "| #{Jetpants.encrypt_with}" : ''
-      ssh_cmd "#{send_dd} #{compression_pipe} #{encryption_pipe} | nc #{targets[0].ip} #{port}"
-      workers.each {|th| th.kill}
+      ssh_cmd "cd #{base_dir} && #{send_cmd} #{compression_pipe} #{encryption_pipe} | nc #{targets[0].ip} #{port}"
+      workers.each {|th| th.join}
+    end
+
+    def create_fifo(fifo)
+      10.times do
+        begin
+          ssh_cmd("mkfifo #{fifo}")
+          checker_th = Thread.new { ssh_cmd "while [ ! -p #{fifo} ] ; do sleep 1; done" }
+          raise "FIFO #{fifo} not found on #{self.ip} after 20 tries" unless checker_th.join(20)
+          break
+        rescue Exception => ex
+          output "Retrying for fifo creation"
+          ssh_cmd("unlink #{fifo}")
+          sleep(2)
+        end
+      end
+    end
+
+    def set_receiver(port, cmd)
+      10.times do
+        begin
+          receiver = Thread.new { ssh_cmd(cmd) }
+          confirm_listening_on_port(port, timeout = 30)
+          return receiver
+        rescue Exception => ex
+          output "Retrying to start the receiver"
+          pid_cmd = "ps aux | grep \"nc -l #{port}\" | grep -v grep | awk {'print $2'}"
+          pid = ssh_cmd(pid_cmd).split("\n")
+          raise "Multiple PIDs found for the process, something is wrong" unless pid.count == 1
+          receiver.kill
+          ssh_cmd("kill #{pid.first.to_i}")
+          sleep(2)
+        end
+      end
+      raise "Failed to setup a receiver on #{self.to_s} CMD: #{cmd}"
     end
 
     def watch_progress(workers, available_ports, progress)
@@ -490,7 +536,7 @@ module Jetpants
       # files are lost (owner:group).  We fix them now by querying for the same
       # at the source.
       # RE for stats output to extract the mode, user, group of the file
-      re = /^Access:\s+\((?<mode>\d+)\/[rwx-]+\)\s+Uid:\s+\(\s+\d+\/\s+(?<user>\w+)\)\s+Gid:\s+\(\s+\d+\/\s+(?<group>\w+)\)$/x
+      re = /^Access:\s+\((?<mode>\d+)\/[drwx-]+\)\s+Uid:\s+\(\s+\d+\/\s+(?<user>\w+)\)\s+Gid:\s+\(\s+\d+\/\s+(?<group>\w+)\)$/x
 
       filenames.each do |file, file_size|
         source_file = (base_dir + file).sub('/./', '/')
@@ -544,14 +590,32 @@ module Jetpants
 
       multi_threaded_files = {}
 
+      # RE to check if the file we are cloning is directory or a file.
+      # The problem with dir_list is that it cannot convincingly tell if
+      # the name is directory or file, where "/" is not helpful. eg.
+      # if you have a 'test' directory and a file named 'test' under it
+      # then output if {'test':<some file size>}
+      # And if you have 'test' file at the same location, it still returns
+      # the same.  So, it can't tell whether the output 'test' file is under
+      # the directory or not, coz it does not retain the whole directory path
+      re = /^Access:\s+\((?<mode>\d+)\/(?<permissions>[drwx-]+)\)\s+Uid:\s+\(\s+\d+\/\s+(?<user>\w+)\)\s+Gid:\s+\(\s+\d+\/\s+(?<group>\w+)\)$/x
+
       # Lets traverse the tree to find the files to send using multi-threaded approach
       queue = filenames.map {|f| ['./', f]}
       while (tuple = queue.shift)
         subdir, filename = tuple
 
-        # Append the base_dir to all entries without '/', actually we can append it to all,
-        # because fast_copy_chain first 'cd' to the base_dir and then tar it.
-        dir_list = dir_list(base_dir + '/' + subdir + '/' + filename)
+        pathname = base_dir + '/' + subdir + '/' + filename;
+        dir_list = dir_list(pathname)
+
+        result = ssh_cmd("stat #{pathname}").split("\n")[3]
+        tokens = result.match(re)
+
+        # If it is a big file, add it for multi-threading and continue
+        if tokens['permissions'].split("")[0] == '-' and dir_list.first[1].to_i > $split_size
+            multi_threaded_files[subdir + '/' + filename] = dir_list.first[1].to_i
+            next
+        end
 
         dir_list.each do |name, size|
           if size == '/'
