@@ -19,14 +19,27 @@ module Jetpants
       continue = ask('First shard complete would you like to continue with the rest of the shards?: (YES/no) - YES has to be in all caps and fully typed')
       if continue == 'YES'
         errors = []
+        exceptions = {}
 
         my_shards.limited_concurrent_map(10) do |shard|
           output "#{shard.pool.to_s}\n"
-          errors << shard unless shard.alter_table(database, table, alter, dry_run, true, skip_rename, arbitrary_options)
+          begin
+            errors << shard unless shard.alter_table(database, table, alter, dry_run, true, skip_rename, arbitrary_options)
+          rescue Exception => e
+            output "#{shard.pool.to_s} threw exception: #{e}".red
+            errors << shard
+            exceptions[shard.name] << e
+          end
         end
 
         errors.each do |shard|
           output "check #{shard.name} for errors during online schema change\n"
+        end
+
+        exceptions.each do |pool, exception|
+          output "Pool '#{pool}' threw exception: #{exception}".red
+          output "Backtrace:"
+          output e.backtrace.join("\n\t").red
         end
       end
     end
