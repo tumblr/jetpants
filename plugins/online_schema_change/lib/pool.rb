@@ -104,7 +104,7 @@ module Jetpants
 
           if dry_run
             # Dry run only
-            return
+            return true
           end
 
           ptosc.dry_run = false
@@ -118,13 +118,13 @@ module Jetpants
 
             unless agree('Would you like to continue? (YES/no)')
               output "Skipping the execution! Cleaning up."
-              return
+              return false
             end
           end
 
           if not ptosc_execute ptosc
             output "Failed to execute alter! Cleaning up.".red
-            return
+            return false
           end
 
           if ptosc.delayed_rename?
@@ -135,15 +135,19 @@ module Jetpants
             if Jetpants.plugin_enabled? 'jetpants_collins'
               collins_set_needs_rename!
             end
+
+            return true
           end
         end
       ensure
         if clean_up_state
           begin
             cleanup! database, table
+            return true
           rescue Exception => e
             output "Captured error in cleanup: #{e}"
             output "Swallowed to allow raising errors from ensure..."
+            return false
           end
         end
       end
