@@ -142,7 +142,7 @@ module Jetpants
       ensure
         if clean_up_state
           begin
-            cleanup! database, table
+            cleanup_ptosc! database, table
             return true
           rescue Exception => e
             output "Captured error in cleanup: #{e}"
@@ -218,10 +218,10 @@ module Jetpants
         master.mysql_root_cmd("USE #{database}; RENAME TABLE #{copy_table} TO #{copy_table}_tmp, #{orig_table} TO _#{orig_table}_old, #{copy_table}_tmp TO #{orig_table}")
       end
 
-      cleanup! database, orig_table
+      cleanup_ptosc! database, orig_table
     end
 
-    def cleanup! database, table
+    def cleanup_ptosc! database, table
       dsntable = Percona::DSNTable.new(master)
       output "Note: The cleanup must complete the following steps:"
       output " - Drop #{Percona::DSNTable::SCHEMA_NAME}.#{Percona::DSNTable::TABLE_NAME}".red
