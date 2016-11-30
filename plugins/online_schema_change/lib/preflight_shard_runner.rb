@@ -71,7 +71,9 @@ module Jetpants
       }.join("\n")
     end
 
-
+    def output str, level = :info
+      Jetpants.output(str, nil, level)
+    end
   end
 
   class PreflightShardRunner
