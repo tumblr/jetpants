@@ -11,13 +11,11 @@ module Jetpants
 
 
       ui = PreflightShardUI.new(my_shards)
-      ui.on_each do |shard,stage|
+      ui.run! do |shard,stage|
         # If we're past preflight, we want to not prompt the confirmation.
         force = stage == :all
         shard.alter_table(database, table, alter, dry_run, force, skip_rename, arbitrary_options)
       end
-
-      ui.run!
     end
 
     # will drop old table from the shards after a alter table
@@ -29,8 +27,7 @@ module Jetpants
       my_shards = shards(shard_pool).dup
 
       ui = PreflightShardUI.new(my_shards)
-      ui.on_each { |shard,_| shard.drop_old_alter_table(database, table) }
-      ui.run!
+      ui.run! { |shard,_| shard.drop_old_alter_table(database, table) }
     end
 
     def rename_table_shards(database, orig_table, copy_table, shard_pool=nil)
@@ -38,8 +35,7 @@ module Jetpants
       my_shards = shards(shard_pool).dup
 
       ui = PreflightShardUI.new(my_shards)
-      ui.on_each { |shard,_| shard.rename_table(database, orig_table, copy_table) }
-      ui.run!
+      ui.run! { |shard,_| shard.rename_table(database, orig_table, copy_table) }
     end
   end
 end

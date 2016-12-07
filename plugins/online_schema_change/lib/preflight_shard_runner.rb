@@ -6,14 +6,10 @@ module Jetpants
       @collector = ThreadsafeResultCollector.new
     end
 
-    def on_each &block
-      @block = block
-    end
-
-    def run!
+    def run! &block
       output "Will run on first shard (#{@runner.first_shard.name}), then prompt to continue\n\n"
 
-      unless @runner.preflight(@collector, @block)
+      unless @runner.preflight(@collector, block)
         output "Preflight shard failed!"
         summarize!
         return false
@@ -26,7 +22,7 @@ module Jetpants
 
       @runner.run_per_shard(@collector) do |shard,stage|
         output "--> #{shard}"
-        @block.call(shard, stage)
+        block.call(shard, stage)
       end
 
       summarize!
