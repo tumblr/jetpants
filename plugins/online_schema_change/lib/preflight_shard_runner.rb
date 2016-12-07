@@ -3,7 +3,7 @@ module Jetpants
   class PreflightShardUI
     def initialize shards, concurrency=10
       @runner = PreflightShardRunner.new(shards, concurrency)
-      @collector = ErrorCollector.new
+      @collector = ThreadsafeResultCollector.new
     end
 
     def on_each &block

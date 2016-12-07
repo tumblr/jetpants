@@ -3,7 +3,7 @@ require 'thread'
 module Jetpants
   # Usage:
   #
-  # t = Jetpants::ErrorCollector.new
+  # t = Jetpants::ThreadsafeResultCollector.new
   # t.run("foo") { 1 }
   # t.run("bar") { 1 }
   # t.run("baz") { 3 }
@@ -12,7 +12,7 @@ module Jetpants
   # pp t.returns
   # pp t.exception
 
-  class ErrorCollector
+  class ThreadsafeResultCollector
     def initialize
       @semaphore = Mutex.new
       @returns = {}
