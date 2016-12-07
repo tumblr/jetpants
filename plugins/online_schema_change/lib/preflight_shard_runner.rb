@@ -45,8 +45,10 @@ module Jetpants
     end
 
     def all_passed?
-      return false if @collector.exceptions.length > 0
-      return @collector.returns.values.all?
+      no_exceptions = @collector.exceptions.empty?
+      all_succeeded = @collector.returns.values.all?
+
+      return no_exceptions && all_succeeded
     end
 
     def return_summary
