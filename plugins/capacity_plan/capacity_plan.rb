@@ -386,7 +386,7 @@ module Jetpants
         else
           ignore_list = Jetpants.plugins['capacity_plan']['autoinc_ignore_list']
           ignore_list.map! { |p| Jetpants.topology.pool(p) }
-          pools_list = Jetpants.topology.pools.reject! { |p| ignore_list.include? p }
+          pools_list = Jetpants.topology.pools.reject { |p| ignore_list.include? p }
         end
         pools_list.each do |p|
           slave = p.standby_slaves.first
