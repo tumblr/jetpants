@@ -62,6 +62,10 @@ module Jetpants
     'client_ssl_ca'           =>  false,      # location of the client ssl ca
     'client_ssl_cipher'       =>  false,      # list of client ssl ciphers
     'innodb_flush_iops'       =>  2000,      # Value to set for innodb_io_capacity for fast mysql restarts, used in DB#Prepare_fast_shutdown, called in DB#Restart_mysql
+    'block_size'              =>  524288,   # Block size for IO during clone operation
+    'split_size'              =>  20 * 1024 * 1024 * 1024,  # 20GB: Size of each part to use to transfer data during clone operation
+    'recv_param_path'         =>  '/db-binlog/__ncat_clone_recv_params.yaml'  # File where receive parameters are stored
+    'send_param_path'         =>  '/db-binlog/__ncat_clone_send_params.yaml'  # File where send parameters are stored
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]

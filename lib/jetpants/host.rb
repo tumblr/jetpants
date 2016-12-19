@@ -2,7 +2,7 @@ require 'net/ssh'
 require 'socket'
 
 module Jetpants
-  
+
   # Encapsulates a UNIX server that we can SSH to as root. Maintains a pool of SSH
   # connections to the host as needed.
   class Host
@@ -14,11 +14,11 @@ module Jetpants
 
     @@all_hosts = {}
     @@all_hosts_mutex = Mutex.new
-    
+
     def self.clear
       @@all_hosts_mutex.synchronize {@@all_hosts = {}}
     end
-    
+
     # We override Host.new so that attempting to create a duplicate Host object
     # (that is, one with the same IP as an existing Host object) returns the
     # original object.
@@ -28,7 +28,7 @@ module Jetpants
         @@all_hosts[ip] ||= super
       end
     end
-    
+
     def initialize(ip)
       # Only supporting ipv4 for now
       raise "Invalid IP address: #{ip}" unless ip =~ /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/
@@ -38,7 +38,7 @@ module Jetpants
       @available = nil
       @clone_multi_threaded = false	# default use fast_copy_chain
     end
-    
+
     # Returns a Host object for the machine Jetpants is running on.
     def self.local(interface=false)
       interface ||= (Jetpants.local_private_interface || Jetpants.private_interface)
@@ -51,7 +51,7 @@ module Jetpants
       ip_string = buf[20...24].unpack('C*').join '.'
       self.new(ip_string)
     end
-    
+
     # Returns a Net::SSH::Connection::Session for the host. Verifies that the
     # connection is working before returning it.
     def get_ssh_connection
@@ -73,7 +73,7 @@ module Jetpants
           params[:port] = Jetpants.ssh_port if Jetpants.ssh_port
           user          = Jetpants.ssh_user
           begin
-            @lock.synchronize do 
+            @lock.synchronize do
               conn = Net::SSH.start(@ip, user, params)
             end
           rescue => ex
@@ -82,7 +82,7 @@ module Jetpants
             next
           end
         end
-        
+
         # Confirm that the connection works
         if conn
           begin
@@ -99,7 +99,7 @@ module Jetpants
       @available = false
       raise "Unable to obtain working SSH connection to #{self} after 5 attempts"
     end
-    
+
     # Adds a Net::SSH::Connection::Session to a pool of idle persistent connections.
     def save_ssh_connection(conn)
       conn.exec! 'cd ~'
@@ -109,9 +109,9 @@ module Jetpants
     rescue
       output "Discarding nonfunctional SSH connection"
     end
-    
+
     # Execute the given UNIX command string (or array of strings) as root via SSH.
-    # By default, if something is wrong with the SSH connection, the command 
+    # By default, if something is wrong with the SSH connection, the command
     # will be attempted up to 3 times before an exception is thrown. Be sure
     # to set this to 1 or false for commands that are not idempotent.
     # Returns the result of the command executed. If cmd was an array of strings,
@@ -143,13 +143,13 @@ module Jetpants
       save_ssh_connection conn
       return result
     end
-    
+
     # Shortcut for use when a command is not idempotent and therefore
     # isn't safe to retry if something goes wonky with the SSH connection.
     def ssh_cmd!(cmd)
       ssh_cmd cmd, false
     end
-    
+
     # Confirm that something is listening on the given port. The timeout param
     # indicates how long to wait (in seconds) for a process to be listening.
     def confirm_listening_on_port(port, timeout=10)
@@ -180,10 +180,10 @@ module Jetpants
       end
       @available
     end
-    
-    
+
+
     ###### Directory Copying / Listing / Comparison methods ####################
-    
+
     # Quickly and efficiently recursively copies a directory to one or more target hosts.
     # base_dir::  is base directory to copy from the source (self). Also the default destination base
     #             directory on the targets, if not supplied via next param.
@@ -223,10 +223,10 @@ module Jetpants
         destinations = targets.inject({}) {|memo, target| memo[target] = base_dir; memo}
       end
       raise "No target hosts supplied" if targets.count < 1
-      
+
       file_list = filenames.join ' '
       port = (options[:port] || 7000).to_i
-      
+
       if Jetpants.compress_with || Jetpants.decompress_with
         comp_bin = Jetpants.compress_with.split(' ')[0]
         confirm_installed comp_bin
@@ -247,7 +247,7 @@ module Jetpants
       else
         output "Not encrypting data stream, either no encryption method specified or encryption unneeded with target"
       end
-      
+
       # On each destination host, do any initial setup (and optional validation/erasing),
       # and then listen for new files.  If there are multiple destination hosts, all of them
       # except the last will use tee to "chain" the copy along to the next machine.
@@ -256,7 +256,7 @@ module Jetpants
       targets.reverse.each_with_index do |t, i|
         dir = destinations[t]
         raise "Directory #{t}:#{dir} looks suspicious" if dir.include?('..') || dir.include?('./') || dir == '/' || dir == ''
-        
+
         if Jetpants.compress_with || Jetpants.decompress_with
           decomp_bin = Jetpants.decompress_with.split(' ')[0]
           t.confirm_installed decomp_bin
@@ -268,7 +268,7 @@ module Jetpants
         end
 
         t.ssh_cmd "mkdir -p #{dir}"
-        
+
         # Check if contents already exist / non-empty.
         # Note: doesn't do recursive scan of subdirectories
         unless options[:overwrite]
@@ -276,7 +276,7 @@ module Jetpants
           dirlist = t.dir_list(all_paths)
           dirlist.each {|name, size| raise "File #{name} exists on destination and has nonzero size!" if size.to_i > 0}
         end
-        
+
         decompression_pipe = Jetpants.decompress_with ? "| #{Jetpants.decompress_with}" : ''
         decryption_pipe = (Jetpants.decrypt_with && should_encrypt) ? "| #{Jetpants.decrypt_with}" : ''
         if i == 0
@@ -307,121 +307,142 @@ module Jetpants
       free_mem_managers.each(&:exit)
 
       # Verify
-      output "Verifying file sizes and types on all destinations."
-      compare_dir base_dir, destinations, options
-      output "Verification successful."
+      if options[:exclude_files].keys.count == 0
+        output "Verifying file sizes and types on all destinations."
+        compare_dir base_dir, destinations, options
+        output "Verification successful."
+      end
     end
 
     # This is the method used by each thread to clone a part of file to targets.
     # The work item has all the necessary information for the thread to setup the cloning chain
     #
-    # The logic of copy chain remains the same as that of 'fast_copy_chain'.  Here, the source of data
-    # is the output of "dd" command, while in case of 'fast_copy_chain' it is "tar".  Rest of the
-    # chaining logic has been borrowed as it is from 'fast_copy_chain'
+    # The basic logic of copy chain remains the same as that of 'fast_copy_chain'.
+    # The chain has been oursourced to the individual scripts 'sender' and 'receiver'.  These
+    # 2 scripts are deployed on each DB node.  Jetpants orchestrate the transfers using
+    # 'ncat' (not nc) through a single port and multiple connections between sender and the
+    # receivers. (The 'ncat' allows us to exec the 'receiver' script on receiving a connection
+    # request from 'sender', multiple connections are not supported by 'nc').
     #
     def clone_part(work_item, base_dir, targets)
-      block_count = work_item['size'] / Jetpants.clone_block_size
-      block_count += 1 if (work_item['size'] % Jetpants.clone_block_size != 0)
-      offset_block = work_item['offset'] / Jetpants.clone_block_size
+      #output "Sending item: #{work_item}"
+      # Both 'sender' and 'receiver' use the specific parameter YAML file to perform the
+      # transfer.  These parameters are set by jetpants through following hashes based on
+      # the given work item.
+      sender_params = {}
+      receiver_params = {}
 
-      filename = (work_item['filename']).sub('/./', '/')
-      send_dd = "dd if=#{filename} bs=#{Jetpants.clone_block_size} count=#{block_count} skip=#{offset_block} 2>/dev/null"
-      recv_dd = "dd of=#{filename} bs=#{Jetpants.clone_block_size} seek=#{offset_block} 2>/dev/null"
+      should_encrypt = work_item['should_encrypt']
+      block_count = work_item['size'] / Jetpants.block_size
+      block_count += 1 if (work_item['size'] % Jetpants.block_size != 0)
+      block_offset = work_item['offset'] / Jetpants.block_size
 
-      options = {}
-      options[:should_encrypt] = work_item['should_encrypt']
-      options[:port] = work_item['port']
+      sender_params['base_dir']     = base_dir
+      sender_params['filename']     = work_item['filename'].sub('/./', '/')
+      sender_params['block_count']  = block_count
+      sender_params['block_offset'] = block_offset
+      sender_params['block_size']   = Jetpants.block_size
 
-      generic_copy_chain(targets, base_dir, send_dd, recv_dd, options)
-    end
+      sender_params['transfer_id']  = work_item['transfer_id']
 
-    # This is a generic copy chain that uses 'nc' and 'fifo' to transfer data from source to multiple targets
-    # It looks like we seem to have multiple use cases for the same, eg. multi-threaded cloning and online backup
-    #
-    # The user of the API needs to specify how they are going to read the data from source (send_cmd) and how
-    # they are going to write the data at targets(recv_cmd).  The logic of chaining will be managed by this method.
-    #
-    def generic_copy_chain(targets, base_dir, send_cmd, recv_cmd, options)
+      sender_params['compression_cmd'] = "#{Jetpants.compress_with}" if Jetpants.compress_with
+      sender_params['encryption_cmd']  = "#{Jetpants.encrypt_with}"  if (Jetpants.encrypt_with && should_encrypt)
+
+      receiver_params['block_count']  = sender_params['block_count']
+      receiver_params['block_offset'] = sender_params['block_offset']
+      receiver_params['block_size']   = sender_params['block_size']
+      receiver_params['filename']     = sender_params['filename']
+      receiver_params['transfer_id']  = work_item['transfer_id']
+
+      receiver_params['decompression_cmd'] = "#{Jetpants.decompress_with}" if Jetpants.decompress_with
+      receiver_params['decryption_cmd']  = "#{Jetpants.decrypt_with}"  if (Jetpants.decrypt_with && should_encrypt)
+
+      port = work_item['port']
+
       destinations = targets
       targets = targets.keys
       workers = []
 
-      port = options[:port]
-      should_encrypt = options[:should_encrypt]
       targets.reverse.each_with_index do |target, i|
-        dir = destinations[target]
-        raise "Directory #{t}:#{dir} looks suspicious" if dir.include?('..') || dir.include?('./') || dir == '/' || dir == ''
-
-        if Jetpants.compress_with || Jetpants.decompress_with
-          decomp_bin = Jetpants.decompress_with.split(' ')[0]
-          target.confirm_installed decomp_bin
-        end
-
-        if Jetpants.encrypt_with && Jetpants.decrypt_with && should_encrypt
-          decrypt_bin = Jetpants.decrypt_with.split(' ')[0]
-          target.confirm_installed decrypt_bin
-        end
-
-        target.ssh_cmd "mkdir -p #{dir}"
-
-        decompression_pipe = Jetpants.decompress_with ? "| #{Jetpants.decompress_with}" : ''
-        decryption_pipe = (Jetpants.decrypt_with && should_encrypt) ? "| #{Jetpants.decrypt_with}" : ''
+        receiver_params['base_dir'] = destinations[target]
 
         if i == 0
-          cmd = "cd #{dir} && nc -l #{port} #{decryption_pipe} #{decompression_pipe} | #{recv_cmd}"
-          workers << target.set_receiver(port, cmd)
+          receiver_params.delete('chain_ip')
+          receiver_params.delete('chain_port')
         else
+          # If chaining needs to be setup, we add those parameters to YAML
           chain_target = targets.reverse[i - 1]
-          fifo = "#{dir}/fifo#{port}"
-          target.create_fifo(fifo)
-          workers << Thread.new { target.ssh_cmd "nc #{chain_target.ip} #{port} <#{fifo} && rm -f #{fifo}" }
-
-          cmd = "cd #{dir} && nc -l #{port} | tee #{fifo} #{decryption_pipe} #{decompression_pipe} | #{recv_cmd}"
-          workers << target.set_receiver(port, cmd)
+          receiver_params['chain_ip']   = chain_target.ip
+          receiver_params['chain_port'] = port
         end
+        string = receiver_params.to_yaml.gsub("\n", "\\n")
+
+        # For each receiver in the chain, write the transfer parameters
+        # in the YAML file at specified location.
+        #
+        # This location must match the one used by 'receiver.rb' script in puppet
+        #
+        cmd = "echo -e \"#{string}\" > #{Jetpants.recv_param_path}"
+        target.ssh_cmd(cmd)
       end
 
-      compression_pipe = Jetpants.compress_with ? "| #{Jetpants.compress_with}" : ''
-      encryption_pipe = (Jetpants.encrypt_with && should_encrypt) ? "| #{Jetpants.encrypt_with}" : ''
-      ssh_cmd "cd #{base_dir} && #{send_cmd} #{compression_pipe} #{encryption_pipe} | nc #{targets[0].ip} #{port}"
-      workers.each {|th| th.join}
+      sender_params['target_ip'] = targets[0].ip
+      sender_params['target_port'] = port
+      string = sender_params.to_yaml.gsub("\n", "\\n")	# New lines need additional escape
+      # Sender also needs the transfer parameters in the YAML file at specified
+      # location.  Set those too.
+      cmd = "echo -e \"#{string}\" > #{Jetpants.send_param_path}"
+      ssh_cmd(cmd)
+
+      # Trigger the data transfer
+      # Sender is going to read the transfer parameters from the specified
+      # location and start the data transfer
+      ssh_cmd!("/opt/ruby/2.2.0/bin/ruby /usr/local/bin/sender")
     end
 
-    def create_fifo(fifo)
-      10.times do
-        begin
-          ssh_cmd("mkfifo #{fifo}")
-          checker_th = Thread.new { ssh_cmd "while [ ! -p #{fifo} ] ; do sleep 1; done" }
-          raise "FIFO #{fifo} not found on #{self.ip} after 20 tries" unless checker_th.join(20)
+    def look_for_clone_marker(marker)
+      sleep(1)	# It might take a bit to start the transfer
+      cmd = "test -e #{marker} && echo \"Found\" || echo \"Not Found\""
+      transfer_started = false
+      # With 16 threads, the node becomes so io (network) and cpu intensive that, it might not
+      # be able to confirm the transfer for a long time, so we will be patient and ensure the
+      # transfer is running
+      25.times do |sleep_time|
+        result = ssh_cmd(cmd)
+        if result.strip == "Found"
+          #ssh_cmd("cat #{$recv_param_location} > #{marker}")
+          transfer_started = true
+          #output "Transfer chain started Marker: #{marker}"
           break
-        rescue Exception => ex
-          output "Retrying for fifo creation"
-          ssh_cmd("unlink #{fifo}")
-          sleep(2)
+        else
+          #output "Transfer chain has not yet started Marker: #{marker}"
+          sleep(sleep_time)
         end
+      end
+      raise "Transfer issue with node #{self.ip}" unless transfer_started
+    end
+
+    # This method ensures that the transfer started across the hosts.
+    # Success of this method is crucial for the whole operation, because
+    # we use the same file to convey the parameters of transfer.  The
+    # reason to use same parameter file is that 'ncat' is execing the
+    # transfer for us when the new connection request is received on the
+    # port.  We cannot exec different command per connection.  Imagine it
+    # to be a 'xinetd'.
+    #
+    # The way we ensure that the transfer started is by checking for an
+    # existance of a file at the last node in the chain.
+    def ensure_transfer_started(targets, work_item)
+      targets = targets.keys
+      marker = "/db-binlog/__#{work_item['transfer_id']}.success"
+
+      look_for_clone_marker(marker)
+      targets.each do |target|
+        target.look_for_clone_marker(marker)
       end
     end
 
-    def set_receiver(port, cmd)
-      10.times do
-        begin
-          receiver = Thread.new { ssh_cmd(cmd) }
-          confirm_listening_on_port(port, timeout = 30)
-          return receiver
-        rescue Exception => ex
-          output "Retrying to start the receiver"
-          pid_cmd = "ps aux | grep \"nc -l #{port}\" | grep -v grep | awk {'print $2'}"
-          pid = ssh_cmd(pid_cmd).split("\n")
-          raise "Multiple PIDs found for the process, something is wrong" unless pid.count == 1
-          receiver.kill
-          ssh_cmd("kill #{pid.first.to_i}")
-          sleep(2)
-        end
-      end
-      raise "Failed to setup a receiver on #{self.to_s} CMD: #{cmd}"
-    end
-
-    def watch_progress(workers, available_ports, progress)
+    def watch_progress(workers, progress)
       sleep(1)   # Sleep now
       workers.each do |worker, work_item|
         unless worker.alive?
@@ -429,7 +450,6 @@ module Jetpants
           progress[filename]['sent'] += work_item['size']
           pct_progress = (progress[filename]['sent'] * 100) / progress[filename]['total_size']
           output "#{filename}: #{pct_progress} % done"
-          available_ports << work_item['port']
           worker.join()
           workers.delete(worker)
         end
@@ -484,6 +504,7 @@ module Jetpants
 
         for part in (1..num_parts)
           work_item = {'filename' => file, 'offset' => offset, 'size' => size, 'part' => part, 'should_encrypt' => should_encrypt}
+          work_item['transfer_id'] = "#{work_item['filename'].gsub("/", "_")}_#{work_item['part']}"
           work_items << work_item
           offset += size
           remaining_size -= size
@@ -498,45 +519,64 @@ module Jetpants
       core_counts = [cores]
       targets.each do |target| core_counts << target.cores end
       num_threads = core_counts.min - 2   # Leave 2 cores for OS
-      num_threads = num_threads > 16 ? 16 : num_threads   # Cap it somewhere, Flash will be HOT otherwise
+      num_threads = num_threads > 12 ? 12 : num_threads   # Cap it somewhere, Flash will be HOT otherwise
       output "Using #{num_threads} threads to clone the big files with #{work_items.size} parts"
 
-      # Each thread will operate using different port for "nc", build the port list
-      # We kind of assumed that port range (of typical size 16) is available on the nodes
-      start_port = (options[:port] || 7000).to_i
-      end_port = start_port + num_threads - 1
-      available_ports = Queue.new
-      for port in (start_port..end_port)
-        available_ports << port
-      end
-      output "Using Port range #{start_port}-#{end_port} for transfer"
+      port = options[:port]
+      # We only have one port available, so we use 'ncat' utility that allows us to
+      # exec per received connection.
+      #
+      # Now what we 'exec' is a ruby script called 'receiver.rb' that does all the
+      # ugly shell handling of the chain.  So, following command starts the ncat
+      # server on each receiver.  When it receives a connection it request, it
+      # is going to fork-exec the 'receiver' script, that handles the data transfer
+      #
+      cmd = "ncat --recv-only -lk #{port} -m 100 --sh-exec \"/opt/ruby/2.2.0/bin/ruby /usr/local/bin/receiver\""
+      receiver_cmd = "nohup #{cmd} > /dev/null 2>&1 &"
 
-      # Feed each thread a work and watch them when they finish.
+      targets.each do |target|
+        dir = destinations[target]
+        raise "Directory #{t}:#{dir} looks suspicious" if dir.include?('..') || dir.include?('./') || dir == '/' || dir == ''
+
+        target.ssh_cmd "mkdir -p #{dir}"
+
+        target.ssh_cmd(receiver_cmd)
+        target.confirm_listening_on_port(port, timeout = 30)
+      end
+
       workers = {}
       until work_items.empty?
         sleep(1)
         work_item = work_items.deq
-        port = available_ports.deq
         work_item['port'] = port
         worker = Thread.new { clone_part(work_item, base_dir, destinations) }
         workers[worker] = work_item
+        ensure_transfer_started(destinations, work_item)
 
         while workers.count >= num_threads
-          watch_progress(workers, available_ports, progress)
+          watch_progress(workers, progress)
         end
       end
 
+      output "All work items submitted for transfer"
       # All work items have been submitted for processing now,
       # Let us just wait for all of them to finish
       until workers.count == 0
-        watch_progress(workers, available_ports, progress)
+        watch_progress(workers, progress)
+      end
+
+      output "All work items transferred"
+      # OK !! done, lets kill the ncat servers started on all the targets
+      cmd_str = cmd.gsub!('"', '').strip
+      targets.each do |target|
+        target.ssh_cmd("pkill -f '#{cmd_str}'")
       end
 
       # Because we initiate the "dd" threads using root, the permissions of the
       # files are lost (owner:group).  We fix them now by querying for the same
       # at the source.
       # RE for stats output to extract the mode, user, group of the file
-      re = /^Access:\s+\((?<mode>\d+)\/[drwx-]+\)\s+Uid:\s+\(\s+\d+\/\s+(?<user>\w+)\)\s+Gid:\s+\(\s+\d+\/\s+(?<group>\w+)\)$/x
+      re = /^Access:\s+\((?<mode>\d+)\/[rwx-]+\)\s+Uid:\s+\(\s+\d+\/\s+(?<user>\w+)\)\s+Gid:\s+\(\s+\d+\/\s+(?<group>\w+)\)$/x
 
       filenames.each do |file, file_size|
         source_file = (base_dir + file).sub('/./', '/')
@@ -551,7 +591,6 @@ module Jetpants
         end
       end
     end
-
     # Quickly and efficiently recursively copies a directory to one or more target hosts using multiple threads
     #
     # This method first identifies the files that are larger than Jetpants.split_size (typical value: 10 GB),
@@ -588,6 +627,9 @@ module Jetpants
       end
       raise "No target hosts supplied" if targets.count < 1
 
+      # Make sure we find all ibd and tokudb files separately, those will be sent multi-threaded
+      # Let us append the base_dir to all entries without '/', actually we can append it to all,
+      # because fast_copy_chain first 'cd' to the base_dir and then tar it.
       multi_threaded_files = {}
 
       # RE to check if the file we are cloning is directory or a file.
@@ -601,7 +643,7 @@ module Jetpants
       re = /^Access:\s+\((?<mode>\d+)\/(?<permissions>[drwx-]+)\)\s+Uid:\s+\(\s+\d+\/\s+(?<user>\w+)\)\s+Gid:\s+\(\s+\d+\/\s+(?<group>\w+)\)$/x
 
       # Lets traverse the tree to find the files to send using multi-threaded approach
-      queue = filenames.map {|f| ['./', f]}
+      queue = filenames.map {|f| ['', f]}
       while (tuple = queue.shift)
         subdir, filename = tuple
 
@@ -612,8 +654,8 @@ module Jetpants
         tokens = result.match(re)
 
         # If it is a big file, add it for multi-threading and continue
-        if tokens['permissions'].split("")[0] == '-' and dir_list.first[1].to_i > $split_size
-            multi_threaded_files[subdir + '/' + filename] = dir_list.first[1].to_i
+        if tokens['permissions'].split("")[0] == '-' and dir_list.first[1].to_i > Jetpants.split_size
+            multi_threaded_files[subdir + filename] = dir_list.first[1].to_i
             next
         end
 
@@ -622,7 +664,7 @@ module Jetpants
             queue.concat([[subdir + filename + '/', name]])
             next
           elsif size.to_i > Jetpants.split_size
-            file_str = (subdir + filename + '/' + name).gsub("/./", "/")
+            file_str = (subdir + filename + '/' + name)
             multi_threaded_files[file_str] = size.to_i
           end
         end
@@ -651,7 +693,7 @@ module Jetpants
     def should_encrypt_with?(host)
       Jetpants.encrypt_file_transfers
     end
-    
+
     # Given the name of a directory or single file, returns a hash of filename => size of each file present.
     # Subdirectories will be returned with a size of '/', so you can process these differently as needed.
     # WARNING: This is brittle. It parses output of "ls". If anyone has a gem to do better remote file
@@ -667,7 +709,7 @@ module Jetpants
       end
       result
     end
-    
+
     # Compares file existence and size between hosts. Param format identical to
     # the first three params of Host#fast_copy_chain, except only supported option
     # is :files.
@@ -676,7 +718,7 @@ module Jetpants
       # Normalize the filenames param so it is an array
       filenames = options[:files] || ['.']
       filenames = [filenames] unless filenames.respond_to?(:each)
-      
+
       # Normalize the targets param, so that targets is an array of Hosts and
       # destinations is a hash of hosts => dirs
       destinations = {}
@@ -690,7 +732,7 @@ module Jetpants
         destinations = targets.inject({}) {|memo, target| memo[target] = base_dir; memo}
       end
       raise "No target hosts supplied" if targets.count < 1
-      
+
       queue = filenames.map {|f| ['', f]}  # array of [subdir, filename] pairs
       while (tuple = queue.shift)
         subdir, filename = tuple
@@ -705,7 +747,7 @@ module Jetpants
         queue.concat(source_dirlist.map {|name, size| size == '/' ? [subdir + '/' + name, '/'] : nil}.compact)
       end
     end
-    
+
     # Recursively computes size of files in dir
     def dir_size(dir)
       total_size = 0
@@ -718,7 +760,7 @@ module Jetpants
     def mount_stats(mount)
       mount_stats = {}
 
-      output = ssh_cmd "df -k " + mount + "|tail -1| awk '{print $2\",\"$3\",\"$4}'" 
+      output = ssh_cmd "df -k " + mount + "|tail -1| awk '{print $2\",\"$3\",\"$4}'"
       if output
         output = output.split(',').map{|s| s.to_i}
 
@@ -730,35 +772,35 @@ module Jetpants
         false
       end
     end
-    
+
     ###### Misc methods ########################################################
-    
+
     # Performs the given operation (:start, :stop, :restart, :status) for the
     # specified service (ie "mysql"). Requires that the "service" bin is in
     # root's PATH.
     # Please be aware that the output format and exit codes for the service
     # binary vary between Linux distros! You may find that you need to override
-    # methods that call Host#service with :status operation (such as 
-    # DB#probe_running) in a custom plugin, to parse the output properly on 
+    # methods that call Host#service with :status operation (such as
+    # DB#probe_running) in a custom plugin, to parse the output properly on
     # your chosen Linux distro.
     def service(operation, name, options='')
       ssh_cmd "service #{name} #{operation.to_s} #{options}".rstrip
     end
-    
+
     # Changes the I/O scheduler to name (such as 'deadline', 'noop', 'cfq')
     # for the specified device.
     def set_io_scheduler(name, device='sda')
       output "Setting I/O scheduler for #{device} to #{name}."
       ssh_cmd "echo '#{name}' >/sys/block/#{device}/queue/scheduler"
     end
-    
+
     # Confirms that the specified binary is installed and on the shell path.
     def confirm_installed(program_name)
       out = ssh_cmd "which #{program_name}"
       raise "#{program_name} not installed, or missing from path" if out =~ /no #{program_name} in /
       true
     end
-    
+
     # Checks if there's a process with the given process ID running on this host.
     # Optionally also checks if matching_string is contained in the process name.
     # Returns true if so, false if not.
@@ -771,7 +813,7 @@ module Jetpants
         ssh_cmd("ps --no-headers #{pid} | wc -l").chomp.to_i > 0
       end
     end
-    
+
     # Returns number of cores on machine. (reflects virtual cores if hyperthreading
     # enabled, so might be 2x real value in that case.)
     # Not currently used by anything in Jetpants base, but might be useful for plugins
@@ -781,7 +823,7 @@ module Jetpants
       count = ssh_cmd %q{cat /proc/cpuinfo|grep 'processor\s*:' | wc -l}
       @cores = (count ? count.to_i : 1)
     end
-    
+
     # Returns the amount of memory on machine, either in bytes (default) or in GB.
     # Linux-specific.
     def memory(in_gb=false)
@@ -792,7 +834,7 @@ module Jetpants
       size *= multipliers[matches[:unit].to_sym]
       in_gb ? size / 1024**3 : size
     end
-    
+
     # Returns the machine's hostname
     def hostname
       return 'unknown' unless available?
@@ -803,11 +845,11 @@ module Jetpants
     def to_s
       return @ip
     end
-    
+
     # Returns self, since this object is already a Host.
     def to_host
       self
     end
-    
+
   end
 end
