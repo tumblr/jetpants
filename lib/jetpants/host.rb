@@ -410,8 +410,8 @@ module Jetpants
       25.times do |sleep_time|
         result = ssh_cmd(cmd)
         if result.strip == "Found"
-          #ssh_cmd("cat #{$recv_param_location} > #{marker}")
           transfer_started = true
+          ssh_cmd("rm -f #{marker}")
           #output "Transfer chain started Marker: #{marker}"
           break
         else
