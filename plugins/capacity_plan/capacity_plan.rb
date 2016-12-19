@@ -111,8 +111,8 @@ module Jetpants
         output += "\n________________________________________________________________________________________________________\nAuto-Increment Checker\n\n"
         output += "Top 5 tables with Auto-Increment filling up are: \n"
         output += "%30s %20s %20s %20s %10s %15s\n" % ["Pool name", "Table name", "Column name", "Column type", "Fill ratio", "Current Max val"]
-        autoinc_history.each do |table, timestamp|
-          timestamp.each do |time, data|
+        autoinc_history.each do |hash_key, value|
+          value.each do |table, data|
             output += "%30s %20s %20s %20s %10s %15s\n" % [data["pool"], table, data["column_name"], data["column_type"], data["ratio"], data["max_val"]]
           end
         end
@@ -414,15 +414,16 @@ module Jetpants
 
       def get_autoinc_history(date)
         auto_inc_history = {}
-        @@db.query_return_array("select timestamp, pool, table_name, column_name, column_type, max_val, data_type_max, round((max_val / data_type_max), 2) as ratio from auto_inc_checker where from_unixtime(timestamp, '%Y-%m-%d') = '#{date}' group by table_name, pool order by ratio desc limit 5").each do |row|
-          auto_inc_history[row[:table_name]] ||= {}
-          auto_inc_history[row[:table_name]][row[:timestamp]] ||= {}
-          auto_inc_history[row[:table_name]][row[:timestamp]]['pool'] = row[:pool]
-          auto_inc_history[row[:table_name]][row[:timestamp]]['column_name'] = row[:column_name]
-          auto_inc_history[row[:table_name]][row[:timestamp]]['column_type'] = row[:column_type]
-          auto_inc_history[row[:table_name]][row[:timestamp]]['max_val'] = row[:max_val]
-          auto_inc_history[row[:table_name]][row[:timestamp]]['data_type_max'] = row[:data_type_max]
-          auto_inc_history[row[:table_name]][row[:timestamp]]['ratio'] = row[:ratio].to_f
+        @@db.query_return_array("select from_unixtime(timestamp, '%Y-%m-%d'), pool, table_name, column_name, column_type, max_val, data_type_max, round((max_val / data_type_max), 2) as ratio from auto_inc_checker where from_unixtime(timestamp, '%Y-%m-%d') = '#{date}' group by pool, table_name order by ratio desc limit 5").each do |row|
+          hash_key = row[:pool] + '.' + row[:table_name]
+          auto_inc_history[hash_key] ||= {}
+          auto_inc_history[hash_key][row[:table_name]] ||= {}
+          auto_inc_history[hash_key][row[:table_name]]['pool'] = row[:pool]
+          auto_inc_history[hash_key][row[:table_name]]['column_name'] = row[:column_name]
+          auto_inc_history[hash_key][row[:table_name]]['column_type'] = row[:column_type]
+          auto_inc_history[hash_key][row[:table_name]]['max_val'] = row[:max_val]
+          auto_inc_history[hash_key][row[:table_name]]['data_type_max'] = row[:data_type_max]
+          auto_inc_history[hash_key][row[:table_name]]['ratio'] = row[:ratio].to_f
         end
         return auto_inc_history
       end
