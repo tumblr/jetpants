@@ -519,7 +519,8 @@ module Jetpants
       core_counts = [cores]
       targets.each do |target| core_counts << target.cores end
       num_threads = core_counts.min - 2   # Leave 2 cores for OS
-      num_threads = num_threads > 12 ? 12 : num_threads   # Cap it somewhere, Flash will be HOT otherwise
+      num_threads = num_threads > 16 ? 16 : num_threads   # Cap it somewhere, Flash will be HOT otherwise
+      num_threads = targets.count > 1 ? 12 : num_threads # With chaining, we have senders on the intermediate receivers too
       output "Using #{num_threads} threads to clone the big files with #{work_items.size} parts"
 
       port = options[:port]
