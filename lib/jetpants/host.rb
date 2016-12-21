@@ -206,7 +206,7 @@ module Jetpants
       exclude_str = ""
       tar_options = ""
       if exclude_files.count > 0
-        exclude_str = "Excluding: (#{exclude_files.join(",")})"
+        exclude_str = "Excluding: (#{exclude_files.keys.join(",")})"
         tar_options = exclude_files.map { |file, size| "--exclude='#{file}'".sub("./", "") }.join ' '
       end
 
