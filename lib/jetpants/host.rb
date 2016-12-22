@@ -397,7 +397,7 @@ module Jetpants
       # Trigger the data transfer
       # Sender is going to read the transfer parameters from the specified
       # location and start the data transfer
-      ssh_cmd!("/opt/ruby/2.2.0/bin/ruby /usr/local/bin/sender")
+      ssh_cmd!("/opt/ruby/2.3/bin/ruby /usr/local/bin/sender")
     end
 
     def look_for_clone_marker(marker)
@@ -532,7 +532,7 @@ module Jetpants
       # server on each receiver.  When it receives a connection it request, it
       # is going to fork-exec the 'receiver' script, that handles the data transfer
       #
-      cmd = "ncat --recv-only -lk #{port} -m 100 --sh-exec \"/opt/ruby/2.2.0/bin/ruby /usr/local/bin/receiver\""
+      cmd = "ncat --recv-only -lk #{port} -m 100 --sh-exec \"/opt/ruby/2.3/bin/ruby /usr/local/bin/receiver\""
       receiver_cmd = "nohup #{cmd} > /dev/null 2>&1 &"
 
       targets.each do |target|
