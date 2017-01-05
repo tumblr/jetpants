@@ -128,7 +128,7 @@ module Jetpants
         html = '<html><head><meta http-equiv="content-type" content="text/html; charset=UTF-8"></head><body><pre style="font-size=20px;">' + output + '</pre></body></html>'
 
         if email
-          Pony.mail(:to => email, :from => 'jetpants', :subject => 'Jetpants Capacity Plan - '+Time.now.strftime("%m/%d/%Y %H:%M:%S"), :html_body => html)
+          Pony.mail(:to => email, :from => 'jetpants', :subject => 'Jetpants Capacity Plan - '+Time.now.strftime("%m/%d/%Y %H:%M:%S"), :html_body => html, :headers => {'X-category' => 'cronjobr'})
         end
       end
 
