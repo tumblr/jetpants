@@ -2,6 +2,7 @@ require 'capacity_plan/commandsuite'
 require 'json'
 require 'pony'
 require 'capacity_plan/monkeypatch'
+require 'kibi'
 
 module Jetpants
   module Plugin
@@ -36,6 +37,13 @@ module Jetpants
         mount_stats_storage = all_mounts
         now = Time.now.to_i
         output = ''
+
+        ##get segments for 24 hour blocks
+        segments = segmentify(history, 60 * 60 * 24)
+        total_mysql_dataset, total_growth_per_day = get_total_consumed_stg(mount_stats_storage, segments)
+
+        output += "\n\n________________________________________________________________________________________________________\n"
+        output += "Your MySQL data is #{total_mysql_dataset.first.round(2)}#{total_mysql_dataset.last}. It grew by #{total_growth_per_day.first.round(2)}#{total_growth_per_day.last} since yesterday"
 
         if Jetpants.topology.respond_to? :capacity_plan_notices
           output += "\n\n________________________________________________________________________________________________________\n"
@@ -186,6 +194,22 @@ module Jetpants
           all_mount_stats[p.name] ||= mount_stats
         end
         all_mount_stats
+      end
+
+      ## get the total MySQL dataset size across whole site
+      def get_total_consumed_stg(per_pool_consumed, segments)
+        total_consumed = 0
+        total_growth = 0
+        growth_rate = false
+        per_pool_consumed.each do |pool, storage|
+          total_consumed += storage["used"]
+          segments[pool].each do |range, value|
+            growth_rate = calc_avg(growth_rate || value, value)
+          end
+          total_growth += per_day(growth_rate)
+        end
+
+        return Kibi.humanize(total_consumed), Kibi.humanize(total_growth)
       end
 
       ## loop through data and enter it in mysql
