@@ -33,7 +33,7 @@ For more information on the command suite, please see doc/commands.rdoc ({view o
 * Utilize scriptable versions of all command suite functionality
 * Crawl replication topology programmatically
 * Import or export arbitrary portions of a data set
-* Copy large files quickly and efficiently, including to multiple simultaneous destinations
+* Copy large files quickly and efficiently, including to multiple simultaneous destinations.  Flexibility in terms of single threaded copy or multi-threaded copy is provided based on the resources available (large network bandwidth, PCIe flash devices).  Supporting scripts (jetpants_clone_sender and jetpants_clone_receiver) are present in <tt>bin/</tt> directory.
 * Manipulate server settings or concurrently execute arbitrary UNIX commands / administrative MySQL queries on multiple servers
 
 
@@ -64,6 +64,7 @@ Other recommended uses of plugins include integration with your site's monitorin
 If you are using \Collins for asset management, \Jetpants now ships with a plugin that offers integration. Please see doc/jetpants_collins.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/jetpants_collins.rdoc]) for usage.
 
 For more information on how to write plugins and use the Jetpants::CallbackHandler system, please see doc/plugins.rdoc ({view on GitHub}[https://github.com/tumblr/jetpants/blob/master/doc/plugins.rdoc])
+
 
 == FREQUENTLY ASKED QUESTIONS:
 

@@ -64,8 +64,8 @@ module Jetpants
     'innodb_flush_iops'       =>  2000,      # Value to set for innodb_io_capacity for fast mysql restarts, used in DB#Prepare_fast_shutdown, called in DB#Restart_mysql
     'block_size'              =>  524288,   # Block size for IO during clone operation
     'split_size'              =>  20 * 1024 * 1024 * 1024,  # 20GB: Size of each part to use to transfer data during clone operation
-    'recv_param_path'         =>  '/db-binlog/__ncat_clone_recv_params.yaml',  # File where receive parameters are stored
-    'send_param_path'         =>  '/db-binlog/__ncat_clone_send_params.yaml',  # File where send parameters are stored
+    'sender_bin_path'         =>  '/usr/local/bin/sender',    # 'sender' binary path
+    'receiver_bin_path'       =>  '/usr/local/bin/receiver',  # 'receiver' binary path
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
@@ -82,6 +82,10 @@ module Jetpants
       exit
     end
   end
+
+  # Files where send and receive parameters are stored during clone operation
+  @config['recv_param_path'] = "#{@config['export_location']}/__ncat_clone_recv_params.yaml"
+  @config['send_param_path'] = "#{@config['export_location']}/__ncat_clone_send_params.yaml"
 
   unless config_loaded
     puts "Could not find any readable configuration files at either /etc/jetpants.yaml or ~/.jetpants.yaml\n\n"

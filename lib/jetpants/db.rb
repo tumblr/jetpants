@@ -27,7 +27,6 @@ module Jetpants
     # Jetpants::Host object that this MySQL instance runs on.
     attr_reader :host
 
-    # WIP:
     # This is the host level attribute indicating whether to clone this host using
     # multi-threaded (faster) approach or not.  This probably is a little ugly way to
     # keep backward compatibility, but other ways (1.  passing the flag as an argument

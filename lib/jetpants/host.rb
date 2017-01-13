@@ -205,7 +205,7 @@ module Jetpants
       exclude_files = [exclude_files] unless exclude_files.respond_to?(:each)
       exclude_str = ""
       tar_options = ""
-      if exclude_files.count > 0
+      unless options[:exclude_files].nil?
         exclude_str = "Excluding: (#{exclude_files.keys.join(",")})"
         tar_options = exclude_files.map { |file, size| "--exclude='#{file}'".sub("./", "") }.join ' '
       end
@@ -307,7 +307,7 @@ module Jetpants
       free_mem_managers.each(&:exit)
 
       # Verify
-      if options[:exclude_files].keys.count == 0
+      if options[:exclude_files].nil?
         output "Verifying file sizes and types on all destinations."
         compare_dir base_dir, destinations, options
         output "Verification successful."
@@ -397,7 +397,7 @@ module Jetpants
       # Trigger the data transfer
       # Sender is going to read the transfer parameters from the specified
       # location and start the data transfer
-      ssh_cmd!("/opt/ruby/2.3/bin/ruby /usr/local/bin/sender")
+      ssh_cmd!("#{Jetpants.sender_bin_path}")
     end
 
     def look_for_clone_marker(marker)
@@ -434,7 +434,7 @@ module Jetpants
     # existance of a file at the last node in the chain.
     def ensure_transfer_started(targets, work_item)
       targets = targets.keys
-      marker = "/db-binlog/__#{work_item['transfer_id']}.success"
+      marker = "#{Jetpants.export_location}/__#{work_item['transfer_id']}.success"
 
       look_for_clone_marker(marker)
       targets.each do |target|
@@ -519,8 +519,7 @@ module Jetpants
       core_counts = [cores]
       targets.each do |target| core_counts << target.cores end
       num_threads = core_counts.min - 2   # Leave 2 cores for OS
-      num_threads = num_threads > 16 ? 16 : num_threads   # Cap it somewhere, Flash will be HOT otherwise
-      num_threads = targets.count > 1 ? 12 : num_threads # With chaining, we have senders on the intermediate receivers too
+      num_threads = num_threads > 12 ? 12 : num_threads   # Cap it somewhere, Flash will be HOT otherwise
       output "Using #{num_threads} threads to clone the big files with #{work_items.size} parts"
 
       port = options[:port]
@@ -532,7 +531,7 @@ module Jetpants
       # server on each receiver.  When it receives a connection it request, it
       # is going to fork-exec the 'receiver' script, that handles the data transfer
       #
-      cmd = "ncat --recv-only -lk #{port} -m 100 --sh-exec \"/opt/ruby/2.3/bin/ruby /usr/local/bin/receiver\""
+      cmd = "ncat --recv-only -lk #{port} -m 100 --sh-exec \"#{Jetpants.receiver_bin_path}\""
       receiver_cmd = "nohup #{cmd} > /dev/null 2>&1 &"
 
       targets.each do |target|
@@ -577,18 +576,17 @@ module Jetpants
       # files are lost (owner:group).  We fix them now by querying for the same
       # at the source.
       # RE for stats output to extract the mode, user, group of the file
-      re = /^Access:\s+\((?<mode>\d+)\/[rwx-]+\)\s+Uid:\s+\(\s+\d+\/\s+(?<user>\w+)\)\s+Gid:\s+\(\s+\d+\/\s+(?<group>\w+)\)$/x
 
       filenames.each do |file, file_size|
         source_file = (base_dir + file).sub('/./', '/')
         result = ssh_cmd("stat #{source_file}").split("\n")[3]
-        tokens = result.match(re)
-        raise "Could not get stats for source #{source_file}.  Clone is almost done, you can fix it manually" if tokens.nil?
+        mode_stats = get_file_stats(source_file)
+        raise "Could not get stats for source #{source_file}.  Clone is almost done, you can fix it manually" if mode_stats.nil?
         destinations.each do |target, dir|
           target_file = (dir + file).sub('/./', '/')
           raise "Invalid target file #{target_file} on Target #{target}.  Clone is almost done, you can fix it manually" if dir == '/' || dir == ''
-          target.ssh_cmd("chmod #{tokens['mode']} #{target_file}")
-          target.ssh_cmd("chown #{tokens['user']}:#{tokens['group']} #{target_file}")
+          target.ssh_cmd("chmod #{mode_stats['mode']} #{target_file}")
+          target.ssh_cmd("chown #{mode_stats['user']}:#{mode_stats['group']} #{target_file}")
         end
       end
     end
@@ -633,7 +631,7 @@ module Jetpants
       # because fast_copy_chain first 'cd' to the base_dir and then tar it.
       multi_threaded_files = {}
 
-      # RE to check if the file we are cloning is directory or a file.
+      # Check if the file we are cloning is directory or a file.
       # The problem with dir_list is that it cannot convincingly tell if
       # the name is directory or file, where "/" is not helpful. eg.
       # if you have a 'test' directory and a file named 'test' under it
@@ -641,8 +639,6 @@ module Jetpants
       # And if you have 'test' file at the same location, it still returns
       # the same.  So, it can't tell whether the output 'test' file is under
       # the directory or not, coz it does not retain the whole directory path
-      re = /^Access:\s+\((?<mode>\d+)\/(?<permissions>[drwx-]+)\)\s+Uid:\s+\(\s+\d+\/\s+(?<user>\w+)\)\s+Gid:\s+\(\s+\d+\/\s+(?<group>\w+)\)$/x
-
       # Lets traverse the tree to find the files to send using multi-threaded approach
       queue = filenames.map {|f| ['', f]}
       while (tuple = queue.shift)
@@ -651,11 +647,10 @@ module Jetpants
         pathname = base_dir + '/' + subdir + '/' + filename;
         dir_list = dir_list(pathname)
 
-        result = ssh_cmd("stat #{pathname}").split("\n")[3]
-        tokens = result.match(re)
+        perm_stats = get_file_stats(pathname)
 
         # If it is a big file, add it for multi-threading and continue
-        if tokens['permissions'].split("")[0] == '-' and dir_list.first[1].to_i > Jetpants.split_size
+        if perm_stats['permissions'].split("")[0] == '-' and dir_list.first[1].to_i > Jetpants.split_size
             multi_threaded_files[subdir + filename] = dir_list.first[1].to_i
             next
         end
@@ -786,6 +781,17 @@ module Jetpants
     # your chosen Linux distro.
     def service(operation, name, options='')
       ssh_cmd "service #{name} #{operation.to_s} #{options}".rstrip
+    end
+
+    # `stat` call to get all the information about the given file
+    def get_file_stats(filename)
+      mode_re = /^Access:\s+\((?<mode>\d+)\/(?<permissions>[drwx-]+)\)\s+Uid:\s+\(\s+\d+\/\s+(?<user>\w+)\)\s+Gid:\s+\(\s+\d+\/\s+(?<group>\w+)\)$/x
+      result = ssh_cmd("stat #{filename}").split("\n")
+      mode_line = result[3]
+      tokens = mode_line.match(mode_re)
+
+      # Later when we need more info we will merge hashes obtained from REs
+      tokens
     end
 
     # Changes the I/O scheduler to name (such as 'deadline', 'noop', 'cfq')
