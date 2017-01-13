@@ -388,10 +388,18 @@ module Jetpants
           ignore_list.map! { |p| Jetpants.topology.pool(p) }
           pools_list = Jetpants.topology.pools.reject { |p| ignore_list.include? p }
         end
+        query = %Q|
+          SELECT * 
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA NOT IN 
+            ('mysql', 'information_schema', 'performance_schema') AND 
+            LOCATE('auto_increment', EXTRA) > 0 and 
+            TABLE_SCHEMA = 'tumblr3'
+        |
         pools_list.each do |p|
           slave = p.standby_slaves.first
-          if !slave.nil?
-            slave.query_return_array("SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema') AND LOCATE('auto_increment', EXTRA) > 0 and TABLE_SCHEMA = 'tumblr3'").each do |row|
+          if !slave.nil?  
+            slave.query_return_array(query).each do |row|
               table_name = row[:TABLE_NAME]
               schema_name = row[:TABLE_SCHEMA]
               column_name = row[:COLUMN_NAME]
@@ -414,7 +422,19 @@ module Jetpants
 
       def get_autoinc_history(date)
         auto_inc_history = {}
-        @@db.query_return_array("select from_unixtime(timestamp, '%Y-%m-%d'), pool, table_name, column_name, column_type, max_val, data_type_max, round((max_val / data_type_max), 2) as ratio from auto_inc_checker where from_unixtime(timestamp, '%Y-%m-%d') = '#{date}' group by pool, table_name order by ratio desc limit 5").each do |row|
+        query = %Q|
+          select 
+            from_unixtime(timestamp, '%Y-%m-%d'), pool, table_name,
+            column_name, column_type, max_val, data_type_max,
+            round((max_val / data_type_max), 2) as ratio 
+          from auto_inc_checker 
+          where from_unixtime(timestamp, '%Y-%m-%d') = '#{date}' 
+          group by pool, table_name 
+          order by ratio desc 
+          limit 5
+        |
+
+        @@db.query_return_array(query).each do |row|
           hash_key = row[:pool] + '.' + row[:table_name]
           auto_inc_history[hash_key] ||= {}
           auto_inc_history[hash_key][row[:table_name]] ||= {}
