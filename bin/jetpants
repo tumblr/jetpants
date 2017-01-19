@@ -831,10 +831,11 @@ module Jetpants
       end
     end
 
-   # This is particularly useful during merge, split, activate_slave, pull_slave operations to keep an eye on the commands
+    # This is particularly useful during merge, split, activate_slave, pull_slave operations to keep an eye on the commands
     desc 'watch_commands', 'Outputs number of SELECT and INSERT commands executed on each node in the list'
+    method_option :targets, :desc => 'Comma-separated list of nodes to watch (IPs or Hostnames)'
     def watch_commands
-      targets = ask('Please enter comma-separated list of nodes to watch(IPs or Hostnames): ')
+      targets = options[:targets] || ask('Please enter comma-separated list of nodes to watch(IPs or Hostnames): ')
       nodes_array = []
       targets.chomp.split(',').map do |target|
         if target.to_db && target.to_db.running?
@@ -853,7 +854,7 @@ module Jetpants
 
       header = " %10s " % [" "]
       nodes_array.each do |node|
-        header += " %30s " % [node.ip]
+        header += " %44s " % [node.ip]
       end
 
       Signal.trap("INT") {
