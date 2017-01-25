@@ -35,7 +35,11 @@ module Jetpants
       my_shards = shards(shard_pool).dup
 
       ui = PreflightShardUI.new(my_shards)
-      ui.run! { |shard,_| shard.rename_table(database, orig_table, copy_table) }
+      ui.run! do |shard,stage|
+        # If we're past preflight, we want to not prompt the confirmation.
+        force = stage == :all
+        shard.rename_table(database, orig_table, copy_table, force)
+      end
     end
   end
 end

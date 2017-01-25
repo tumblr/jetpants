@@ -17,6 +17,8 @@ module Jetpants
     # But if you're looking to _use_ the username, you should be calling either of those functions.
     PT_OSC_USERNAME = 'pt-osc'
 
+    @no_prompts = false
+
     def create_ptosc_user database
       username = PT_OSC_USERNAME
       password = DB.random_password
@@ -209,7 +211,9 @@ module Jetpants
       master.query_return_array(query).map { |row| row[:TABLE_NAME] }
     end
 
-    def rename_table(database, orig_table, copy_table)
+    def rename_table(database, orig_table, copy_table, force=false)
+      @no_prompts = force
+
       if Jetpants.plugin_enabled? 'jetpants_collins'
         raise "Collins doesn't indicate we need a rename? #{@name}" unless collins_check_needs_rename?
       end
@@ -267,8 +271,12 @@ module Jetpants
       begin
         wait_for_all_slaves "Carefully: #{msg}".red
 
-        unless agree("Do you want to immediately: #{msg}? (YES/no)")
-          raise "Definitely did not want to run this!"
+        if @no_prompts
+          output "Running without prompt: #{msg}".green
+        else
+          unless agree("Do you want to immediately: #{msg}? (YES/no)")
+            raise "Definitely did not want to run this!"
+          end
         end
 
         yield
