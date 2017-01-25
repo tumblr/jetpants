@@ -21,6 +21,7 @@ module Jetpants
   # Establish default configuration values, and then merge in whatever we find globally
   # in /etc/jetpants.yaml and per-user in ~/.jetpants.yaml
   @config = {
+    'debug'                   =>  !!ENV['JETPANTS_DEBUG'], # Debug mode (defaults to false)
     'max_concurrency'         =>  20,         # max threads/conns per database
     'standby_slaves_per_pool' =>  2,          # number of standby slaves in every pool
     'backup_slaves_per_pool'  =>  1,          # number of backup slaves in every pool
