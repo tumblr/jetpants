@@ -22,7 +22,7 @@ module Jetpants
         datadir = mysql_root_cmd('select @@datadir;').chomp("\n/")
         mysql_root_cmd("PURGE BINARY LOGS BEFORE NOW();") rescue nil
       else
-        datadir = '/var/lib/mysql'
+        datadir = Jetpants.mysql_datadir
       end
 
       stop_mysql
@@ -40,7 +40,7 @@ module Jetpants
     end
 
     ##### CALLBACKS ############################################################
-    
+
     # Determine master from asset tracker if machine is unreachable or MySQL isn't running.
     def after_probe_master
       unless @running
@@ -48,14 +48,13 @@ module Jetpants
         @master = (my_role == 'MASTER' ? false : my_pool.master)
       end
     end
-    
+
     # Determine slaves from asset tracker if machine is unreachable or MySQL isn't running
     def after_probe_slaves
       unless @running
         @slaves = Jetpants.topology.tracker.determine_slaves(@ip, @port)
       end
     end
-    
+
   end
 end
-
