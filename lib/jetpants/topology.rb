@@ -1,5 +1,5 @@
 module Jetpants
-  
+
   # Topology maintains a list of all DB pools/shards, and is responsible for
   # reading/writing configurations and manages spare box assignments.
   # Much of this behavior needs to be overridden by a plugin to actually be
@@ -40,7 +40,7 @@ module Jetpants
     end
 
     ###### Class methods #######################################################
-    
+
     # Metaprogramming hackery to create a "synchronized" method decorator
     # Each method has as unique mutex
     def self.lock_for_method(method)
@@ -59,7 +59,7 @@ module Jetpants
       def synchronized
         @do_sync = true
       end
-      
+
       def method_added(name)
         if @do_sync || @synchronized_methods[name]
           @do_sync = false
@@ -75,8 +75,8 @@ module Jetpants
         end
       end
     end
-    
-    
+
+
     ###### Overridable methods ################################################
     # Plugins should override these if the behavior is needed. (Note that plugins
     # don't need to repeat the "synchronized" decorator; it automatically
@@ -113,7 +113,7 @@ module Jetpants
     def write_config
       output "Notice: no plugin has overridden Topology#write_config, so configuration data is *not* saved"
     end
-    
+
     synchronized
     # Plugin should override so that this returns an array of [count] Jetpants::DB
     # objects, or throws an exception if not enough left.
@@ -129,7 +129,7 @@ module Jetpants
     def claim_spares(count, options={})
       raise "Plugin must override Topology#claim_spares"
     end
-    
+
     synchronized
     # Plugin should override so that this returns a count of spare machines
     # matching the selected options. options hash follows same format as for
@@ -150,28 +150,28 @@ module Jetpants
     def valid_roles
       [:master, :active_slave, :standby_slave, :backup_slave]
     end
-    
+
     # Returns a list of valid role symbols which indicate a slave status
     def slave_roles
       valid_roles.reject {|r| r == :master}
     end
-    
+
     ###### Instance Methods ####################################################
-    
+
     # Returns array of this topology's Jetpants::Pool objects of type Jetpants::Shard
     def shards(shard_pool_name = nil)
       if shard_pool_name.nil?
-        shard_pool_name = default_shard_pool 
+        shard_pool_name = default_shard_pool
         output "Using default shard pool #{default_shard_pool}"
       end
       pools.select {|p| p.is_a? Shard}.select { |p| p.shard_pool && p.shard_pool.name.downcase == shard_pool_name.downcase }
     end
-    
+
     # Returns array of this topology's Jetpants::Pool objects that are NOT of type Jetpants::Shard
     def functional_partitions
       pools.reject {|p| p.is_a? Shard}
     end
-    
+
     # Finds and returns a single Jetpants::Pool. Target may be a name (string, case insensitive)
     # or master (DB object).
     def pool(target)
@@ -181,7 +181,7 @@ module Jetpants
         pools.select {|p| p.name.downcase == target.downcase}.first
       end
     end
-    
+
     # Finds and returns a single Jetpants::Shard
     def shard(min_id, max_id, shard_pool_name = nil)
       shard_pool_name = default_shard_pool if shard_pool_name.nil?
@@ -200,7 +200,7 @@ module Jetpants
     def shard_pool(name)
       shard_pools.select{|sp| sp.name.downcase == name.downcase}.first
     end
-    
+
     # Returns the Jetpants::Shard that handles the given ID.
     # During a shard split, if the child isn't "in production" yet (ie, it's
     # still being built), this will always return the parent shard. Once the
@@ -211,7 +211,7 @@ module Jetpants
       shard_pool = default_shard_pool if shard_pool.nil?
       choices = shards(shard_pool).select {|s| s.min_id <= id && (s.max_id == 'INFINITY' || s.max_id >= id)}
       choices.reject! {|s| s.parent && ! s.in_config?} # filter out child shards that are still being built
-      
+
       # Preferentially return child shards at this point
       if choices.any? {|s| s.parent}
         choices.select {|s| s.parent}.first
@@ -219,24 +219,24 @@ module Jetpants
         choices.first
       end
     end
-    
+
     # Returns the Jetpants::DB that handles the given ID with the specified
     # mode (either :read or :write)
     def shard_db_for_id(id, mode=:read, shard_pool = nil)
       shard_for_id(id, shard_pool).db(mode)
     end
-    
+
     # Nicer inteface into claim_spares when only one DB is desired -- returns
     # a single Jetpants::DB object instead of an array.
     def claim_spare(options={})
       claim_spares(1, options)[0]
     end
-    
+
     # Returns if the supplied role is valid
     def valid_role? role
       valid_roles.include? role.to_s.downcase.to_sym
     end
-    
+
     # Converts the supplied roles (strings or symbols) into lowercase symbol versions
     # Will expand out special role of :slave to be all slave roles.
     def normalize_roles(*roles)
@@ -244,7 +244,7 @@ module Jetpants
       roles.each {|r| raise "#{r} is not a valid role" unless valid_role? r}
       roles.uniq.map &:to_sym
     end
-    
+
     synchronized
     # Clears the pool list and nukes cached DB and Host object lookup tables
     def clear
@@ -253,7 +253,7 @@ module Jetpants
       DB.clear
       Host.clear
     end
-    
+
     # Empties and then reloads the pool list
     def refresh
       clear
