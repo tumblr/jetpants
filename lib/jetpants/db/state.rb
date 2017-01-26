@@ -1,9 +1,9 @@
 module Jetpants
-  
+
   #--
   # State accessors ############################################################
   #++
-  
+
   class DB
     # Returns the Jetpants::DB instance that is the master of this instance, or false if
     # there isn't one, or nil if we can't tell because this instance isn't running.
@@ -12,7 +12,7 @@ module Jetpants
       probe if @master.nil?
       @master
     end
-    
+
     # Returns an Array of Jetpants::DB instances that are slaving from this instance,
     # or nil if we can't tell because this instance isn't running.
     def slaves
@@ -20,7 +20,7 @@ module Jetpants
       probe if @slaves.nil?
       @slaves
     end
-    
+
     # Returns true if replication is paused on this instance, false if it isn't, or
     # nil if this instance isn't a slave (or if we can't tell because the instance
     # isn't running)
@@ -37,7 +37,7 @@ module Jetpants
       probe if @running.nil?
       @running
     end
-    
+
     # Returns true if we've probed this MySQL instance already.  Several
     # methods trigger a probe, including master, slaves, repl_paused?, and
     # running?.
@@ -65,10 +65,10 @@ module Jetpants
       }
       self
     end
-    
+
     # Alias for probe(true)
     def probe!() probe(true) end
-    
+
     # Returns true if the MySQL slave I/O thread and slave SQL thread are
     # both running, false otherwise.  Note that this always checks the current
     # actual state of the instance, as opposed to DB#repl_paused? which just
@@ -129,7 +129,7 @@ module Jetpants
         sum.to_f/tries.to_f
       end
     end
-    
+
     # Confirms the binlog of this node has not moved during a duration
     # of [interval] seconds.
     def taking_writes?(interval=5.0)
@@ -146,7 +146,7 @@ module Jetpants
         coords != binlog_coordinates
       end
     end
-    
+
     # Returns true if this instance appears to be a standby slave,
     # false otherwise. Note that "standby" in this case is based
     # on whether the slave is actively receiving connections, not
@@ -156,7 +156,7 @@ module Jetpants
     def is_standby?
       !(running?) || (is_slave? && !taking_connections?)
     end
-    
+
     # Jetpants supports a notion of dedicated backup machines, containing one
     # or more MySQL instances that are considered "backup slaves", which will
     # never be promoted to serve production queries.  The default
@@ -182,7 +182,7 @@ module Jetpants
     def promotable_to_master?(enslaving_old_master=true)
       pool(true).promotable_nodes(enslaving_old_master).include? self
     end
-    
+
     # Returns a hash mapping global MySQL variables (as symbols)
     # to their values (as strings).
     def global_variables
@@ -191,16 +191,16 @@ module Jetpants
         variables
       end
     end
-    
+
     # Returns a hash mapping global MySQL status fields (as symbols)
     # to their values (as strings).
     def global_status
       query_return_array('show global status').reduce do |variables, variable|
         variables[variable[:Variable_name].to_sym] = variable[:Value]
-        variables      
+        variables
       end
     end
-    
+
     # Returns an array of integers representing the version of the MySQL server.
     # For example, Percona Server 5.5.27-rel28.1-log would return [5, 5, 27]
     def version_tuple
@@ -218,7 +218,7 @@ module Jetpants
       end
       result
     end
-    
+
     # Return a string representing the version. The precision indicates how
     # many major/minor version numbers to return.
     # ie, on 5.5.29, normalized_version(3) returns '5.5.29',
@@ -227,7 +227,7 @@ module Jetpants
       raise "Invalid precision #{precision}" if precision < 1 || precision > 3
       version_tuple[0, precision].join('.')
     end
-    
+
     # Returns -1 if self is running a lower version than db; 1 if self is running
     # a higher version; and 0 if running same version.
     def version_cmp(db, precision=2)
@@ -240,7 +240,7 @@ module Jetpants
       end
       0
     end
-    
+
     # Returns the Jetpants::Pool that this instance belongs to, if any.
     # Can optionally create an anonymous pool if no pool was found. This anonymous
     # pool intentionally has a blank sync_configuration implementation.
@@ -256,7 +256,7 @@ module Jetpants
       end
       result
     end
-    
+
     # Determines the DB's role in its pool. Returns either :master,
     # :active_slave, :standby_slave, or :backup_slave.
     #
@@ -271,7 +271,7 @@ module Jetpants
       probe unless probed?
       p = pool
       case
-      when !@master then :master                                # nodes that aren't slaves (including orphans) 
+      when !@master then :master                                # nodes that aren't slaves (including orphans)
       when p && p.master == self then :master                   # nodes that the topology thinks are masters
       when for_backups? then :backup_slave
       when p && p.active_slave_weights[self] then :active_slave # if pool in topology, determine based on expected/ideal state
@@ -279,16 +279,16 @@ module Jetpants
       else :standby_slave
       end
     end
-    
+
     # Returns the data set size in bytes (if in_gb is false or omitted) or in gigabytes
     # (if in_gb is true).  Note that this is actually in gibibytes (2^30) rather than
-    # a metric gigabyte.  This puts it on the same scale as the output to tools like 
+    # a metric gigabyte.  This puts it on the same scale as the output to tools like
     # "du -h" and "df -h".
     def data_set_size(in_gb=false)
       bytes = dir_size("#{mysql_directory}/#{app_schema}") + dir_size("#{mysql_directory}/ibdata1")
       in_gb ? (bytes / 1073741824.0).round : bytes
     end
-    
+
     def mount_stats(mount=false)
       mount ||= mysql_directory
 
@@ -368,9 +368,9 @@ module Jetpants
     end
 
     ###### Private methods #####################################################
-    
+
     private
-    
+
     # Check if mysqld is running.
     # If your Linux distro's implementation of "service" returns output formatted
     # differently than what we check for here (which matches RHEL and Ubuntu),
@@ -386,7 +386,7 @@ module Jetpants
         @running = false
       end
     end
-    
+
     # Checks slave status to determine master and whether replication is paused
     # An asset-tracker plugin may want to implement DB#after_probe_master to
     # populate @master even if @running is false.
@@ -409,7 +409,7 @@ module Jetpants
         end
       end
     end
-    
+
     # Check processlist as root to determine replication clients.  This assumes
     # you're running only one MySQL instance per machine, and all MySQL instances
     # use the standard port 3306.  This is a limitation of SHOW PROCESSLIST not
@@ -419,14 +419,14 @@ module Jetpants
     # populate @slaves even if @running is false.
     #
     # Plugins may want to override DB#probe_slaves itself too, if running multiple
-    # MySQL instances per physical machine. In this case you'll want to use 
+    # MySQL instances per physical machine. In this case you'll want to use
     # SHOW SLAVE HOSTS, and all slaves must be using the --report-host option if
     # using MySQL < 5.5.3.
     def probe_slaves
       return unless @running # leaves @slaves as nil to indicate unknown state
       @slaves = []
       processes = mysql_root_cmd("SHOW PROCESSLIST", :terminator => ';').split("\n")
-      
+
       # We have to de-dupe the output, since it's possible in weird edge cases for
       # the same slave to be listed twice
       ips = {}
@@ -435,7 +435,7 @@ module Jetpants
         ip, dummy = tokens[2].split ':'
         ips[ip] = true
       end
-      
+
       ips.keys.concurrent_each do |ip|
         db = ip.to_db
         db.probe
