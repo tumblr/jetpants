@@ -124,6 +124,7 @@ module Jetpants
       cmd.each do |c|
         failures = 0
         begin
+          output "Executing (attempt #{failures + 1} / #{attempts}) on #{@ip}: #{c}" if Jetpants.debug
           result = conn.exec! c do |ch, stream, data|
             if stream == :stderr
               output "SSH ERROR: #{data}"

@@ -21,6 +21,7 @@ module Jetpants
   # Establish default configuration values, and then merge in whatever we find globally
   # in /etc/jetpants.yaml and per-user in ~/.jetpants.yaml
   @config = {
+    'debug'                   =>  !!ENV['JETPANTS_DEBUG'], # Debug mode (defaults to false)
     'max_concurrency'         =>  20,         # max threads/conns per database
     'standby_slaves_per_pool' =>  2,          # number of standby slaves in every pool
     'backup_slaves_per_pool'  =>  1,          # number of backup slaves in every pool
@@ -33,6 +34,7 @@ module Jetpants
     'mysql_grant_ips'         =>  ['192.168.%'],  # mysql user manipulations are applied to these IPs
     'mysql_grant_privs'       =>  ['ALL'],    # mysql user manipulations grant this set of privileges by default
     'mysql_clone_ignore'      =>  ['information_schema', 'performance_schema'], # these schemata will be ignored during cloning
+    'mysql_datadir'           =>  '/var/lib/mysql', # Default MySQL data directory location
     'export_location'         =>  '/tmp',     # directory to use for data dumping
     'verify_replication'      =>  true,       # raise exception if the 2 repl threads are in different states, or if actual repl topology differs from Jetpants' understanding of it
     'plugins'                 =>  {},         # hash of plugin name => arbitrary plugin data (usually a nested hash of settings)
@@ -91,7 +93,7 @@ module Jetpants
     puts "Could not find any readable configuration files at either /etc/jetpants.yaml or ~/.jetpants.yaml\n\n"
     exit
   end
-  
+
   class << self
     include Output
 
@@ -103,7 +105,7 @@ module Jetpants
     def plugin_enabled?(plugin_name)
       @config['plugins'].has_key? plugin_name
     end
-    
+
     # Returns a hash containing :user => username string, :pass => password string
     # for the MySQL application user, as found in Jetpants' configuration. Plugins
     # may freely override this if there's a better way to obtain this password --
@@ -112,7 +114,7 @@ module Jetpants
     def app_credentials
       {user: @config['mysql_app_user'], pass: @config['mysql_app_password']}
     end
-    
+
     # Returns a hash containing :user => username string, :pass => password string
     # for the MySQL replication user, as found in Jetpants' configuration. Plugins
     # may freely override this if there's a better way to obtain this password --
@@ -122,7 +124,7 @@ module Jetpants
     def replication_credentials
       {user: @config['mysql_repl_user'], pass: @config['mysql_repl_password']}
     end
-    
+
     # Proxy missing top-level Jetpants methods to the configuration hash,
     # or failing that, to the Topology singleton.
     def method_missing(name, *args, &block)
@@ -137,7 +139,7 @@ module Jetpants
         super
       end
     end
-    
+
     def respond_to?(name, include_private=false)
       super || @config[name] || @topology.respond_to?(name)
     end

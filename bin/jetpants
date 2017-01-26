@@ -467,12 +467,20 @@ module Jetpants
 
     desc 'shard_offline', 'mark a shard as offline (not readable or writable)'
     method_option :min_id, :desc => 'Minimum ID of shard to mark as offline'
+    method_option :max_id, :desc => 'Maximum ID of shard to mark as offline'
+    method_option :shard_pool, :desc => 'The pool of the shard to mark as offline'
     def shard_offline
+      shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to mark offline (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
+      shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
+      shard_pool = shard_pool.dup
+      output "Using shard pool `#{shard_pool}`"
+
       shard_min = options[:min_id] || ask('Please enter min ID of the shard: ')
-      s = Jetpants.topology.shard shard_min
-      raise "Shard not found" unless s
-      s.state = :offline
-      s.sync_configuration
+      shard_max = options[:max_id] || ask('Please enter max ID of the shard: ')
+      shard = Jetpants.topology.shard shard_min, shard_max, shard_pool
+      raise "Shard not found" unless shard
+      shard.state = :offline
+      shard.sync_configuration
       Jetpants.topology.write_config
     end
 
@@ -674,6 +682,7 @@ module Jetpants
       new_last_shard_master.import_schemata!
 
       # regen config file
+      new_last_shard.sync_configuration
       Jetpants.topology.write_config
     end
     def self.after_shard_cutover
@@ -834,10 +843,11 @@ module Jetpants
       end
     end
 
-   # This is particularly useful during merge, split, activate_slave, pull_slave operations to keep an eye on the commands
+    # This is particularly useful during merge, split, activate_slave, pull_slave operations to keep an eye on the commands
     desc 'watch_commands', 'Outputs number of SELECT and INSERT commands executed on each node in the list'
+    method_option :targets, :desc => 'Comma-separated list of nodes to watch (IPs or Hostnames)'
     def watch_commands
-      targets = ask('Please enter comma-separated list of nodes to watch(IPs or Hostnames): ')
+      targets = options[:targets] || ask('Please enter comma-separated list of nodes to watch(IPs or Hostnames): ')
       nodes_array = []
       targets.chomp.split(',').map do |target|
         if target.to_db && target.to_db.running?
@@ -856,7 +866,7 @@ module Jetpants
 
       header = " %10s " % [" "]
       nodes_array.each do |node|
-        header += " %30s " % [node.ip]
+        header += " %44s " % [node.ip]
       end
 
       Signal.trap("INT") {
