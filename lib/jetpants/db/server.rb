@@ -1,9 +1,9 @@
 module Jetpants
-  
+
   #--
   # MySQL server manipulation methods ##########################################
   #++
-  
+
   class DB
 
     # options to pass to MySQL on start
@@ -31,7 +31,7 @@ module Jetpants
     # OK to use this if MySQL is already stopped; it's a no-op then.
     def stop_mysql
       output "Attempting to shutdown MySQL"
-      
+
       # Ensure GTID-related variables persist across a planned restart. This is needed regardless
       # of any plugins rewriting my.cnf based on pool membership, since there are scenarios
       # involving new nodes needing correct gtid_mode *prior* to Pool#sync_configuration being
@@ -44,7 +44,7 @@ module Jetpants
       if gtid_deployment_step?
         add_start_option '--loose-gtid-deployment-step=1'
       end
-      
+
       disconnect if @db
       output service(:stop, 'mysql')
       running = ssh_cmd "netstat -ln | grep \":#{@port}\\s\" | wc -l"
@@ -52,7 +52,7 @@ module Jetpants
       @options = []
       @running = false
     end
-    
+
     # Starts MySQL, and confirms that something is now listening on the port.
     # Raises an exception if MySQL is already running or if something else is
     # already running on its port.
@@ -79,13 +79,13 @@ module Jetpants
         disable_read_only!
       end
     end
-    
+
     # Restarts MySQL.
     def restart_mysql(*options)
       if @master
         @repl_paused = options.include?('--skip-slave-start')
       end
-      
+
       # Ensure that GTID-related variables persist across a planned restart. This is needed regardless
       # of any Pool#rewrite_options_files_for_gtid_rollout implementation since there are scenarios
       # involving new nodes needing correct gtid_mode *prior* to Pool#sync_configuration being
@@ -96,7 +96,7 @@ module Jetpants
       if gtid_deployment_step?
         options << '--loose-gtid-deployment-step=1'
       end
-      
+
       # DB#Restart_mysql has the ability to do a fast restart using mechanism specified at
       # https://www.percona.com/blog/2009/04/15/how-to-decrease-innodb-shutdown-times/
       # If called with an argument to DB#Restart_mysql, the function will use innodb_flush_iops
@@ -111,7 +111,7 @@ module Jetpants
         user, schema = @user, @schema
         disconnect
       end
-      
+
       if options.size == 0
         output "Attempting to restart MySQL, no option overrides supplied"
       else
@@ -123,7 +123,7 @@ module Jetpants
       @running = true
       unless @options.include?('--skip-networking')
         disable_read_only! if role == :master
-        
+
         # Reconnect if we were previously connected
         connect(user: user, schema: schema) if user || schema
       end
@@ -131,7 +131,7 @@ module Jetpants
 
     # DB#Flush_innodb_cache function flushes the dirty pages from Innodb
     # buffer pool aggressively. This function should mostly be used in
-    # conjunction with DB#Restart_mysql where, flushing pages prior to 
+    # conjunction with DB#Restart_mysql where, flushing pages prior to
     # restart reduces the time require to shutdown MySQL there-by reducing
     # the restart times.
     def flush_innodb_cache(timeout=1800, poll_frequency=30)
@@ -162,17 +162,17 @@ module Jetpants
       raise "This instance was not able to flush all the dirty buffers within #{timeout} seconds. Resetting themysql variables back to previous values."
       mysql_root_cmd(reset_vars)
     end
-    
+
     # Has no built-in effect. Plugins can override it, and/or implement
     # before_stop_query_killer and after_stop_query_killer callbacks.
     def stop_query_killer
     end
-    
+
     # Has no built-in effect. Plugins can override it, and/or implement
     # before_start_query_killer and after_start_query_killer callbacks.
     def start_query_killer
     end
-    
+
     # Confirms that a process is listening on the DB's port
     def confirm_listening(timeout=10)
       if @options.include? '--skip-networking'
@@ -182,23 +182,23 @@ module Jetpants
         confirm_listening_on_port(@port, timeout)
       end
     end
-    
+
     # Returns the MySQL data directory for this instance. A plugin can override this
     # if needed, especially if running multiple MySQL instances on the same host.
     def mysql_directory
       Jetpants.mysql_datadir
     end
-    
+
     # Has no built-in effect. Plugins can override it, and/or implement
     # before_enable_monitoring and after_enable_monitoring callbacks.
     def enable_monitoring(*services)
     end
-    
+
     # Has no built-in effect. Plugins can override it, and/or implement
     # before_disable_monitoring and after_disable_monitoring callbacks.
     def disable_monitoring(*services)
     end
-    
+
     # No built-in effect. Use when performing actions which will cause the
     # server to go offline or become unresponsive, as an escalated enable_monitoring
     # Plugins can override and/or implement before/after hooks
