@@ -679,6 +679,7 @@ module Jetpants
       new_last_shard_master.import_schemata!
 
       # regen config file
+      new_last_shard.sync_configuration
       Jetpants.topology.write_config
     end
     def self.after_shard_cutover
