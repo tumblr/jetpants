@@ -110,7 +110,7 @@ module Jetpants
 
     # Pauses replication
     def pause_replication
-      raise "This DB object has no master" unless master
+      raise "This DB (#{ip}) object has no master" unless master
       output "Pausing replication from #{@master}."
       if @repl_paused
         output "Replication was already paused."
