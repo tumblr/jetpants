@@ -32,7 +32,7 @@ module Jetpants
         '/usr/bin/mysql_install_db'
       ], 1
 
-      output service(:start, 'mysql')
+      service_start('mysql')
       confirm_listening
       @running = true
 

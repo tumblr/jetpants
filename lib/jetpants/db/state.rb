@@ -378,10 +378,7 @@ module Jetpants
     # we'd be happy to merge it upstream to support more distros.
     def probe_running
       if @host.available?
-        status = service(:status, 'mysql').downcase
-        # mysql is running if the output of "service mysql status" doesn't include any of these strings
-        not_running_strings = ['not running', 'stop/waiting']
-        @running = not_running_strings.none? {|str| status.include? str}
+        @running = service_running?('mysql')
       else
         @running = false
       end

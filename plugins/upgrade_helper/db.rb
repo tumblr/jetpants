@@ -16,8 +16,8 @@ module Jetpants
 
       # Can't use start_mysql here without causing infinite recursion! Also don't need
       # to do all the same checks here, nor do we need to store these to @options.
-      output service(:start, 'mysql', '--skip-networking --skip-grant-tables')
-      
+      service_start('mysql', [ '--skip-networking', '--skip-grant-tables' ])
+
       output "Attempting to run mysql_upgrade"
       output ssh_cmd('mysql_upgrade')
 

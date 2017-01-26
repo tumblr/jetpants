@@ -46,7 +46,7 @@ module Jetpants
       end
 
       disconnect if @db
-      output service(:stop, 'mysql')
+      service_stop('mysql')
       running = ssh_cmd "netstat -ln | grep \":#{@port}\\s\" | wc -l"
       raise "[#{@ip}] Failed to shut down MySQL: Something is still listening on port #{@port}" unless running.chomp == '0'
       @options = []
@@ -71,7 +71,7 @@ module Jetpants
       else
         output "Attempting to start MySQL with options #{mysql_start_options.join(' ')}"
       end
-      output service(:start, 'mysql', mysql_start_options.join(' '))
+      service_start('mysql', mysql_start_options)
       @options = options
       confirm_listening
       @running = true
@@ -117,7 +117,7 @@ module Jetpants
       else
         output "Attempting to restart MySQL with options #{options.join(' ')}"
       end
-      output service(:restart, 'mysql', options.join(' '))
+      service_restart('mysql', options)
       @options = options
       confirm_listening
       @running = true
