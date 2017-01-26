@@ -2,7 +2,7 @@ require 'net/ssh'
 require 'socket'
 
 module Jetpants
-  
+
   # Encapsulates a UNIX server that we can SSH to as root. Maintains a pool of SSH
   # connections to the host as needed.
   class Host
@@ -14,11 +14,11 @@ module Jetpants
 
     @@all_hosts = {}
     @@all_hosts_mutex = Mutex.new
-    
+
     def self.clear
       @@all_hosts_mutex.synchronize {@@all_hosts = {}}
     end
-    
+
     # We override Host.new so that attempting to create a duplicate Host object
     # (that is, one with the same IP as an existing Host object) returns the
     # original object.
@@ -28,7 +28,7 @@ module Jetpants
         @@all_hosts[ip] ||= super
       end
     end
-    
+
     def initialize(ip)
       # Only supporting ipv4 for now
       raise "Invalid IP address: #{ip}" unless ip =~ /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/
@@ -37,7 +37,7 @@ module Jetpants
       @lock = Mutex.new
       @available = nil
     end
-    
+
     # Returns a Host object for the machine Jetpants is running on.
     def self.local(interface=false)
       interface ||= (Jetpants.local_private_interface || Jetpants.private_interface)
@@ -50,7 +50,7 @@ module Jetpants
       ip_string = buf[20...24].unpack('C*').join '.'
       self.new(ip_string)
     end
-    
+
     # Returns a Net::SSH::Connection::Session for the host. Verifies that the
     # connection is working before returning it.
     def get_ssh_connection
@@ -72,7 +72,7 @@ module Jetpants
           params[:port] = Jetpants.ssh_port if Jetpants.ssh_port
           user          = Jetpants.ssh_user
           begin
-            @lock.synchronize do 
+            @lock.synchronize do
               conn = Net::SSH.start(@ip, user, params)
             end
           rescue => ex
@@ -81,7 +81,7 @@ module Jetpants
             next
           end
         end
-        
+
         # Confirm that the connection works
         if conn
           begin
@@ -98,7 +98,7 @@ module Jetpants
       @available = false
       raise "Unable to obtain working SSH connection to #{self} after 5 attempts"
     end
-    
+
     # Adds a Net::SSH::Connection::Session to a pool of idle persistent connections.
     def save_ssh_connection(conn)
       conn.exec! 'cd ~'
@@ -108,9 +108,9 @@ module Jetpants
     rescue
       output "Discarding nonfunctional SSH connection"
     end
-    
+
     # Execute the given UNIX command string (or array of strings) as root via SSH.
-    # By default, if something is wrong with the SSH connection, the command 
+    # By default, if something is wrong with the SSH connection, the command
     # will be attempted up to 3 times before an exception is thrown. Be sure
     # to set this to 1 or false for commands that are not idempotent.
     # Returns the result of the command executed. If cmd was an array of strings,
@@ -123,6 +123,7 @@ module Jetpants
       cmd.each do |c|
         failures = 0
         begin
+          output "Executing (attempt #{failures + 1} / #{attempts}) on #{@ip}: #{c}" if Jetpants.debug
           result = conn.exec! c do |ch, stream, data|
             if stream == :stderr
               output "SSH ERROR: #{data}"
@@ -142,13 +143,13 @@ module Jetpants
       save_ssh_connection conn
       return result
     end
-    
+
     # Shortcut for use when a command is not idempotent and therefore
     # isn't safe to retry if something goes wonky with the SSH connection.
     def ssh_cmd!(cmd)
       ssh_cmd cmd, false
     end
-    
+
     # Confirm that something is listening on the given port. The timeout param
     # indicates how long to wait (in seconds) for a process to be listening.
     def confirm_listening_on_port(port, timeout=10)
@@ -179,10 +180,10 @@ module Jetpants
       end
       @available
     end
-    
-    
+
+
     ###### Directory Copying / Listing / Comparison methods ####################
-    
+
     # Quickly and efficiently recursively copies a directory to one or more target hosts.
     # base_dir::  is base directory to copy from the source (self). Also the default destination base
     #             directory on the targets, if not supplied via next param.
@@ -198,7 +199,7 @@ module Jetpants
       # Normalize the filenames param so it is an array
       filenames = options[:files] || ['.']
       filenames = [filenames] unless filenames.respond_to?(:each)
-      
+
       # Normalize the targets param, so that targets is an array of Hosts and
       # destinations is a hash of hosts => dirs
       destinations = {}
@@ -212,10 +213,10 @@ module Jetpants
         destinations = targets.inject({}) {|memo, target| memo[target] = base_dir; memo}
       end
       raise "No target hosts supplied" if targets.count < 1
-      
+
       file_list = filenames.join ' '
       port = (options[:port] || 7000).to_i
-      
+
       if Jetpants.compress_with || Jetpants.decompress_with
         comp_bin = Jetpants.compress_with.split(' ')[0]
         confirm_installed comp_bin
@@ -236,7 +237,7 @@ module Jetpants
       else
         output "Not encrypting data stream, either no encryption method specified or encryption unneeded with target"
       end
-      
+
       # On each destination host, do any initial setup (and optional validation/erasing),
       # and then listen for new files.  If there are multiple destination hosts, all of them
       # except the last will use tee to "chain" the copy along to the next machine.
@@ -245,7 +246,7 @@ module Jetpants
       targets.reverse.each_with_index do |t, i|
         dir = destinations[t]
         raise "Directory #{t}:#{dir} looks suspicious" if dir.include?('..') || dir.include?('./') || dir == '/' || dir == ''
-        
+
         if Jetpants.compress_with || Jetpants.decompress_with
           decomp_bin = Jetpants.decompress_with.split(' ')[0]
           t.confirm_installed decomp_bin
@@ -257,7 +258,7 @@ module Jetpants
         end
 
         t.ssh_cmd "mkdir -p #{dir}"
-        
+
         # Check if contents already exist / non-empty.
         # Note: doesn't do recursive scan of subdirectories
         unless options[:overwrite]
@@ -265,7 +266,7 @@ module Jetpants
           dirlist = t.dir_list(all_paths)
           dirlist.each {|name, size| raise "File #{name} exists on destination and has nonzero size!" if size.to_i > 0}
         end
-        
+
         decompression_pipe = Jetpants.decompress_with ? "| #{Jetpants.decompress_with}" : ''
         decryption_pipe = (Jetpants.decrypt_with && should_encrypt) ? "| #{Jetpants.decrypt_with}" : ''
         if i == 0
@@ -284,7 +285,7 @@ module Jetpants
         end
         free_mem_managers << t.watch_free_mem(Jetpants.free_mem_min_mb || 0)
       end
-      
+
       # Start the copy chain.
       output "Sending files over to #{targets[0]}: #{file_list}"
       compression_pipe = Jetpants.compress_with ? "| #{Jetpants.compress_with}" : ''
@@ -306,7 +307,7 @@ module Jetpants
     def should_encrypt_with?(host)
       Jetpants.encrypt_file_transfers
     end
-    
+
     # Given the name of a directory or single file, returns a hash of filename => size of each file present.
     # Subdirectories will be returned with a size of '/', so you can process these differently as needed.
     # WARNING: This is brittle. It parses output of "ls". If anyone has a gem to do better remote file
@@ -322,7 +323,7 @@ module Jetpants
       end
       result
     end
-    
+
     # Compares file existence and size between hosts. Param format identical to
     # the first three params of Host#fast_copy_chain, except only supported option
     # is :files.
@@ -331,7 +332,7 @@ module Jetpants
       # Normalize the filenames param so it is an array
       filenames = options[:files] || ['.']
       filenames = [filenames] unless filenames.respond_to?(:each)
-      
+
       # Normalize the targets param, so that targets is an array of Hosts and
       # destinations is a hash of hosts => dirs
       destinations = {}
@@ -345,7 +346,7 @@ module Jetpants
         destinations = targets.inject({}) {|memo, target| memo[target] = base_dir; memo}
       end
       raise "No target hosts supplied" if targets.count < 1
-      
+
       queue = filenames.map {|f| ['', f]}  # array of [subdir, filename] pairs
       while (tuple = queue.shift)
         subdir, filename = tuple
@@ -360,7 +361,7 @@ module Jetpants
         queue.concat(source_dirlist.map {|name, size| size == '/' ? [subdir + '/' + name, '/'] : nil}.compact)
       end
     end
-    
+
     # Recursively computes size of files in dir
     def dir_size(dir)
       total_size = 0
@@ -373,7 +374,7 @@ module Jetpants
     def mount_stats(mount)
       mount_stats = {}
 
-      output = ssh_cmd "df -k " + mount + "|tail -1| awk '{print $2\",\"$3\",\"$4}'" 
+      output = ssh_cmd "df -k " + mount + "|tail -1| awk '{print $2\",\"$3\",\"$4}'"
       if output
         output = output.split(',').map{|s| s.to_i}
 
@@ -385,36 +386,36 @@ module Jetpants
         false
       end
     end
-    
-    
+
+
     ###### Misc methods ########################################################
-    
+
     # Performs the given operation (:start, :stop, :restart, :status) for the
     # specified service (ie "mysql"). Requires that the "service" bin is in
     # root's PATH.
     # Please be aware that the output format and exit codes for the service
     # binary vary between Linux distros! You may find that you need to override
-    # methods that call Host#service with :status operation (such as 
-    # DB#probe_running) in a custom plugin, to parse the output properly on 
+    # methods that call Host#service with :status operation (such as
+    # DB#probe_running) in a custom plugin, to parse the output properly on
     # your chosen Linux distro.
     def service(operation, name, options='')
       ssh_cmd "service #{name} #{operation.to_s} #{options}".rstrip
     end
-    
+
     # Changes the I/O scheduler to name (such as 'deadline', 'noop', 'cfq')
     # for the specified device.
     def set_io_scheduler(name, device='sda')
       output "Setting I/O scheduler for #{device} to #{name}."
       ssh_cmd "echo '#{name}' >/sys/block/#{device}/queue/scheduler"
     end
-    
+
     # Confirms that the specified binary is installed and on the shell path.
     def confirm_installed(program_name)
       out = ssh_cmd "which #{program_name}"
       raise "#{program_name} not installed, or missing from path" if out =~ /no #{program_name} in /
       true
     end
-    
+
     # Checks if there's a process with the given process ID running on this host.
     # Optionally also checks if matching_string is contained in the process name.
     # Returns true if so, false if not.
@@ -427,7 +428,7 @@ module Jetpants
         ssh_cmd("ps --no-headers #{pid} | wc -l").chomp.to_i > 0
       end
     end
-    
+
     # Returns number of cores on machine. (reflects virtual cores if hyperthreading
     # enabled, so might be 2x real value in that case.)
     # Not currently used by anything in Jetpants base, but might be useful for plugins
@@ -437,7 +438,7 @@ module Jetpants
       count = ssh_cmd %q{cat /proc/cpuinfo|grep 'processor\s*:' | wc -l}
       @cores = (count ? count.to_i : 1)
     end
-    
+
     # Returns the amount of memory on machine, either in bytes (default) or in GB.
     # Linux-specific.
     def memory(in_gb=false)
@@ -448,7 +449,7 @@ module Jetpants
       size *= multipliers[matches[:unit].to_sym]
       in_gb ? size / 1024**3 : size
     end
-    
+
     # Returns the machine's hostname
     def hostname
       return 'unknown' unless available?
@@ -459,11 +460,11 @@ module Jetpants
     def to_s
       return @ip
     end
-    
+
     # Returns self, since this object is already a Host.
     def to_host
       self
     end
-    
+
   end
 end

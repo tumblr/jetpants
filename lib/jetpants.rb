@@ -21,6 +21,7 @@ module Jetpants
   # Establish default configuration values, and then merge in whatever we find globally
   # in /etc/jetpants.yaml and per-user in ~/.jetpants.yaml
   @config = {
+    'debug'                   =>  !!ENV['JETPANTS_DEBUG'], # Debug mode (defaults to false)
     'max_concurrency'         =>  20,         # max threads/conns per database
     'standby_slaves_per_pool' =>  2,          # number of standby slaves in every pool
     'backup_slaves_per_pool'  =>  1,          # number of backup slaves in every pool
@@ -83,7 +84,7 @@ module Jetpants
     puts "Could not find any readable configuration files at either /etc/jetpants.yaml or ~/.jetpants.yaml\n\n"
     exit
   end
-  
+
   class << self
     include Output
 
@@ -95,7 +96,7 @@ module Jetpants
     def plugin_enabled?(plugin_name)
       @config['plugins'].has_key? plugin_name
     end
-    
+
     # Returns a hash containing :user => username string, :pass => password string
     # for the MySQL application user, as found in Jetpants' configuration. Plugins
     # may freely override this if there's a better way to obtain this password --
@@ -104,7 +105,7 @@ module Jetpants
     def app_credentials
       {user: @config['mysql_app_user'], pass: @config['mysql_app_password']}
     end
-    
+
     # Returns a hash containing :user => username string, :pass => password string
     # for the MySQL replication user, as found in Jetpants' configuration. Plugins
     # may freely override this if there's a better way to obtain this password --
@@ -114,7 +115,7 @@ module Jetpants
     def replication_credentials
       {user: @config['mysql_repl_user'], pass: @config['mysql_repl_password']}
     end
-    
+
     # Proxy missing top-level Jetpants methods to the configuration hash,
     # or failing that, to the Topology singleton.
     def method_missing(name, *args, &block)
@@ -129,7 +130,7 @@ module Jetpants
         super
       end
     end
-    
+
     def respond_to?(name, include_private=false)
       super || @config[name] || @topology.respond_to?(name)
     end
