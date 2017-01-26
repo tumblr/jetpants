@@ -186,7 +186,7 @@ module Jetpants
     # Returns the MySQL data directory for this instance. A plugin can override this
     # if needed, especially if running multiple MySQL instances on the same host.
     def mysql_directory
-      '/var/lib/mysql'
+      Jetpants.mysql_datadir
     end
     
     # Has no built-in effect. Plugins can override it, and/or implement

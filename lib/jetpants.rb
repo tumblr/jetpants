@@ -34,6 +34,7 @@ module Jetpants
     'mysql_grant_ips'         =>  ['192.168.%'],  # mysql user manipulations are applied to these IPs
     'mysql_grant_privs'       =>  ['ALL'],    # mysql user manipulations grant this set of privileges by default
     'mysql_clone_ignore'      =>  ['information_schema', 'performance_schema'], # these schemata will be ignored during cloning
+    'mysql_datadir'           =>  '/var/lib/mysql', # Default MySQL data directory location
     'export_location'         =>  '/tmp',     # directory to use for data dumping
     'verify_replication'      =>  true,       # raise exception if the 2 repl threads are in different states, or if actual repl topology differs from Jetpants' understanding of it
     'plugins'                 =>  {},         # hash of plugin name => arbitrary plugin data (usually a nested hash of settings)

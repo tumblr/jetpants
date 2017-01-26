@@ -22,7 +22,7 @@ module Jetpants
         datadir = mysql_root_cmd('select @@datadir;').chomp("\n/")
         mysql_root_cmd("PURGE BINARY LOGS BEFORE NOW();") rescue nil
       else
-        datadir = '/var/lib/mysql'
+        datadir = Jetpants.mysql_datadir
       end
 
       stop_mysql
