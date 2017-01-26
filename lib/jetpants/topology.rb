@@ -186,7 +186,7 @@ module Jetpants
     def shard(min_id, max_id, shard_pool_name = nil)
       shard_pool_name = default_shard_pool if shard_pool_name.nil?
       if max_id.is_a?(String) && max_id.upcase == 'INFINITY'
-        max_id.upcase!
+        max_id = max_id.upcase
       else
         max_id = max_id.to_i
       end
