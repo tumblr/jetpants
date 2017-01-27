@@ -1,4 +1,5 @@
 require 'hostservice/upstart'
+require 'hostservice/systemd'
 
 module Jetpants
   module HostService
@@ -20,6 +21,7 @@ module Jetpants
       # Service managers that we can support, in order of most to least likely
       [
         Jetpants::HostService::Upstart,
+        Jetpants::HostService::Systemd,
       ]
     end
   end
