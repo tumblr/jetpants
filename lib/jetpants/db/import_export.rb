@@ -454,7 +454,12 @@ module Jetpants
       files += ['*.tokudb', 'tokudb.*', 'log*.tokulog*'] if ssh_cmd("test -f #{mysql_directory}/tokudb.environment 2>/dev/null; echo $?").chomp.to_i == 0
       files << 'ib_lru_dump' if ssh_cmd("test -f #{mysql_directory}/ib_lru_dump 2>/dev/null; echo $?").chomp.to_i == 0
 
-      fast_copy_chain(mysql_directory, destinations, :port => 3306, :files => files, :overwrite => true)
+      if @clone_multi_threaded
+        multi_threaded_cloning(mysql_directory, destinations, :port => 3306, :files => files, :overwrite => true)
+      else
+        fast_copy_chain(mysql_directory, destinations, :port => 3306, :files => files, :overwrite => true)
+      end
+
       clone_settings_to!(*targets)
 
       [self, targets].flatten.concurrent_each do |t|

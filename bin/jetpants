@@ -289,6 +289,7 @@ module Jetpants
     desc 'clone_slave', 'clone a standby slave'
     method_option :source, :desc => 'IP of node to clone from'
     method_option :target, :desc => 'IP of node(s) to clone to'
+    method_option :multi_threaded, :desc => 'Multi-threaded cloning', :type => :boolean
     def clone_slave
       output "This task clones the data set of a standby slave."
       source = ask_node('Please enter IP of node to clone from: ', options[:source])
@@ -372,7 +373,9 @@ module Jetpants
       # claim all the targets which are currently marked as spare
       targets.select(&:is_spare?).each(&:claim!)
 
+      source.clone_multi_threaded = true if options[:multi_threaded]
       source.enslave_siblings!(targets)
+
       source.pool.sync_configuration
 
       output "Cloning complete."
