@@ -823,7 +823,10 @@ module Jetpants
     end
 
     def has_installed(program_name)
-      not (ssh_cmd "which #{program_name}" =~ /no #{program_name} in /).nil?
+      # The regex will match if the program is missing,
+      # thusly: no match means it is installed
+      # thusly: nil means it is present
+      (ssh_cmd("which #{program_name}") =~ /no #{program_name} in /).nil?
     end
 
     # Confirms that the specified binary is installed and on the shell path.
