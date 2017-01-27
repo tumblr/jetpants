@@ -409,10 +409,13 @@ module Jetpants
       ssh_cmd "echo '#{name}' >/sys/block/#{device}/queue/scheduler"
     end
 
+    def has_installed(program_name)
+      not (ssh_cmd "which #{program_name}" =~ /no #{program_name} in /).nil?
+    end
+
     # Confirms that the specified binary is installed and on the shell path.
     def confirm_installed(program_name)
-      out = ssh_cmd "which #{program_name}"
-      raise "#{program_name} not installed, or missing from path" if out =~ /no #{program_name} in /
+      raise "#{program_name} not installed, or missing from path" unless has_installed(program_name)
       true
     end
 
