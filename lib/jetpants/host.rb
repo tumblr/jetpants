@@ -772,6 +772,26 @@ module Jetpants
 
     ###### Misc methods ########################################################
 
+    def service_start(name, options=[])
+      output service(:start, name, options.join(' '))
+    end
+
+    def service_restart(name, options=[])
+      output service(:restart, name, options.join(' '))
+    end
+
+    def service_stop(name)
+      output service(:stop, name)
+    end
+
+    def service_running?(name)
+      status = service(:status, name).downcase
+      # mysql is running if the output of "service mysql status" doesn't include any of these strings
+      not_running_strings = ['not running', 'stop/waiting']
+
+      not_running_strings.none? {|str| status.include? str}
+    end
+
     # Performs the given operation (:start, :stop, :restart, :status) for the
     # specified service (ie "mysql"). Requires that the "service" bin is in
     # root's PATH.
