@@ -82,6 +82,8 @@ If you have a question that isn't covered here, please feel free to email the au
 * <b>Kiril Angov</b>: Developer
 * <b>Amar Mudrankit</b>: Developer
 * <b>Duan Wang</b>: Developer
+* <b>Akshay Suryawanshi</b>: Developer
+* <b>Graham Christensen</b>: Developer
 
 Special thanks to <b>Tim Ellis</b> for testing and bug reports.
 
