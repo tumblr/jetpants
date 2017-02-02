@@ -416,9 +416,8 @@ module Jetpants
           SELECT * 
           FROM INFORMATION_SCHEMA.COLUMNS
           WHERE TABLE_SCHEMA NOT IN 
-            ('mysql', 'information_schema', 'performance_schema') AND 
-            LOCATE('auto_increment', EXTRA) > 0 and 
-            TABLE_SCHEMA = 'tumblr3'
+            ('mysql', 'information_schema', 'performance_schema', 'test') AND 
+            LOCATE('auto_increment', EXTRA) > 0
         |
         pools_list.each do |p|
           slave = p.standby_slaves.first
