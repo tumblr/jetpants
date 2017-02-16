@@ -90,7 +90,7 @@ module Jetpants
     end
 
     def run_per_shard collector, &block
-      @shards.limited_concurrent_map(@concurrency) do |shard|
+      @shards.map do |shard|
         collector.run(shard.name) do
           block.call(shard, :all)
         end
