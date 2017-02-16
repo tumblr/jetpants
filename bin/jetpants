@@ -1021,6 +1021,10 @@ def with_debug
   end
 end
 
+unless (ENV['TERM'] == 'screen' || ENV.has_key?('STY'))
+  puts "Heads-up: You're not using screen or tmux."
+end
+
 if Jetpants.debug_exceptions
   with_debug { Jetpants::CommandSuite.start }
 else
