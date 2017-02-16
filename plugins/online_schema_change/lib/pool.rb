@@ -50,6 +50,7 @@ module Jetpants
     end
 
     def alter_table(database, table, alter, dry_run=true, force=false, skip_rename=false, arbitrary_options=[])
+      @no_prompts = force
       database ||= app_schema
 
       # get the version of pt-online-schema-change
