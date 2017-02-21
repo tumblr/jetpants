@@ -12,6 +12,8 @@ module Jetpants
 
       ui = PreflightShardUI.new(my_shards)
       ui.run! do |shard,stage|
+        force_confirm_each_shard(shard) if stage == :all
+
         # If we're past preflight, we want to not prompt the confirmation.
         force = stage == :all
         shard.alter_table(database, table, alter, dry_run, force, skip_rename, arbitrary_options)
@@ -27,7 +29,10 @@ module Jetpants
       my_shards = shards(shard_pool).dup
 
       ui = PreflightShardUI.new(my_shards)
-      ui.run! { |shard,_| shard.drop_old_alter_table(database, table) }
+      ui.run! do |shard,_|
+        force_confirm_each_shard(shard) if stage == :all
+        shard.drop_old_alter_table(database, table)
+      end
     end
 
     def rename_table_shards(database, orig_table, copy_table, shard_pool=nil)
@@ -36,9 +41,17 @@ module Jetpants
 
       ui = PreflightShardUI.new(my_shards)
       ui.run! do |shard,stage|
+        force_confirm_each_shard(shard) if stage == :all
+
         # If we're past preflight, we want to not prompt the confirmation.
         force = stage == :all
         shard.rename_table(database, orig_table, copy_table, force)
+      end
+    end
+
+    def force_confirm_each_shard(shard)
+      while !agree("Continue on to #{shard.pool.to_s}? Not agreeing will leave the shard pool in an inconsistent state. (YES/no)")
+        output "It is non-sensical to stop now :( Please say yes, or Ctrl-C if you really mean it."
       end
     end
   end
