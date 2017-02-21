@@ -8,26 +8,15 @@ module Jetpants
     def alter_table_shards(database, table, alter, dry_run=true, shard_pool=nil, skip_rename=false, arbitrary_options=[])
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.nil?
       my_shards = shards(shard_pool).dup
-      first_shard = my_shards.shift
-      output "Will run on first shard and prompt for going past the dry run only on the first shard\n\n"
-      output "#{first_shard.pool.to_s}\n"
-      unless first_shard.alter_table(database, table, alter, dry_run, false, skip_rename, arbitrary_options)
-        output "First shard had an error, please check output\n"
-        return
-      end
 
-      continue = ask('First shard complete would you like to continue with the rest of the shards?: (YES/no) - YES has to be in all caps and fully typed')
-      if continue == 'YES'
-        errors = []
 
-        my_shards.limited_concurrent_map(10) do |shard|
-          output "#{shard.pool.to_s}\n"
-          errors << shard unless shard.alter_table(database, table, alter, dry_run, true, skip_rename, arbitrary_options)
-        end
+      ui = PreflightShardUI.new(my_shards)
+      ui.run! do |shard,stage|
+        force_confirm_each_shard(shard) if stage == :all
 
-        errors.each do |shard|
-          output "check #{shard.name} for errors during online schema change\n"
-        end
+        # If we're past preflight, we want to not prompt the confirmation.
+        force = stage == :all
+        shard.alter_table(database, table, alter, dry_run, force, skip_rename, arbitrary_options)
       end
     end
 
@@ -38,36 +27,32 @@ module Jetpants
     def drop_old_alter_table_shards(database, table, shard_pool = nil)
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.nil?
       my_shards = shards(shard_pool).dup
-      first_shard = my_shards.shift
-      output "Will run on first shard and prompt before going on to the rest\n\n"
-      output "#{first_shard.pool.to_s}\n"
-      first_shard.drop_old_alter_table(database, table)
 
-      continue = ask('First shard complete would you like to continue with the rest of the shards?: (YES/no) - YES has to be in all caps and fully typed')
-      if continue == 'YES'
-        my_shards.each do |shard|
-          print "#{shard.pool.to_s}\n"
-          shard.drop_old_alter_table(database, table)
-        end
+      ui = PreflightShardUI.new(my_shards)
+      ui.run! do |shard,_|
+        force_confirm_each_shard(shard) if stage == :all
+        shard.drop_old_alter_table(database, table)
       end
     end
 
     def rename_table_shards(database, orig_table, copy_table, shard_pool=nil)
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.nil?
       my_shards = shards(shard_pool).dup
-      first_shard = my_shards.shift
-      output "Will run on first shard and prompt before going on to the rest\n\n"
-      output "#{first_shard.pool.to_s}\n"
-      first_shard.rename_table(database, orig_table, copy_table)
 
-      continue = ask('First shard complete would you like to continue with the rest of the shards?: (YES/no) - YES has to be in all caps and fully typed')
-      if continue == 'YES'
-        my_shards.each do |shard|
-          print "#{shard.pool.to_s}\n"
-          shard.rename_table(database, orig_table, copy_table)
-        end
+      ui = PreflightShardUI.new(my_shards)
+      ui.run! do |shard,stage|
+        force_confirm_each_shard(shard) if stage == :all
+
+        # If we're past preflight, we want to not prompt the confirmation.
+        force = stage == :all
+        shard.rename_table(database, orig_table, copy_table, force)
       end
     end
 
+    def force_confirm_each_shard(shard)
+      while !agree("Continue on to #{shard.pool.to_s}? Not agreeing will leave the shard pool in an inconsistent state. (YES/no)")
+        output "It is non-sensical to stop now :( Please say yes, or Ctrl-C if you really mean it."
+      end
+    end
   end
 end
