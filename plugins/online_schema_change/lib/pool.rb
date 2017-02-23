@@ -24,7 +24,9 @@ module Jetpants
       password = DB.random_password
 
 
-      raise "Not all nodes are running, failing to continue." unless all_nodes_running?
+      wait_for_all_slaves
+
+      output "Creating pt-osc user"
       all_nodes_in_pool.each { |node|
         node.create_user username, password
         node.grant_privileges username, '*', 'PROCESS', 'REPLICATION CLIENT', 'REPLICATION SLAVE', 'SUPER'
@@ -80,6 +82,8 @@ module Jetpants
       if Jetpants.plugin_enabled? 'jetpants_collins'
         raise "alter table already running on #{@name}" unless collins_check_can_be_altered?
       end
+
+      wait_for_all_slaves "(Pre-start wait for slaves...)"
 
       clean_up_state = true
       begin
@@ -310,6 +314,7 @@ module Jetpants
       all_nodes_in_pool.concurrent_map { |node|
         ret = node.running?
         output "Warning: #{node} not running!".red unless ret
+        node.probe!
 
         ret
       }.all?
