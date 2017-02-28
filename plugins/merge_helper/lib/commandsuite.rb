@@ -69,7 +69,9 @@ module Jetpants
     end
 
     desc 'merge_shards', 'Shard merge (step 1 of 5): merge two or more shards using an aggregator instance'
+    method_option :old_way, :desc => 'Single threaded cloning of slaves of new master', :type => :boolean
     def merge_shards
+      output "Make sure sender and receiver scripts are installed on source and targets. Refer README" unless options[:old_way]
       # ask the user for the shards to merge
       shards_to_merge = ask_merge_shard_ranges
 
@@ -130,6 +132,7 @@ module Jetpants
       backups_for_aggregate_shard = Jetpants.topology.claim_spares(aggregate_shard.slaves_layout[:backup_slave], role: :backup_slave, for_pool: aggregate_shard)
 
       spares_for_aggregate_shard = [spares_for_aggregate_shard, backups_for_aggregate_shard].flatten
+      aggregate_shard_master.clone_multi_threaded = true unless options[:old_way]
       aggregate_shard_master.enslave! spares_for_aggregate_shard
       spares_for_aggregate_shard.concurrent_each(&:start_replication)
       spares_for_aggregate_shard.concurrent_each(&:catch_up_to_master)

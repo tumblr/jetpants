@@ -178,6 +178,7 @@ module Jetpants
       @children.concurrent_each do |c|
         c.prune_data! if [:initializing, :exporting, :importing].include? c.state
         begin
+          c.clone_multi_threaded = self.master.clone_multi_threaded
           c.clone_slaves_from_master
         rescue Exception => e
           shards_with_errors << {shard: c, error: e.message, stacktrace: e.backtrace.inspect}
@@ -440,6 +441,7 @@ module Jetpants
       # We'll clone the full parent data set from a standby slave of the shard being split
       source = standby_slaves.first
       targets = @children.map &:master
+      source.clone_multi_threaded = self.master.clone_multi_threaded
       source.enslave_siblings! targets
     end
 
