@@ -503,11 +503,13 @@ module Jetpants
     method_option :ranges, :desc => 'Optional comma-separated list of ranges per child ie "1000-1999,2000-2499" (default if omitted: split evenly)'
     method_option :count,  :desc => 'How many child shards to split the parent into (only necessary if the ranges option is omitted)'
     method_option :shard_pool, :desc => 'The sharding pool for which to perform the split'
+    method_option :old_way, :desc => 'Single threaded cloning of slaves of new shards', :type => :boolean
     def shard_split
       shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the split (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
       output "Using shard pool `#{shard_pool}`"
 
+      output "Make sure sender and receiver scripts are installed on source and targets. Refer README" unless options[:old_way]
       shard_min = options[:min_id] || ask('Please enter min ID of the parent shard: ')
       shard_max = options[:max_id] || ask('Please enter max ID of the parent shard: ')
 
@@ -540,6 +542,7 @@ module Jetpants
       else
         children = options[:count] || ask('Optionally enter how many children to split into [default=2]: ')
         children = 2 if children == ''
+        s.master.clone_multi_threaded = true unless options[:old_way]
         s.split!(children.to_i)
       end
     end
