@@ -20,5 +20,9 @@ module Jetpants
     def to_s
       @name.downcase
     end
+
+    def inspect
+      to_s
+    end
   end
 end

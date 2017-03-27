@@ -115,7 +115,11 @@ module Jetpants
     def <=> other
       to_s <=> other.to_s
     end
-    
+
+    def inspect
+      to_s
+    end
+
     # Returns a string in the form "ip:port"
     def to_s
       "#{@ip}:#{@port}"

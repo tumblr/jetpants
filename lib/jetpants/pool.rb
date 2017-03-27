@@ -590,6 +590,10 @@ module Jetpants
       @name
     end
 
+    def inspect
+      to_s
+    end
+
     # Jetpants::Pool proxies missing methods to the pool's @master Jetpants::DB instance.
     def method_missing(name, *args, &block)
       if @master.respond_to? name

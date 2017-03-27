@@ -145,7 +145,11 @@ module Jetpants
         def to_s
           Jetpants.plugins['jetpants_collins']['url']
         end
-        
+
+        def inspect
+          to_s
+        end
+
         private
 
         # Returns a Collins::Client object
