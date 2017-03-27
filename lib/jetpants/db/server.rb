@@ -6,11 +6,12 @@ module Jetpants
 
   class DB
 
-    # options to pass to MySQL on start
-    attr_reader :start_options
-
     # options to pass to DB#restart_mysql for quick restarts
     attr_accessor :enable_flush_innodb_cache
+
+    def start_options
+      @start_options || []
+    end
 
     # add a server start option for the instance
     # will be combined with options passed into start_mysql
