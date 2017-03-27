@@ -10,7 +10,7 @@ require 'collins_client'
 #     along with the collins_attr_accessor class method.
 #
 #   * Jetpants::Plugin::JetCollins can also be used as a global Collins API
-#     client -- the module itself will delegate all missing methods to a 
+#     client -- the module itself will delegate all missing methods to a
 #     Collins::Client object.
 #
 #   * Loads monkeypatches for Jetpants classes DB, Host, Pool, Shard, Topology,
@@ -29,7 +29,7 @@ module Jetpants
   module Plugin
     module JetCollins
       @collins_service = nil
-      
+
       ##### CLASS METHODS ######################################################
 
       class << self
@@ -85,7 +85,7 @@ module Jetpants
         # methods collins_foo and collins_foo= which automatically get/set
         # Collins attribute foo
         def included(base)
-          base.class_eval do 
+          base.class_eval do
             def self.collins_attr_accessor(*fields)
               fields.each do |field|
                 define_method("collins_#{field}") do
@@ -106,12 +106,12 @@ module Jetpants
                 end
               end
             end
-            
+
             # We make these 4 accessors available to ANY class including this mixin
             collins_attr_accessor :primary_role, :secondary_role, :pool, :status, :state
           end
         end
-        
+
         # Returns the 'datacenter' config option for this plugin, or 'UNKNOWN-DC' if
         # none has been configured. This only matters in multi-datacenter Collins
         # topologies.
@@ -128,7 +128,7 @@ module Jetpants
         #   * If a local node has a slave in a remote datacenter, it's treated as a backup_slave,
         #     in order to prevent cross-datacenter master promotions. If any of these
         #     remote-datacenter slaves have slaves of their own, they're ignored/hidden.
-        #   
+        #
         # You may DISABLE these restrictions by calling enable_inter_dc_mode. Normally you
         # do NOT want to do this, except in special situations like a migration between
         # datacenters.
@@ -136,26 +136,26 @@ module Jetpants
           Jetpants.plugins['jetpants_collins']['inter_dc_mode'] = true
           Jetpants.plugins['jetpants_collins']['remote_lookup'] = true
         end
-        
+
         # Returns true if enable_inter_dc_mode has been called, false otherwise.
         def inter_dc_mode?
           Jetpants.plugins['jetpants_collins']['inter_dc_mode'] || false
         end
-        
+
         def to_s
           Jetpants.plugins['jetpants_collins']['url']
         end
         
         private
-        
+
         # Returns a Collins::Client object
         def service
           return @collins_service if @collins_service
-          
+
           %w(url user password).each do |setting|
             raise "No Collins #{setting} set in plugins -> jetpants_collins -> #{setting}" unless Jetpants.plugins['jetpants_collins'][setting]
           end
-          
+
           logger = Logger.new(STDOUT)
           logger.level = Logger::INFO
           config = {
@@ -168,15 +168,15 @@ module Jetpants
           @collins_service = Collins::Client.new(config)
         end
       end
-      
-      
+
+
       ##### INSTANCE (MIX-IN) METHODS ##########################################
-      
+
       # The base class needs to implement this!
       def collins_asset
         raise "Any class including Plugin::JetCollins must also implement collins_asset instance method!"
       end
-      
+
       # Pass in a symbol, or array of symbols, to obtain from Collins for this
       # asset. For example, :status, :pool, :primary_role, :secondary_role.
       # If you pass in a single symbol, returns a single value.
@@ -223,7 +223,7 @@ module Jetpants
         if asset && asset.type.downcase == 'server_node' && asset.location && asset.location.upcase != Plugin::JetCollins.datacenter
           asset = nil unless Jetpants::Plugin::JetCollins.inter_dc_mode?
         end
-        
+
         attrs.each do |key, val|
           val ||= ''
           case key
@@ -289,14 +289,14 @@ module Jetpants
           end
         end
       end
-      
+
       # Returns a single downcased "status:state" string, useful when trying to compare both fields
       # at once.
       def collins_status_state
         values = collins_get :status, :state
         "#{values[:status]}:#{values[:state]}".downcase
       end
-      
+
     end # module JetCollins
   end # module Plugin
 end # module Jetpants

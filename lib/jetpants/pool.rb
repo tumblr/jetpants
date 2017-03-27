@@ -2,7 +2,7 @@ require 'json'
 require 'db'
 
 module Jetpants
-  
+
   # a Pool represents a group of database instances (Jetpants::DB objects).
   #
   # The default implementation assumes that a Pool contains:
@@ -23,27 +23,27 @@ module Jetpants
 
     # human-readable String name of pool
     attr_reader   :name
-    
+
     # Jetpants::DB object that is the pool's master
     attr_reader   :master
 
     # Array of strings containing other equivalent names for this pool
     attr_reader   :aliases
-    
+
     # Can be used to store a name that refers to just the active_slaves, for
     # instance if your framework isn't smart enough to know about master/slave
     # relationships.  Safe to leave as nil otherwise. Has no effect in Jetpants,
     # but an asset tracker / config generator plugin may include this in the
     # generated config file.
     attr_accessor :slave_name
-    
+
     # Hash mapping DB object => weight, for active (read) slaves. Default weight
     # is 100. Safe to leave at default if your app framework doesn't support
     # different weights for individual read slaves. Weights have no effect inside
     # Jetpants, but any asset tracker / config generator plugin can carry them
     # through to the config file.
     attr_reader   :active_slave_weights
-    
+
     # If the master also receives read queries, this stores its weight. Set to 0
     # if the master does not receive read queries (which is the default). This
     # has no effect inside of Jetpants, but can be used by an asset tracker /
@@ -53,7 +53,7 @@ module Jetpants
     # this is a list of nodes which have been claimed as spares, but which
     # won't show up in the slaves list
     attr_accessor :claimed_nodes
-    
+
     def initialize(name, master)
       @name = name
       @slave_name = false
@@ -85,13 +85,13 @@ module Jetpants
       end
     end
     alias :running_slaves :slaves
-    
+
     # Returns an array of Jetpants::DB objects.
     # Active slaves are ones that receive read queries from your application.
     def active_slaves
       @master.slaves.select {|sl| @active_slave_weights[sl]}
     end
-    
+
     # Returns an array of Jetpants::DB objects.
     # Standby slaves do not receive queries from your application. These are for high availability.
     # They can be turned into active slaves or even the master, and can also be used for cloning
@@ -99,14 +99,14 @@ module Jetpants
     def standby_slaves
       @master.slaves.reject {|sl| @active_slave_weights[sl] || sl.for_backups?}
     end
-    
+
     # Returns an array of Jetpants::DB objects.
     # Backup slaves are never promoted to active or master. They are for dedicated backup purposes.
     # They may be a different/cheaper hardware spec than other slaves.
     def backup_slaves
       @master.slaves.reject {|sl| @active_slave_weights[sl] || !sl.for_backups?}
     end
-    
+
     # returns a flat array of all Jetpants::DB objects in the pool: the master and
     # all slaves of all types.
     def nodes
@@ -129,7 +129,7 @@ module Jetpants
           output "Warning: unable to probe tables"
           return
         end
-      
+
         @tables = []
         sql = "SHOW TABLES"
         db.query_return_array(sql).each do |tbl|
@@ -138,7 +138,7 @@ module Jetpants
         end
       end
     end
-    
+
     # Returns a list of table objects for this pool
     def tables
       self.probe_tables unless @tables
@@ -158,14 +158,14 @@ module Jetpants
       @tables.select{|tb| tb.to_s == table}.first
     end
 
-    # Informs Jetpants that slave_db is an active slave. Potentially used by 
+    # Informs Jetpants that slave_db is an active slave. Potentially used by
     # plugins, such as in Topology at start-up time.
     def has_active_slave(slave_db, weight=100)
       slave_db = slave_db.to_db
       raise "Attempt to mark a DB as its own active slave" if slave_db == @master
       @active_slave_weights[slave_db] = weight
     end
-    
+
     # Turns a standby slave into an active slave, giving it the specified read weight.
     # Syncs the pool's configuration afterwards. It's up to your asset tracker plugin to
     # actually do something with this information.
@@ -174,7 +174,7 @@ module Jetpants
       has_active_slave slave_db, weight
       sync_configuration
     end
-    
+
     # Turns an active slave into a standby slave. Syncs the pool's configuration afterwards.
     # It's up to your asset tracker plugin to actually do something with this information.
     def mark_slave_standby(slave_db)
@@ -183,14 +183,14 @@ module Jetpants
       @active_slave_weights.delete(slave_db)
       sync_configuration
     end
-    
+
     # Remove a slave from a pool entirely. This is destructive, ie, it does a
     # RESET SLAVE on the db.
     #
     # Note that a plugin may want to override this (or implement after_remove_slave!)
     # to actually sync the change to an asset tracker, depending on how the plugin
     # implements Pool#sync_configuration. (If the implementation makes sync_configuration
-    # work by iterating over the pool's current slaves to update their status/role/pool, it 
+    # work by iterating over the pool's current slaves to update their status/role/pool, it
     # won't see any slaves that have been removed, and therefore won't update them.)
     #
     # This method has no effect on slaves that are unavailable via SSH or have MySQL
@@ -204,7 +204,7 @@ module Jetpants
       slave_db.disable_replication!
       sync_configuration # may or may not be sufficient -- see note above.
     end
-    
+
     # Informs this pool that it has an alias. A pool may have any number of aliases.
     def add_alias(name)
       if @aliases.include? name
@@ -242,7 +242,7 @@ module Jetpants
 
       # tabs below takes care of the indentation depending on the level of replication chain.
       tabs = '    ' *  (tab + 1)
-      
+
       # Prepare the extended_info if needed
       binlog_pos = ''
       slave_lag = ''
@@ -250,7 +250,7 @@ module Jetpants
         slave_lag = "lag=#{details[node][:lag]}" unless node == @master && !node.is_slave?
         binlog_pos = gtid_mode? ? details[node][:gtid_exec] : details[node][:coordinates].join(':')
       end
-      
+
       if node == @master and !node.is_slave?
         # Preparing the data_set_size and pool alias text
         alias_text = @aliases.count > 0 ? '  (aliases: ' + @aliases.join(', ') + ')' : ''
@@ -304,7 +304,7 @@ module Jetpants
       # Array of pool members, either including or excluding the old master as requested
       comparisons = nodes.select &:running?
       comparisons.delete master unless enslaving_old_master
-      
+
       # Keep track of up to one "last resort" DB, which will only be promoted if
       # there are no other candidates. The score int allows ranking of last resorts,
       # to figure out the "least bad" promotion candidate in an emergency.
@@ -318,15 +318,15 @@ module Jetpants
           last_resort_warning = warning
         end
       end
-      
+
       # Build list of good candidates for promotion
       candidates = nodes.reject {|db| db == master || db.for_backups? || !db.running?}
       candidates.select! do |candidate|
         others = comparisons.reject {|db| db == candidate}
-        
+
         # Node isn't promotable if it's running a higher version of MySQL than any of its future replicas
         next if others.any? {|db| candidate.version_cmp(db) > 0}
-        
+
         if gtid_mode?
           # Ordinarily if gtid_mode is already in use in the pool, gtid_deployment_step
           # should not be enabled anywhere; this likely indicates either an incomplete
@@ -340,7 +340,7 @@ module Jetpants
             end
             next
           end
-          
+
           # See if any replicas would break if this candidate becomes master. If any will
           # break, only allow promotion as a last resort, with the score based on what
           # percentage will break
@@ -353,7 +353,7 @@ module Jetpants
             next
           end
         end # gtid_mode checks
-        
+
         # Only consider active slaves to be full candidates if the old master
         # is dead and we don't have GTID. In this situation, an active slave may
         # have the furthest replication progress. But in any other situation,
@@ -363,11 +363,11 @@ module Jetpants
           consider_last_resort.call(candidate, 100, "only promotion candidate is an active slave, since no standby slaves are suitable")
           next
         end
-        
+
         # If we didn't hit a "next" statement in any of the above checks, the node is promotable
         true
       end
-      
+
       if candidates.length == 0 && !last_resort_candidate.nil?
         last_resort_candidate.output "WARNING: #{last_resort_warning}"
         candidates << last_resort_candidate
@@ -382,10 +382,10 @@ module Jetpants
       demoted = @master
       raise "Demoted node is already the master of this pool!" if demoted == promoted
       raise "Promoted host is not in the right pool!" unless demoted.slaves.include?(promoted)
-      
+
       output "Preparing to demote master #{demoted} and promote #{promoted} in its place."
       live_promotion = demoted.running?
-      
+
       # If demoted machine is available, confirm it is read-only and binlog isn't moving,
       # and then wait for slaves to catch up to this position. Or if using GTID, only need
       # to wait for new_master to catch up; GTID allows us to repoint lagging slaves without
@@ -402,7 +402,7 @@ module Jetpants
             sleep 1
           end
         end
-      
+
       # Demoted machine not available -- wait for slaves' binlogs to stop moving
       else
         demoted.slaves.concurrent_each do |s|
@@ -414,14 +414,14 @@ module Jetpants
           end
         end
       end
-      
+
       # Stop replication on all slaves
       replicas = demoted.slaves.dup
       replicas.each do |s|
         s.pause_replication if s.replicating?
       end
       raise "Unable to stop replication on all slaves" if replicas.any? {|s| s.replicating?}
-      
+
       # Determine options for CHANGE MASTER
       creds = promoted.replication_credentials
       change_master_options = {
@@ -434,22 +434,22 @@ module Jetpants
       else
         change_master_options[:log_file], change_master_options[:log_pos] = promoted.binlog_coordinates
       end
-      
+
       # reset slave on promoted, and make sure read_only is disabled
       promoted.disable_replication!
       promoted.disable_read_only!
-      
+
       # gather our new replicas
       replicas.delete promoted
       replicas << demoted if live_promotion && enslave_old_master
-      
+
       # If old master is dead and we're using GTID, try to catch up the new master
       # from its siblings, in case one of them is further ahead. Currently using the
       # default 5-minute timeout of DB#replay_missing_transactions, gives up after that.
       if gtid_mode? && change_master_options[:auto_position] && !live_promotion
         promoted.replay_missing_transactions(replicas, change_master_options)
       end
-      
+
       # Repoint replicas to the new master
       replicas.each {|r| r.change_master_to(promoted, change_master_options)}
 
@@ -470,7 +470,7 @@ module Jetpants
         end
         r.resume_replication unless r.replicating?
       end
-      
+
       # Update the pool
       # Note: if the demoted machine is not available, plugin may need to implement an
       # after_master_promotion! method which handles this case in configuration tracker
@@ -479,7 +479,7 @@ module Jetpants
       @master_uuid = nil # clear any memoized value
       sync_configuration
       Jetpants.topology.write_config
-      
+
       output "Promotion complete. Pool master is now #{promoted}."
       replicas.all? {|r| r.replicating?}
     end
@@ -513,7 +513,7 @@ module Jetpants
         :backup_slave  => Jetpants.backup_slaves_per_pool
       }
     end
-    
+
     # Returns true if the entire pool is using gtid_mode AND has executed at least
     # one transaction with a GTID, false otherwise.
     # The gtid_executed check allows this method to tell when GTIDs can actually be
@@ -548,7 +548,7 @@ module Jetpants
         false # intentionally avoid memoization for this situation -- no way to invalidate properly
       end
     end
-    
+
     # Returns the server_uuid of the pool's master. Safe to use even if the master is dead,
     # as long as the asset tracker populates the dead master's @slaves properly (as
     # jetpants_collins already does). Memoizes the value to avoid repeated lookup; methods
@@ -571,20 +571,20 @@ module Jetpants
       end
       raise "Unable to determine the master_uuid for #{self}"
     end
-    
+
     # Informs your asset tracker about any changes in the pool's state or members.
     # Plugins should override this, or use before_sync_configuration / after_sync_configuration
     # callbacks, to provide an implementation of this method.
     def sync_configuration
     end
-    
+
     # Callback to ensure that a sync'ed pool is already in Topology.pools
     def after_sync_configuration
       unless Jetpants.topology.pools.include? self
         Jetpants.topology.add_pool self
       end
     end
-    
+
     # Returns the name of the pool.
     def to_s
       @name
@@ -598,7 +598,7 @@ module Jetpants
         super
       end
     end
-    
+
     def respond_to?(name, include_private=false)
       super || @master.respond_to?(name)
     end
@@ -606,6 +606,6 @@ module Jetpants
     def slave_for_clone
       backup_slaves.empty? ? standby_slaves.last : backup_slaves.last
     end
-    
+
   end
 end
