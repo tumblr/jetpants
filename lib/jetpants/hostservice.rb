@@ -4,6 +4,10 @@ require 'hostservice/systemd'
 module Jetpants
   module HostService
     def self.pick_by_preflight(host)
+      pid1_match = host.ssh_cmd('cat /proc/1/stat').match(/^1 \((.*?)\) /)
+      throw "/proc/1/stat isn't matching, something is wrong!" if pid1_match.nil?
+      pid1_name = pid1_match[1]
+
       # We want to pick the first provider which the machine supports. Ruby 1.9.2 has no
       # `first_where` method like
       #    [1, 2, 3].first { |i| i > 1 } == 2
@@ -11,7 +15,7 @@ module Jetpants
       # taking the first item in the array.
       # This could be a `.map` or a `.select` but we really don't want to try any more than we
       # have to.
-      provider = all_providers.drop_while { |candidate| ! candidate.preflight(host) }.first
+      provider = all_providers.drop_while { |candidate| ! candidate.preflight(host, pid1_name) }.first
       raise "Cannot detect a valid service provider for #{host}" if provider.nil?
 
       return provider.new(host)

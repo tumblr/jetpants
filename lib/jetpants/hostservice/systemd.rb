@@ -1,8 +1,8 @@
 module Jetpants
   module HostService
     class Systemd
-      def self.preflight(host)
-        host.has_installed('systemctl')
+      def self.preflight(host, pid1_name)
+        pid1_name == "systemd"
       end
 
       def initialize(host)

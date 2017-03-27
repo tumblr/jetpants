@@ -1,8 +1,8 @@
 module Jetpants
   module HostService
     class Upstart
-      def self.preflight(host)
-        host.has_installed('service')
+      def self.preflight(host, pid1_name)
+        pid1_name == "init" && host.has_installed('service')
       end
 
       def initialize(host)
