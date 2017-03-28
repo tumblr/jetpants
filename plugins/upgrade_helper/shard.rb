@@ -32,21 +32,21 @@ module Jetpants
         next if needed == 0
         targets.concat Jetpants.topology.claim_spares(needed, role: "#{role}_slave".to_sym, like: like_node, version: Plugin::UpgradeHelper.new_version)
       end
-      
+
       # Disable fast shutdown on the source
       source.mysql_root_cmd 'SET GLOBAL innodb_fast_shutdown = 0'
-      
+
       # Flag the nodes as needing upgrade, which will get triggered when
       # enslave_siblings restarts them
       targets.each {|t| t.needs_upgrade = true}
-      
+
       # Remove ib_lru_dump if present on targets
       targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_lru_dump"}
-      
+
       source.enslave_siblings!(targets)
       targets.concurrent_each {|t| t.resume_replication; t.catch_up_to_master}
       source.pool.sync_configuration
-      
+
       # Make the 1st new slave be the "future master" which the other new
       # slaves will replicate from
       future_master = targets.shift
@@ -59,7 +59,7 @@ module Jetpants
       future_master.resume_replication
       future_master.catch_up_to_master
     end
-    
+
     # Hack the pool configuration to send reads to the new master, but still send
     # writes to the old master (they'll replicate over)
     def branched_upgrade_move_reads
@@ -73,7 +73,7 @@ module Jetpants
       @state = :child
       sync_configuration
     end
-    
+
     # Move writes over to the new master
     def branched_upgrade_move_writes
       raise "Shard #{self} in wrong state to perform this action! expected :child, found #{@state}" unless @state == :child
@@ -81,6 +81,6 @@ module Jetpants
       @state = :needs_cleanup
       sync_configuration
     end
-    
+
   end
 end

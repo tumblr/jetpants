@@ -18,13 +18,13 @@ remote_lookup:: Supply "remoteLookup" parameter for \Collins requests, to search
 To enable this plugin, add it to your \Jetpants configuration file (either <tt>/etc/jetpants.yaml</tt> or <tt>~/.jetpants.yaml</tt>). For example, in a single-datacenter environment, you configuration might look like this:
 
     # ... rest of Jetpants config here
-    
+
     plugins:
         jetpants_collins:
             user: jetpants
             password: xxx
             url: http://collins.yourdomain.com:8080
-        
+
         # ... other plugins configured here
 
 == ASSUMPTIONS AND REQUIREMENTS:
@@ -53,17 +53,17 @@ Adding functional partitions (global / unsharded pools):
 
   # Create the pool object, specifying pool name and IP of current master
   p = Pool.new('my-pool-name', '10.42.3.4')
-  
+
   # Tell Jetpants about IPs of any existing active slaves (read slaves), if any.
   # For example, say this pool has 2 active slaves and 2 standby slaves. \Jetpants
   # can automatically figure out which slaves exist, but won't automatically know
   # which ones are active for reads, so you need to tell it.
   p.has_active_slave('10.42.3.30')
   p.has_active_slave('10.42.3.32')
-  
+
   # Sync the information to Collins
   p.sync_configuration
-  
+
 Repeat this process for each functional partition, if you have more than one.
 
 Adding shard pools:

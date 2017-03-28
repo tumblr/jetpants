@@ -17,14 +17,14 @@ new_version::         major.minor string of MySQL version being upgraded to, for
 Example usage:
 
     # ... rest of Jetpants config here
-    
+
     plugins:
         jetpants_collins:
             # config for jetpants_collins here
-            
+
         upgrade_helper:
             new_version: "5.5"
-        
+
         # ... other plugins configured here
 
 

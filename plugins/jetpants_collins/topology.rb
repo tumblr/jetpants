@@ -7,7 +7,7 @@ module Jetpants
   class Topology
 
     ##### METHODS THAT OTHER PLUGINS CAN OVERRIDE ##############################
-    
+
     # IMPORTANT NOTE
     # This plugin does NOT implement write_config, since this format of
     # your app configuration file entirely depends on your web framework!
@@ -16,14 +16,14 @@ module Jetpants
     # approach is to add serialization methods to Pool and Shard, and call it
     # on each @pool, writing out to a file or pinging a config service, depending
     # on whatever your application uses.
-    
-    
+
+
     # Handles extra options for querying spare nodes. Takes a Collins selector
     # hash and an options hash, and returns a potentially-modified Collins
     # selector hash.
     # The default implementation here implements no special logic. Custom plugins
     # (loaded AFTER jetpants_collins is loaded) can override this method to
-    # manipulate the selector; see commented-out example below. 
+    # manipulate the selector; see commented-out example below.
     def process_spare_selector_options(selector, options)
       # If you wanted to support an option of :role, and map this to the Collins
       # SECONDARY_ROLE attribute, you could implement this via:
@@ -31,11 +31,11 @@ module Jetpants
       # This could be useful if, for example, you use a different hardware spec
       # for masters vs slaves. (doing so isn't really recommended, which is why
       # we omit this logic by default.)
-      
+
       # return the selector
       selector
     end
-    
+
     ##### METHOD OVERRIDES #####################################################
 
     def load_shard_pools
@@ -119,7 +119,7 @@ module Jetpants
       end
 
       if(compare_pool && claimed_dbs.select{|db| db.proximity_score(compare_pool) > 0}.count > 0)
-        compare_pool.output "Unable to claim #{count} nodes with an ideal proximity score!" 
+        compare_pool.output "Unable to claim #{count} nodes with an ideal proximity score!"
       end
 
       claimed_dbs
@@ -160,7 +160,7 @@ module Jetpants
     # SECONDARY_ROLE values in Collins.
     def server_node_assets(pool_name=false, *roles)
       roles = normalize_roles(roles) if roles.count > 0
-      
+
       # Check for previously-cached result. (Only usable if a pool_name supplied.)
       if pool_name && @pool_role_assets[pool_name]
         if roles.count > 0 && roles.all? {|r| @pool_role_assets[pool_name].has_key? r}
@@ -169,7 +169,7 @@ module Jetpants
           return @pool_role_assets[pool_name].values.flatten
         end
       end
-      
+
       per_page = Jetpants.plugins['jetpants_collins']['selector_page_size'] || 50
       selector = {
         operation:    'and',
@@ -185,7 +185,7 @@ module Jetpants
         values = roles.map {|r| "secondary_role = ^#{r}$"}
         selector[:query] += ' AND (' + values.join(' OR ') + ')'
       end
-      
+
       assets = []
       done = false
       page = 0
@@ -196,7 +196,7 @@ module Jetpants
         # find() apparently alters the selector object now, so we dup it
         # also force JetCollins to retry requests to the Collins server
         results = Plugin::JetCollins.find selector.dup, true, page == 0
-        done = (results.count < per_page) || (results.count == 0 && page > 0) 
+        done = (results.count < per_page) || (results.count == 0 && page > 0)
         page += 1
         assets.concat(results.select {|a| a.pool}) # filter out any spare nodes, which will have no pool set
       end
@@ -211,23 +211,23 @@ module Jetpants
         @pool_role_assets[p] ||= {}
         roles.each {|r| @pool_role_assets[p][r] = []}
       end
-      
+
       # Filter
       assets.select! {|a| a.pool && a.secondary_role && %w(allocated maintenance).include?(a.status.downcase)}
-      
+
       # Cache
       assets.each {|a| @pool_role_assets[a.pool.downcase][a.secondary_role.downcase.to_sym] << a}
-      
+
       # Return
       assets
     end
-    
-    
+
+
     # Returns an array of configuration assets with the supplied primary role(s)
     def configuration_assets(*primary_roles)
       raise "Must supply at least one primary_role" if primary_roles.count < 1
       per_page = Jetpants.plugins['jetpants_collins']['selector_page_size'] || 50
-      
+
       selector = {
         operation:    'and',
         details:      true,
@@ -241,7 +241,7 @@ module Jetpants
         values = primary_roles.map {|r| "primary_role = ^#{r}$"}
         selector[:query] += ' AND (' + values.join(' OR ') + ')'
       end
-      
+
       selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
 
       done = false
@@ -256,19 +256,19 @@ module Jetpants
         page += 1
         done = (page_of_results.count < per_page) || (page_of_results.count == 0 && page > 0)
       end
-      
+
       # If remote lookup is enabled, remove the remote copy of any pool that exists
       # in both local and remote datacenters.
       if Jetpants.plugins['jetpants_collins']['remote_lookup']
         dc_pool_map = {Plugin::JetCollins.datacenter => {}}
-        
+
         assets.each do |a|
           location = a.location || Plugin::JetCollins.datacenter
           pool = a.pool ? a.pool.downcase : a.tag[6..-1].downcase  # if no pool, strip 'mysql-' off front and use that
           dc_pool_map[location] ||= {}
           dc_pool_map[location][pool] = a
         end
-        
+
         # Grab everything from current DC first (higher priority over other
         # datacenters), then grab everything from remote DCs.
         final_assets = dc_pool_map[Plugin::JetCollins.datacenter].values
@@ -283,8 +283,8 @@ module Jetpants
 
       assets
     end
-    
-    
+
+
     def clear_asset_cache(pool_name=false)
       if pool_name
         @pool_role_assets.delete pool_name
@@ -292,10 +292,10 @@ module Jetpants
         @pool_role_assets = {}
       end
     end
-    
-    
+
+
     private
-    
+
     # Helper method to query Collins for spare DBs.
     def query_spare_assets(count, options={})
       per_page = Jetpants.plugins['jetpants_collins']['selector_page_size'] || 50
@@ -327,9 +327,9 @@ module Jetpants
         done = (page_of_results.count < per_page) || (page_of_results.count == 0 && page > 0)
         page += 1
       end
-      
+
       keep_assets = []
-      
+
       nodes.map(&:to_db).concurrent_each {|db| db.probe rescue nil}
       nodes.concurrent_each do |node|
         db = node.to_db

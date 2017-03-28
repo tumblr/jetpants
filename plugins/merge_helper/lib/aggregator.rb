@@ -1,5 +1,5 @@
 module Jetpants
-  
+
   class Aggregator < DB
     include CallbackHandler
 
@@ -49,7 +49,7 @@ module Jetpants
             @replication_states[aggregate_node] = :paused
           end
         end
-      end 
+      end
     end
 
     def aggregating_for?(node)

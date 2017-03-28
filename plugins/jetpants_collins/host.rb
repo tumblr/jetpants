@@ -2,11 +2,11 @@
 
 module Jetpants
   class Host
-    
+
     ##### JETCOLLINS MIX-IN ####################################################
-    
+
     include Plugin::JetCollins
-    
+
     def collins_asset
       # try IP first; failing that, try hostname
       selector = {ip_address: ip, details: true}
@@ -18,7 +18,7 @@ module Jetpants
         selector[:remoteLookup] = true if Jetpants.plugins['jetpants_collins']['remote_lookup']
         assets = Plugin::JetCollins.find selector, true
       end
-      
+
       raise "Multiple assets found for #{self}" if assets.count > 1
       if ! assets || assets.count == 0
         output "WARNING: no Collins assets found for this host"
@@ -27,7 +27,7 @@ module Jetpants
         assets.first
       end
     end
-    
+
     # Returns which datacenter this host is in. Only a getter, intentionally no setter.
     def collins_location
       return @collins_location if @collins_location
@@ -36,6 +36,6 @@ module Jetpants
       @collins_location.upcase!
       @collins_location
     end
-    
+
   end
 end

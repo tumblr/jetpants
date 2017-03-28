@@ -1,8 +1,8 @@
 module Jetpants
   class Host
-    
+
     ##### NEW METHODS ##########################################################
-    
+
     # Converts tcpdump output into slowlog format using pt-query-digest. Requires that
     # pt-query-digest is installed and in root's path. Returns the full path to the
     # slowlog. Does not delete or remove the tcpdump output file.
@@ -24,7 +24,7 @@ module Jetpants
       slowlog_file_path = filter_slowlog(slowlog_file_path)
       slowlog_file_path
     end
-   
+
     # Perform any slowlog filtering eg. removing SELECT UNIX_TIMESTAMP() like queries
     def filter_slowlog(slowlog_file_path)
       slowlog_file_path

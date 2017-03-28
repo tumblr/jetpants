@@ -40,14 +40,14 @@ A sharding key is a core foreign key column that is present in most of your larg
 
 For example, on a blogging site the sharding key might be <tt>blog_id</tt>. Most tables that contain a <tt>blog_id</tt> column can be sharded, which will mean that all data related to a particular blog (posts, comments on those posts, authors, etc) is found on the same shard. By organizing data this way, you can continue to use relational operations such as JOIN when querying data that lives on the same shard.
 
-Regardless of sharding key, some tables will not be shardable. This includes any "global" table that doesn't contain your sharding key column, as well as any tables that have global lookup patterns. For this reason you might not be able to shard the core table which has your sharding_key as its primary key! 
+Regardless of sharding key, some tables will not be shardable. This includes any "global" table that doesn't contain your sharding key column, as well as any tables that have global lookup patterns. For this reason you might not be able to shard the core table which has your sharding_key as its primary key!
 
 In other words: if your sharding key is <tt>user_id</tt>, you might not actually be able to shard your <tt>users</tt> table because you need to do global lookups (ie, by email address) on this table. Denormalization is a common work-around; you could split your users table into a "global lookup" portion in a global pool and an "extended data" portion that lives on shards.
 
 
 == What is range-based sharding? Why use it, and what are the alternatives?
 
-Range-based sharding groups data based on ranges of your sharding key. For example, with a sharding key of <tt>user_id</tt>, all sharded data for users 1-1000 may be on the first shard, users 1001-3000 on the second shard, and users 3001-infinity on the third and final shard. 
+Range-based sharding groups data based on ranges of your sharding key. For example, with a sharding key of <tt>user_id</tt>, all sharded data for users 1-1000 may be on the first shard, users 1001-3000 on the second shard, and users 3001-infinity on the third and final shard.
 
 The main benefit of range-based sharding is simplicity. You can express the shard ranges in a language-neutral format like YAML or JSON, and the code to route queries to the correct DB can be implemented in a trivially small amount of code. There's no need for a lookup service, so we avoid a single point of failure. It's also easy for a human to look at the ranges and figure out which DB to query when debugging a problem by hand.
 
@@ -60,9 +60,9 @@ The main downside to the range-based approach is lack of even distribution of "h
 * <b>Modulus or hash</b>: Apply a function to your sharding key to determine which shard the data lives on.
 
   This approach helps to distribute data very evenly. Many sites find that their latest users behave differently than their oldest users, so grouping users together by ranges of ID (essentially ranges of account creation date) can be problematic.  Using a modulus or hash avoids this problem.
-  
+
   The main issue with this approach is how to rebalance shards that are too large. A simple modulus can't do this unless you want to simultaneously split all of your shards in half, which leads to painful exponential growth. A hash function can be more versatile but can still lead to great complexity. Worse yet, there's no way to rebalance _quickly_ because data is not stored on disk in sorted order based on the hash function.
-  
+
 * <b>Lookup table</b>: Use a separate service or data store which takes a sharding key value as an input and returns the appropriate shard as an output.
 
   This scheme allows you to very specifically allocate particular data to shards, and works well for sites that have a lot of "hot" data from celebrity users. However, the lookup service is essentially a single point of failure, which counteracts many of the attractive features of sharded architectures. Rebalancing can also be slow and tricky, since you need a notion of "locking" a sharding key value while its rows are being migrated.

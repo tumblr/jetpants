@@ -49,7 +49,7 @@ module Jetpants
     ##### NEW METHODS ##########################################################
 
     # Converts a Shard to a hash, for use in either the internal asset tracker
-    # json (for_app_config=false) or for use in the application config file yaml 
+    # json (for_app_config=false) or for use in the application config file yaml
     # (for_app_config=true)
     def to_hash(for_app_config=false)
 

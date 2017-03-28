@@ -21,7 +21,7 @@ module Jetpants
         'create_table' => create_statement,
         'indexes' => connection.indexes(table_name),
         'pool' => pool,
-        'columns' => connection.schema(table_name).map{|schema| schema[0]} 
+        'columns' => connection.schema(table_name).map{|schema| schema[0]}
       }
 
       if pool.is_a? Shard

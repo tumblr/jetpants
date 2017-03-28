@@ -41,8 +41,8 @@ If you're writing your own asset-tracker plugin, you will need to override the f
 * Jetpants::Topology#count_spares
   * Returns a count of spare database nodes
 * Jetpants::Pool#sync_configuration
-  * Updates the asset tracker with the current status of a pool. 
-  * This should update the asset tracker's internal knowledge of the database topology immediately, but not necessarily cause the application's config file to be regenerated immediately. 
+  * Updates the asset tracker with the current status of a pool.
+  * This should update the asset tracker's internal knowledge of the database topology immediately, but not necessarily cause the application's config file to be regenerated immediately.
 
 You may also want to override or implement these, though it's not strictly mandatory:
 

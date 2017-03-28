@@ -356,7 +356,7 @@ module Jetpants
 
       export_schemata tables
       export_data tables, min_id, max_id
-      
+
       # We need to be paranoid and confirm nothing else has restarted mysql (re-enabling binary logging)
       # out-of-band. Besides the obvious slowness of importing things while binlogging, this is outright
       # dangerous if GTID is in-use. So we check before every method or statement that does writes
@@ -365,7 +365,7 @@ module Jetpants
       import_schemata!
       if respond_to? :alter_schemata
         raise "Binary logging has somehow been re-enabled. Must abort for safety!" if binary_log_enabled?
-        alter_schemata 
+        alter_schemata
         # re-retrieve table metadata in the case that we alter the tables
         pool.probe_tables
         tables = pool.tables.select{|t| pool.tables.map(&:name).include?(t.name)}
@@ -430,7 +430,7 @@ module Jetpants
       }.reject { |s|
         Jetpants.mysql_clone_ignore.include? s
       }
-      
+
       # If using GTID, we need to remember the source's gtid_executed from the point-in-time of the copy.
       # We also need to ensure that the targets match the same gtid-related variables as the source.
       # Ordinarily this should be managed by my.cnf, but while a fleet-wide GTID rollout is still underway,
@@ -467,7 +467,7 @@ module Jetpants
         t.start_query_killer
         t.enable_monitoring
       end
-      
+
       # If the source is using GTID, we need to set the targets' gtid_purged to equal the
       # source's gtid_executed. This is needed because we do not copy binlogs, which are
       # the source of truth for gtid_purged and gtid_executed. (Note, setting gtid_purged
