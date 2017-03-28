@@ -171,6 +171,10 @@ module Jetpants
       return @name
     end
 
+    def inspect
+      to_s
+    end
+
     # Returns the SQL for performing a data export of a given ID range
     def sql_export_range(min_id=false, max_id=false)
       outfile = export_file_path min_id, max_id

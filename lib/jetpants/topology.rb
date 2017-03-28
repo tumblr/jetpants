@@ -24,6 +24,10 @@ module Jetpants
       "Jetpants.topology"
     end
 
+    def inspect
+      to_s
+    end
+
     def pools
       load_pools if @pools.nil?
       @pools

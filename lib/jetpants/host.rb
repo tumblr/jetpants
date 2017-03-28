@@ -874,6 +874,10 @@ module Jetpants
       return @ip
     end
 
+    def inspect
+      to_s
+    end
+
     # Returns self, since this object is already a Host.
     def to_host
       self
