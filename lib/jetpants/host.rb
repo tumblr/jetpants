@@ -773,11 +773,7 @@ module Jetpants
 
     ###### Service management methods ##########################################
     def service_api
-      if @service_manager.nil?
-        @service_manager = Jetpants::HostService.pick_by_preflight(self)
-      end
-
-      @service_manager
+      @service_manager ||= Jetpants::HostService.pick_by_preflight(self)
     end
 
     def service_start(name, options=[])
