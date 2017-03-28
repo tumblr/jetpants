@@ -37,6 +37,7 @@ module Jetpants
       @lock = Mutex.new
       @available = nil
       @clone_multi_threaded = false	# default use fast_copy_chain
+      @service_manager = nil
     end
 
     # Returns a Host object for the machine Jetpants is running on.
@@ -770,40 +771,33 @@ module Jetpants
       end
     end
 
-    ###### Misc methods ########################################################
+    ###### Service management methods ##########################################
+    def service_api
+      @service_manager ||= Jetpants::HostService.pick_by_preflight(self)
+    end
 
     def service_start(name, options=[])
-      output service(:start, name, options.join(' '))
+      output service_api.start(name, options)
     end
 
     def service_restart(name, options=[])
-      output service(:restart, name, options.join(' '))
+      output service_api.restart(name, options)
     end
 
     def service_stop(name)
-      output service(:stop, name)
+      output service_api.stop(name)
     end
 
     def service_running?(name)
-      status = service(:status, name).downcase
-      # mysql is running if the output of "service mysql status" doesn't include any of these strings
-      not_running_strings = ['not running', 'stop/waiting']
-
-      not_running_strings.none? {|str| status.include? str}
+      service_api.running?(name)
     end
 
-    # Performs the given operation (:start, :stop, :restart, :status) for the
-    # specified service (ie "mysql"). Requires that the "service" bin is in
-    # root's PATH.
-    # Please be aware that the output format and exit codes for the service
-    # binary vary between Linux distros! You may find that you need to override
-    # methods that call Host#service with :status operation (such as
-    # DB#probe_running) in a custom plugin, to parse the output properly on
-    # your chosen Linux distro.
     def service(operation, name, options='')
-      ssh_cmd "service #{name} #{operation.to_s} #{options}".rstrip
+      output "Warning: Calling Host.service directly is deprecated!".red
+      service_manager.service_direct(operation, name, options).rstrip
     end
 
+    ###### Misc methods ########################################################
     # `stat` call to get all the information about the given file
     def get_file_stats(filename)
       mode_re = /^Access:\s+\((?<mode>\d+)\/(?<permissions>[drwx-]+)\)\s+Uid:\s+\(\s+\d+\/\s+(?<user>\w+)\)\s+Gid:\s+\(\s+\d+\/\s+(?<group>\w+)\)$/x
