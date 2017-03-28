@@ -269,7 +269,7 @@ module Jetpants
       aggregator_instance.pause_all_replication
       aggregator_instance.remove_all_nodes!
       combined_shard.master.disable_replication!
-      
+
       shards_to_merge.each do |shard|
         shard.master.enable_read_only!
       end

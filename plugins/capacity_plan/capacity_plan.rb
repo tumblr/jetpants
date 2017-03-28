@@ -15,7 +15,7 @@ module Jetpants
         @@db.connect(user: Jetpants.plugins['capacity_plan']['user'], schema: Jetpants.plugins['capacity_plan']['schema'], pass: Jetpants.plugins['capacity_plan']['pass'])
       end
 
-      ## grab snapshot of data and store it in mysql 
+      ## grab snapshot of data and store it in mysql
       def snapshot
         storage_sizes = {}
         timestamp = Time.now.to_i
@@ -95,9 +95,9 @@ module Jetpants
           end
           critical = mount_stats_storage[name]['total'].to_f * Jetpants.plugins['capacity_plan']['critical_mount']
           if (per_day(bytes_to_gb(growth_rate))) <= 0 || ((critical - mount_stats_storage[name]['used'].to_f)/ per_day(growth_rate)) > 999
-            output += "%30s %20.2f %10.2f %10s\n" % [name, bytes_to_gb(mount_stats_storage[name]['used'].to_f), (per_day(bytes_to_gb(growth_rate+0))), 'N/A'] 
+            output += "%30s %20.2f %10.2f %10s\n" % [name, bytes_to_gb(mount_stats_storage[name]['used'].to_f), (per_day(bytes_to_gb(growth_rate+0))), 'N/A']
           else
-            output += "%30s %20.2f %10.2f %10.2f\n" % [name, bytes_to_gb(mount_stats_storage[name]['used'].to_f), (per_day(bytes_to_gb(growth_rate+0))),((critical - mount_stats_storage[name]['used'].to_f)/ per_day(growth_rate))] 
+            output += "%30s %20.2f %10.2f %10.2f\n" % [name, bytes_to_gb(mount_stats_storage[name]['used'].to_f), (per_day(bytes_to_gb(growth_rate+0))),((critical - mount_stats_storage[name]['used'].to_f)/ per_day(growth_rate))]
           end
         end
 
@@ -261,7 +261,7 @@ module Jetpants
               new_hash[name][before_timestamp.to_s+"-"+last_timestamp.to_s] = (keeper[0]['used'].to_f - last_value['used'].to_f )/(before_timestamp.to_f - last_timestamp.to_f)
           end
         end
-        
+
         new_hash
       end
 
@@ -269,7 +269,7 @@ module Jetpants
       # you need to have a method in Jetpants.topology.machine_status_counts to get
       # your machine types and states
       def get_hardware_stats
-        
+
         #see if function exists
         return '' unless Jetpants.topology.respond_to? :machine_status_counts
 
@@ -325,7 +325,7 @@ module Jetpants
             from_per = {}
 
             now_block = get_history_block(name, start_time, start_time + block_sizes)
-            unless now_block.count == 0                
+            unless now_block.count == 0
               now_per = (now_block.first[1]['used'].to_f - now_block.values.last['used'].to_f)/(now_block.first[0].to_f - now_block.keys.last.to_f)
 
 
@@ -373,7 +373,7 @@ module Jetpants
           output_buffer = ''
           counter = 0
           counter_time = 0
-        end 
+        end
 
         output
 
@@ -413,15 +413,15 @@ module Jetpants
           pools_list = Jetpants.topology.pools.reject { |p| ignore_list.include? p }
         end
         query = %Q|
-          SELECT * 
+          SELECT *
           FROM INFORMATION_SCHEMA.COLUMNS
-          WHERE TABLE_SCHEMA NOT IN 
-            ('mysql', 'information_schema', 'performance_schema', 'test') AND 
+          WHERE TABLE_SCHEMA NOT IN
+            ('mysql', 'information_schema', 'performance_schema', 'test') AND
             LOCATE('auto_increment', EXTRA) > 0
         |
         pools_list.each do |p|
           slave = p.standby_slaves.first
-          if !slave.nil?  
+          if !slave.nil?
             slave.query_return_array(query).each do |row|
               table_name = row[:TABLE_NAME]
               schema_name = row[:TABLE_SCHEMA]
@@ -446,14 +446,14 @@ module Jetpants
       def get_autoinc_history(date)
         auto_inc_history = {}
         query = %Q|
-          select 
+          select
             from_unixtime(timestamp, '%Y-%m-%d'), pool, table_name,
             column_name, column_type, max_val, data_type_max,
-            round((max_val / data_type_max), 2) as ratio 
-          from auto_inc_checker 
-          where from_unixtime(timestamp, '%Y-%m-%d') = '#{date}' 
-          group by pool, table_name 
-          order by ratio desc 
+            round((max_val / data_type_max), 2) as ratio
+          from auto_inc_checker
+          where from_unixtime(timestamp, '%Y-%m-%d') = '#{date}'
+          group by pool, table_name
+          order by ratio desc
           limit 5
         |
 

@@ -218,7 +218,7 @@ module Jetpants
       # in a non-replicating state for as little time as possible
       data_nodes.concurrent_map { |db|
         # load data and inject export counts from earlier for validation
-        slaves_to_replicate.map { |slave| 
+        slaves_to_replicate.map { |slave|
           db.inject_counts export_counts[slave]
           db.import_data tables, slave.pool.min_id, slave.pool.max_id
         }
@@ -233,8 +233,8 @@ module Jetpants
       slaves_to_replicate.each do |slave|
         aggregate_node.add_node_to_aggregate slave, slave_coords[slave]
       end
-      
-      
+
+
       # Set up replication from aggregator to new_master.
       # We intentionally pass no options to change_master_to, since it's smart enough
       # to do the right thing (in this case: use aggregator's current coordinates)
@@ -242,7 +242,7 @@ module Jetpants
     end
 
     def combined_shard
-      Jetpants.shards(shard_pool.name).select { |shard| ( 
+      Jetpants.shards(shard_pool.name).select { |shard| (
         shard.min_id.to_i <= @min_id.to_i \
         && shard.max_id.to_i >= @max_id.to_i \
         && shard.max_id != 'INFINITY' \

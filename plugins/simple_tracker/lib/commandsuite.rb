@@ -17,7 +17,7 @@ module Jetpants
       Jetpants.topology.write_config
       puts 'Be sure to manually register any active read slaves using "jetpants activate_slave"' if p.slaves.count > 0
     end
-    
+
     desc 'add_shard', 'inform the asset tracker about a shard that was not previously tracked'
     method_option :min_id, :desc => 'Minimum ID of shard to track'
     method_option :max_id, :desc => 'Maximum ID of shard to track'
@@ -32,7 +32,7 @@ module Jetpants
       s.sync_configuration
       Jetpants.topology.write_config
     end
-    
+
     desc 'add_spare', 'inform the asset tracker about a spare node that was not previously tracked'
     method_option :node, :desc => 'Clean-state node to register as spare -- should be previously untracked'
     def add_spare

@@ -1,6 +1,6 @@
 = Jetpants Requirements and Assumptions
 
-The base classes of \Jetpants currently make a number of assumptions about your environment and database topology. 
+The base classes of \Jetpants currently make a number of assumptions about your environment and database topology.
 
 Plugins may freely override these assumptions, and upstream patches are very welcome to incorporate support for alternative configurations. We're especially interested in plugins or pull requests that add support for: Postgres and other relational databases; Redis and other non-relational data stores; non-Redhat Linux distributions or *BSD operating systems; master-master topologies; multi-instance-per-host setups; etc. We have attempted to design \Jetpants in a way that is sufficiently flexible to eventually support a wide range of environments.
 

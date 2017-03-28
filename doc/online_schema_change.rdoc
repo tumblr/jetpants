@@ -11,7 +11,7 @@ This plugin has no extra options, just add the name to your plugins section and 
 To enable this plugin, add it to your \Jetpants configuration file (either <tt>/etc/jetpants.yaml</tt> or <tt>~/.jetpants.yaml</tt>). For example you configuration might look like this:
 
     # ... rest of Jetpants config here
-    
+
     plugins:
         online_schema_change:
         # ... other plugins configured here
@@ -25,7 +25,7 @@ Also you should be using \Collins and the jetpants_collins plugin
 == EXAMPLES:
 
 dry run of an alter on a single pool
-    jetpants alter_table  --database=allmydata  --table=somedata --pool=users --dry-run --alter='ADD COLUMN c1 INT' 
+    jetpants alter_table  --database=allmydata  --table=somedata --pool=users --dry-run --alter='ADD COLUMN c1 INT'
 
 alter a single pool
     jetpants alter_table  --database=allmydata  --table=somedata --pool=users --alter='ADD COLUMN c1 INT'
@@ -42,4 +42,3 @@ the alter table does not drop the old table automatically, so to remove the tabl
 
 to drop the tables on all your shards
     jetpants alter_table_drop --database=allmydata  --table=somedata --all_shards
-

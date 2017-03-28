@@ -1,5 +1,5 @@
 module Jetpants
-  
+
   #--
   # User / Grant manipulation methods ##########################################
   #
@@ -16,7 +16,7 @@ module Jetpants
   # Overall, best practice in MySQL is only manage grants locally on each node,
   # never via replication.
   #++
-  
+
   class DB
     # Create a MySQL user. If you omit parameters, the defaults from Jetpants'
     # configuration will be used instead.  Does not automatically grant any
@@ -36,7 +36,7 @@ module Jetpants
         output "Created user '#{username}'@'#{ip}' (only on this node -- not binlogged)"
       end
     end
-    
+
     # Drops a user. SEE NOTE ABOVE RE: ALWAYS SKIPS BINLOG
     def drop_user(username=false)
       username ||= app_credentials[:user]
@@ -51,7 +51,7 @@ module Jetpants
         output "Dropped user '#{username}'@'#{ip}' (only on this node -- not binlogged)"
       end
     end
-    
+
     # Grants privileges to the given username for the specified database.
     # Pass in privileges as additional params, each as strings.
     # You may omit parameters to use the defaults in the Jetpants config file.
@@ -59,7 +59,7 @@ module Jetpants
     def grant_privileges(username=false, database=false, *privileges)
       grant_or_revoke_privileges('GRANT', username, database, privileges)
     end
-    
+
     # Revokes privileges from the given username for the specified database.
     # Pass in privileges as additional params, each as strings.
     # You may omit parameters to use the defaults in the Jetpants config file.
@@ -67,7 +67,7 @@ module Jetpants
     def revoke_privileges(username=false, database=false, *privileges)
       grant_or_revoke_privileges('REVOKE', username, database, privileges)
     end
-    
+
     # Helper method that can do grants or revokes.
     # SEE NOTE ABOVE RE: ALWAYS SKIPS BINLOG
     def grant_or_revoke_privileges(statement, username, database, privileges)
@@ -77,7 +77,7 @@ module Jetpants
       privileges = Jetpants.mysql_grant_privs if privileges.empty?
       privileges = privileges.join(',')
       commands = ['SET SESSION sql_log_bin = 0']
-      
+
       Jetpants.mysql_grant_ips.each do |ip|
         commands << "#{statement} #{privileges} ON #{database}.* #{preposition} '#{username}'@'#{ip}'"
       end
@@ -90,8 +90,8 @@ module Jetpants
         output "#{verb} privileges #{preposition.downcase} '#{username}'@'#{ip}' #{target_db}: #{privileges.downcase} (only on this node -- not binlogged)"
       end
     end
-    
-    # Disables access to a DB by the application user, and sets the DB to 
+
+    # Disables access to a DB by the application user, and sets the DB to
     # read-only. Useful when decommissioning instances from a shard that's
     # been split, or a former slave that's been permanently removed from the pool
     def revoke_all_access!
@@ -99,7 +99,7 @@ module Jetpants
       enable_read_only!
       drop_user(user_name) # never written to binlog, so no risk of it replicating
     end
-    
+
     # Enables global read-only mode on the database.
     def enable_read_only!
       if read_only?
@@ -111,7 +111,7 @@ module Jetpants
         read_only?
       end
     end
-    
+
     # Disables global read-only mode on the database.
     def disable_read_only!
       if read_only?
@@ -123,7 +123,7 @@ module Jetpants
         true
       end
     end
-    
+
     # Generate and return a random string consisting of uppercase
     # letters, lowercase letters, and digits.
     def self.random_password(length=50)
@@ -147,6 +147,6 @@ module Jetpants
       end
       Jetpants.mysql_grant_ips = ip_holder
     end
-    
+
   end
 end

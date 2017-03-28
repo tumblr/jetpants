@@ -1,14 +1,14 @@
 module Jetpants
   class Topology
-    
+
     def self.tracker
       @tracker ||= Jetpants::Plugin::SimpleTracker.new
 
       @tracker
     end
-    
+
     ##### METHOD OVERRIDES #####################################################
-    
+
     # Populates @pools by reading asset tracker data
     def load_pools
 
@@ -71,10 +71,10 @@ module Jetpants
           pool.claimed_nodes << db unless pool.claimed_nodes.include? db
         end
       end
-       
+
       dbs
     end
-    
+
     def count_spares(options={})
       self.class.tracker.spares.count
     end
@@ -83,9 +83,9 @@ module Jetpants
       self.class.tracker.spares.map(&:to_db)
     end
 
-    
+
     ##### NEW METHODS ##########################################################
-    
+
     # Called by Pool#sync_configuration to update our asset tracker json.
     # This actually re-writes all the json. With a more dynamic asset tracker
     # (something backed by a database, for example) this wouldn't be necessary -

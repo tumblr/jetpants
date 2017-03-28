@@ -14,7 +14,7 @@ module Jetpants
       source = ask_node('Please enter IP of node to clone from: ', options[:source])
       source.master.probe if source.master # fail early if there are any replication issues in this pool
       describe source
-      
+
       puts "You may clone to particular IP address(es), or can type \"spare\" to claim a node from the spare pool."
       target = options[:target] || ask('Please enter comma-separated list of targets (IPs or "spare") to clone to: ')
       target = 'spare' if target.strip == '' || target.split(',').length == 0
@@ -35,73 +35,73 @@ module Jetpants
           error "target (#{ip}) does not appear to be an IP."
         end
       end
-      
+
       source.start_mysql if ! source.running?
       error "source (#{source}) is not a standby slave or a backup slave" unless (source.is_standby? || source.for_backups?)
-      
+
       targets.each do |t|
         error "target #{t} already has a master; please clear out node (including in asset tracker) before proceeding" if t.master
       end
-     
+
       # Claim all the targets from the pool
       targets.each(&:claim!)
 
       # Disable fast shutdown on the source
       source.mysql_root_cmd 'SET GLOBAL innodb_fast_shutdown = 0'
-      
+
       # Flag the nodes as needing upgrade, which will get triggered when
       # enslave_siblings restarts them
       targets.each {|t| t.needs_upgrade = true}
-      
+
       # Remove ib_lru_dump if present on targets
       targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_lru_dump"}
-      
+
       source.enslave_siblings!(targets)
       targets.concurrent_each {|t| t.resume_replication; t.catch_up_to_master}
       source.pool.sync_configuration
-      
+
       puts "Clone-and-upgrade complete."
       Jetpants.topology.write_config
     end
-    
-    
+
+
     desc 'upgrade_promotion', 'demote and destroy a master running an older version of MySQL'
     method_option :demote,  :desc => 'node to demote'
     def upgrade_promotion
       demoted = ask_node 'Please enter the IP address of the node to demote:', options[:demote]
       demoted.probe
-      
+
       # This task should not be used for emergency promotions (master failures)
       # since the regular "jetpants promotion" logic is actually fine in that case.
       error "Unable to connect to node #{demoted} to demote" unless demoted.running?
-      
+
       # Before running this task, the pool should already have an extra standby slave,
       # since we're going to be removing the master from the pool.
       standby_slaves_needed = demoted.pool(true).slaves_layout[:standby_slave] + 1
       error "Only run this task on a pool with 3 standby slaves!" unless demoted.pool(true).standby_slaves.size >= standby_slaves_needed
-      
+
       # Verify that all nodes except the master are running the same version, and
       # are higher version than the master
       unless demoted.slaves.all? {|s| s.version_cmp(demoted.slaves.first) == 0 && s.version_cmp(demoted) > 0}
         error "This task can only be used when all slaves are running the same version of MySQL,"
         error "and the master's version is older than that of all the slaves."
       end
-      
+
       puts
       inform "Summary of affected pool"
       inform "Binary log positions and slave lag shown below are just a snapshot taken at the current time." if demoted.running?
       puts
       demoted.pool(true).summary(true)
       puts
-      
+
       promoted = ask_node 'Please enter the IP address of a standby slave to promote: '
-      
+
       error "Node to promote #{promoted} is not a standby slave of node to demote #{demoted}" unless promoted.master == demoted && promoted.role == :standby_slave
       error "The chosen node cannot be promoted. Please choose another." unless promoted.promotable_to_master?(false)
-      
+
       inform "Going to DEMOTE AND DESTROY existing master #{demoted} and PROMOTE new master #{promoted}."
       error "Aborting." unless agree "Proceed? [yes/no]: "
-      
+
       # Perform the promotion, but without making the old master become a slave of the new master
       # We then rely on the built-in call to Pool#sync_configuration or Pool#after_master_promotion!
       # to remove the old master from the pool in the same way it would handle a failed master (which
@@ -114,8 +114,8 @@ module Jetpants
         'Deploy the configuration to all machines.',
       )
     end
-    
-    
+
+
     desc 'shard_upgrade', 'upgrade a shard via four-step lockless process'
     method_option :min_id,  :desc => 'Minimum ID of shard to upgrade'
     method_option :max_id,  :desc => 'Maximum ID of shard to upgrade'
@@ -149,12 +149,12 @@ module Jetpants
           'Wait for writes to stop on the old parent master.',
           'Proceed to next step: jetpants shard_upgrade --cleanup',
         )
-        
+
       elsif options[:cleanup]
         raise 'The --reads, --writes, and --cleanup options are mutually exclusive' if options[:reads] || options[:writes]
         s = ask_shard_being_upgraded(:cleanup, shard_pool)
         s.cleanup!
-        
+
       else
         self.class.reminders(
           'This process may take an hour or two. You probably want to run this from a screen session.',
@@ -171,8 +171,8 @@ module Jetpants
         )
       end
     end
-    
-    
+
+
     desc 'checksum_pool', 'Run pt-table-checksum on a pool to verify data consistency after an upgrade of one slave'
     method_option :pool,  :desc => 'name of pool'
     method_option :no_check_plan, :desc => 'sets --nocheck_plan option in pt-table-checksum', :type => :boolean
@@ -195,8 +195,8 @@ module Jetpants
 
       pool.checksum_tables checksum_options
     end
-    
-    
+
+
     desc 'check_pool_queries', 'Runs pt-upgrade on a pool to verify query performance and results between different MySQL versions'
     method_option :pool, :desc => 'name of pool'
     method_option :dumptime, :desc => 'number of seconds of tcpdump data to consider'
@@ -210,11 +210,11 @@ module Jetpants
       machines ||= []
       gather_machine = options[:gather_machine].to_db if options[:gather_machine]
       gather_machine ||= nil
-      
+
       pool = Jetpants.topology.pool(pool_name) or raise "Pool #{pool_name} does not exist"
       pool.collect_and_compare_queries!(dump_time, *machines)
     end
-    
+
     no_tasks do
       def ask_shard_being_upgraded(stage = :prep, shard_pool = nil)
         shards_being_upgraded = Jetpants.shards(shard_pool).select {|s| [:child, :needs_cleanup].include?(s.state) && !s.parent && s.master.master}
@@ -239,6 +239,6 @@ module Jetpants
         s
       end
     end
-    
+
   end
 end
