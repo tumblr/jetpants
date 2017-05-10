@@ -101,7 +101,19 @@ module Jetpants
                       Jetpants.plugins['jetpants_collins']['retries'],
                       Jetpants.plugins['jetpants_collins']['max_retry_backoff']
                   ) {
-                    collins_set(field, value)
+                    result = collins_set(field, value)
+                    loop do
+                      if field == :status && value.include?(':')
+                        fetched = ("#{self.collins_status}:#{self.collins_state}").downcase
+                      else
+                        fetched = (collins_get(field) || '').downcase
+                      end
+                      expected = (value || '').downcase
+                      break if fetched == expected
+                      output "Sleeping until expected change of #{field} change from '#{fetched}' to '#{expected}' is complete."
+                      sleep 1
+                    end
+                    result
                   }
                 end
               end
