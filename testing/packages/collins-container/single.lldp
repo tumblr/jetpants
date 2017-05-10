@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lldp label="LLDP neighbors">
+ <interface label="Interface" name="eth0" via="LLDP" rid="1" age="0 day, 00:18:25">
+  <chassis label="Chassis">
+   <id label="ChassisID" type="mac">78:19:f7:88:60:c0</id>
+   <name label="SysName">core01.dfw01</name>
+   <descr label="SysDescr">Juniper Networks, Inc. ex4500-40f , version 11.1S1 Build date: 2011-04-21 08:03:12 UTC </descr>
+   <capability label="Capability" type="Bridge" enabled="on"/>
+   <capability label="Capability" type="Router" enabled="on"/>
+  </chassis>
+  <port label="Port">
+   <id label="PortID" type="local">616</id>
+   <descr label="PortDescr">ge-0/0/7.0</descr>
+   <mfs label="MFS">1514</mfs>
+   <auto-negotiation label="PMD autoneg" supported="no" enabled="yes">
+    <advertised label="Adv" type="10Base-T" hd="no" fd="yes"/>
+    <current label="MAU oper type">unknown</current>
+   </auto-negotiation>
+  </port>
+  <vlan label="VLAN" vlan-id="106" pvid="yes">DFW-LOGGING</vlan>
+  <lldp-med label="LLDP-MED">
+   <device-type label="Device Type">Network Connectivity Device</device-type>
+   <capability label="Capability" type="Capabilities"/>
+   <capability label="Capability" type="Policy"/>
+   <capability label="Capability" type="Location"/>
+   <capability label="Capability" type="MDI/PSE"/>
+  </lldp-med>
+ </interface>
+</lldp>

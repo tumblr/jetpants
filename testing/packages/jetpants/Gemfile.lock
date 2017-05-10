@@ -1,0 +1,60 @@
+PATH
+  remote: .
+  specs:
+    jetpants (0.9.5)
+      bloom-filter (~> 0.2.0)
+      collins_client (~> 0.2.15)
+      colored (~> 1.2)
+      highline (~> 1.6.12)
+      mysql2 (~> 0.4)
+      net-ssh (~> 2.9.2)
+      pony (~> 1.11)
+      pry (~> 0.9.8)
+      pry-rescue (~> 1.4.0)
+      sequel (~> 3.36)
+      thor (~> 0.15)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    bloom-filter (0.2.2)
+    coderay (1.1.1)
+    collins_client (0.2.19)
+      httparty (~> 0.11.0)
+    colored (1.2)
+    highline (1.6.21)
+    httparty (0.11.0)
+      multi_json (~> 1.0)
+      multi_xml (>= 0.5.2)
+    interception (0.5)
+    mail (2.6.4)
+      mime-types (>= 1.16, < 4)
+    method_source (0.8.2)
+    mime-types (3.1)
+      mime-types-data (~> 3.2015)
+    mime-types-data (3.2016.0521)
+    multi_json (1.12.1)
+    multi_xml (0.6.0)
+    mysql2 (0.4.5)
+    net-ssh (2.9.4)
+    pony (1.11)
+      mail (>= 2.0)
+    pry (0.9.12.6)
+      coderay (~> 1.0)
+      method_source (~> 0.8)
+      slop (~> 3.4)
+    pry-rescue (1.4.4)
+      interception (>= 0.5)
+      pry
+    sequel (3.48.0)
+    slop (3.6.0)
+    thor (0.19.4)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  jetpants!
+
+BUNDLED WITH
+   1.13.7

@@ -1,0 +1,128 @@
+users:
+  admins:
+    - "blake"
+    - "bmatheny"
+    - "mattp"
+  tools:
+    - "blake"
+    - "jetpants"
+    - "itouch"
+    - "phil"
+permissions:
+  feature.noRateLimit:
+    - "u=tools"
+  feature.canSeeEncryptedTags:
+    - "u=admins"
+    - "u=tools"
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+  feature.canWriteEncryptedTags:
+    - "u=admins"
+  controllers.Admin:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "u=admins"
+    - "u=tools"
+  controllers.Admin.cache:
+  controllers.Admin.stats:
+  controllers.AssetLogApi.getAllLogData:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "u=admins"
+    - "g=platform"
+    - "u=tools"
+  controllers.AssetApi.createAsset:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "u=admins"
+    - "u=tools"
+  controllers.AssetApi.updateAsset:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "u=admins"
+    - "u=tools"
+  controllers.AssetApi.updateAssetStatus:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "u=admins"
+    - "u=tools"
+  controllers.AssetApi.updateAssetForMaintenance:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "g=platform"
+    - "u=admins"
+    - "u=tools"
+  controllers.AssetApi.deleteAssetAttribute:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "u=admins"
+    - "u=tools"
+  controllers.AssetApi.deleteAsset:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "u=admins"
+    - "u=tools"
+  controllers.AssetManagementApi.powerManagement:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "g=platform"
+    - "u=admins"
+    - "u=tools"
+  controllers.AssetManagementApi.powerStatus:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "g=platform"
+    - "u=admins"
+    - "u=tools"
+  controllers.AssetManagementApi.provisionAsset:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "g=platform"
+    - "u=admins"
+    - "u=tools"
+  controllers.AssetManagementApi.getProvisioningProfiles:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "g=platform"
+    - "u=admins"
+    - "u=tools"
+  controllers.AssetWebApi.cancelAsset:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "u=admins"
+    - "u=tools"
+  controllers.AssetWebApi.deleteAsset:
+    - "u=admins"
+  controllers.IpAddressApi:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "g=platform"
+    - "u=admins"
+    - "u=tools"
+  controllers.IpmiApi.updateIpmi:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "u=admins"
+    - "u=tools"
+  controllers.Firehose.stream:
+    - "g=infra"
+    - "g=ops"
+    - "g=sre"
+    - "u=admins"
+    - "u=tools"

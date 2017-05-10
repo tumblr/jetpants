@@ -1,0 +1,10 @@
+---
+profiles:
+    databasenode:
+        cobbler_profile: "centos-5.6-x86_64-db-v2"
+        operating_system: "centos_5"
+        vlans: ["database"]
+        label: "Database Server"
+        prefix: "db"
+        primary_role: "DATABASE"
+        requires_pool: false
