@@ -35,5 +35,6 @@ rec {
   build-wrapper = tests: {
     all = scriptMap tests buildScript;
     tests = builtins.listToAttrs tests;
+    raw = tests;
   };
 }
