@@ -1,0 +1,28 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    collins-cli (0.2.10)
+      collins_auth (~> 0.1.2)
+      collins_client (~> 0.2.18)
+      colorize (~> 0.7.3)
+    collins_auth (0.1.2)
+      collins_client
+      highline
+    collins_client (0.2.19)
+      httparty (~> 0.11.0)
+    colorize (0.7.7)
+    highline (1.7.8)
+    httparty (0.11.0)
+      multi_json (~> 1.0)
+      multi_xml (>= 0.5.2)
+    multi_json (1.12.1)
+    multi_xml (0.6.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  collins-cli
+
+BUNDLED WITH
+   1.13.6

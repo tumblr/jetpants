@@ -1,0 +1,4 @@
+---
+host: http://127.0.0.1:9000/
+username: blake
+password: admin:first

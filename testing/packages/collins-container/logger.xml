@@ -1,0 +1,44 @@
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%date - [%level] - %logger{15} - %C{5}:%M:%L - %message%n%xException{5}</pattern>
+    </encoder>
+  </appender>
+
+  <logger name="play" level="WARN" />
+  <logger name="application" level="WARN" />
+
+  <logger name="configurable" level="WARN" />
+
+  <!-- Off these ones as they are annoying, and anyway we manage configuration ourself -->
+  <logger name="com.avaje.ebean.config.PropertyMapLoader" level="OFF" />
+  <logger name="util.security.AuthenticationProvider" level="WARN" />
+  <logger name="Privileges" level="WARN" />
+  <logger name="com.avaje.ebeaninternal.server.core.XmlConfigLoader" level="OFF" />
+  <logger name="com.avaje.ebeaninternal.server.lib.BackgroundThread" level="OFF" />
+
+  <!-- the httpclient debug logging is ridiculously chatty -->
+  <logger name="httpclient.wire.content" level="WARN" />
+  <logger name="httpclient.wire.header" level="WARN" />
+  <logger name="httpclient.wire" level="WARN" />
+  <logger name="http.wire.content" level="WARN" />
+  <logger name="http.wire.header" level="WARN" />
+  <logger name="http.wire" level="WARN" />
+  <logger name="org.apache.http.wire.content" level="WARN" />
+  <logger name="org.apache.http.wire.header" level="WARN" />
+  <logger name="org.apache.http.wire" level="WARN" />
+  <logger name="org.apache.http" level="WARN"/>
+  <logger name="org.apache.commons.httpclient" level="WARN"/>
+  <logger name="org.apache.commons" level="WARN"/>
+  <logger name="org.apache.commons.httpclient.HttpMethodBase" level="WARN"/>
+  <logger name="org.apache.commons.httpclient.MultiThreadedConnectionManager" level="WARN"/>
+  <logger name="org.apache.impl.client" level="WARN" />
+  <logger name="org.apache.impl.client.DefaultClientConnection" level="WARN" />
+  <logger name="javax.management" level="WARN" />
+  <logger name="org.apache.solr" level="WARN" />
+
+  <root level="WARN">
+    <appender-ref ref="STDOUT" />
+  </root>
+
+</configuration>
