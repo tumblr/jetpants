@@ -112,9 +112,9 @@ module Jetpants
                         fetched = (collins_get(field) || '').downcase
                       end
                       expected = (value || '').downcase
-                      break if fetched == expected
-                      output "Sleeping until expected change of #{field} change from '#{fetched}' to '#{expected}' is complete."
-                      sleep 1
+                      if fetched != expected
+                        raise "Retrying until Collins reports #{field} changed from '#{fetched}' to '#{expected}'."
+                      end
                     end
                     result
                   }
