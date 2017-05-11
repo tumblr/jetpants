@@ -102,7 +102,10 @@ module Jetpants
                       Jetpants.plugins['jetpants_collins']['max_retry_backoff']
                   ) {
                     result = collins_set(field, value)
-                    loop do
+                    Jetpants.with_retries(
+                        Jetpants.plugins['jetpants_collins']['retries'],
+                        Jetpants.plugins['jetpants_collins']['max_retry_backoff']
+                    ) do
                       if field == :status && value.include?(':')
                         fetched = ("#{self.collins_status}:#{self.collins_state}").downcase
                       else
