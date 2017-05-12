@@ -101,7 +101,22 @@ module Jetpants
                       Jetpants.plugins['jetpants_collins']['retries'],
                       Jetpants.plugins['jetpants_collins']['max_retry_backoff']
                   ) {
-                    collins_set(field, value)
+                    result = collins_set(field, value)
+                    Jetpants.with_retries(
+                        Jetpants.plugins['jetpants_collins']['retries'],
+                        Jetpants.plugins['jetpants_collins']['max_retry_backoff']
+                    ) do
+                      if field == :status && value.include?(':')
+                        fetched = ("#{self.collins_status}:#{self.collins_state}").downcase
+                      else
+                        fetched = (collins_get(field) || '').downcase
+                      end
+                      expected = (value || '').downcase
+                      if fetched != expected
+                        raise "Retrying until Collins reports #{field} changed from '#{fetched}' to '#{expected}'."
+                      end
+                    end
+                    result
                   }
                 end
               end
