@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
 
   s.homepage = 'https://github.com/tumblr/jetpants/'
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
-  s.required_ruby_version = '>= 1.9.2'
+  s.required_ruby_version = '>= 2.3'
   s.authors = ["Evan Elias", "Dallas Marlow", "Bob Patterson Jr.", "Tom Christ", "Kiril Angov", "Amar Mudrankit", "Tyler Neely", "Duan Wang", "Akshay Suryawanshi", "Graham Christensen"]
   s.date  = Date.today.to_s
   s.email = ["me@evanelias.com", "dallasmarlow@gmail.com", "bob@bobpattersonjr.com", "tbchrist@gmail.com", "t@jujit.su", "kiril.angov@gmail.com", "amar.mudrankit@gmail.com", "akshay.suryavanshi50@gmail.com", "graham@grahamc.com"]
@@ -22,7 +22,7 @@ Gem::Specification.new do |s|
 
   s.add_runtime_dependency 'mysql2', '~> 0.4'
   s.add_runtime_dependency 'sequel', '~> 3.36'
-  s.add_runtime_dependency 'net-ssh', '~> 2.9.2'
+  s.add_runtime_dependency 'net-ssh', '~> 4.1.0'
   s.add_runtime_dependency 'pry', '~> 0.9.8'
   s.add_runtime_dependency 'pry-rescue', '~> 1.4.0'
   s.add_runtime_dependency 'thor', '~> 0.15'
