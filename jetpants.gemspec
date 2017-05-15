@@ -20,6 +20,9 @@ Gem::Specification.new do |s|
   s.has_rdoc = true
   s.rdoc_options = ["--line-numbers", "--title", s.summary, "--main", "README.rdoc"]
 
+  # When updating these, make sure to run ./testing/update-deps.sh on a box with Nix!
+  # If you can't, ask someone who can :)
+  # Then: add the results with git and commit.
   s.add_runtime_dependency 'mysql2', '~> 0.4'
   s.add_runtime_dependency 'sequel', '~> 3.36'
   s.add_runtime_dependency 'net-ssh', '~> 4.1.0'
