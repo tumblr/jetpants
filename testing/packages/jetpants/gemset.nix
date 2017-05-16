@@ -60,10 +60,10 @@
   mail = {
     source = {
       remotes = ["https://rubygems.org"];
-      sha256 = "0c9vqfy0na9b5096i5i4qvrvhwamjnmajhgqi3kdsdfl8l6agmkp";
+      sha256 = "07k8swmv7vgk86clzpjhdlmgahlvg6yzjwy7wcsv0xx400fh4x61";
       type = "gem";
     };
-    version = "2.6.4";
+    version = "2.6.5";
   };
   method_source = {
     source = {
@@ -108,18 +108,18 @@
   mysql2 = {
     source = {
       remotes = ["https://rubygems.org"];
-      sha256 = "1kh96xp396swyaddz5l2zqjxi3cvyqv62scak9b3f98j14ynfscl";
+      sha256 = "18pinkvflvss3jqlqpnj6vld9m6hcf1jbvbz0338i4s0ddjc9nbg";
       type = "gem";
     };
-    version = "0.4.5";
+    version = "0.4.6";
   };
   net-ssh = {
     source = {
       remotes = ["https://rubygems.org"];
-      sha256 = "1xsjq4s3pn6m3fxx1xybyhy5axli1zcxpvmd3d88x552v2c8gb0j";
+      sha256 = "013p5jb4wy0cq7x7036piw2a3s1i9p752ki1srx2m289mpz4ml3q";
       type = "gem";
     };
-    version = "2.9.4";
+    version = "4.1.0";
   };
   pony = {
     source = {
@@ -140,10 +140,10 @@
   pry-rescue = {
     source = {
       remotes = ["https://rubygems.org"];
-      sha256 = "1840npj3ryw4hnlx8jdbm49xrnyrlcnqa29d736pc1ci9qszqm4j";
+      sha256 = "19ag4ww53sbxd3rqyxhcx0d7xmr47wb7yxp157d1a6j2q3pmxijd";
       type = "gem";
     };
-    version = "1.4.4";
+    version = "1.4.5";
   };
   sequel = {
     source = {

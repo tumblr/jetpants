@@ -7,7 +7,7 @@ PATH
       colored (~> 1.2)
       highline (~> 1.6.12)
       mysql2 (~> 0.4)
-      net-ssh (~> 2.9.2)
+      net-ssh (~> 4.1.0)
       pony (~> 1.11)
       pry (~> 0.9.8)
       pry-rescue (~> 1.4.0)
@@ -27,7 +27,7 @@ GEM
       multi_json (~> 1.0)
       multi_xml (>= 0.5.2)
     interception (0.5)
-    mail (2.6.4)
+    mail (2.6.5)
       mime-types (>= 1.16, < 4)
     method_source (0.8.2)
     mime-types (3.1)
@@ -35,15 +35,15 @@ GEM
     mime-types-data (3.2016.0521)
     multi_json (1.12.1)
     multi_xml (0.6.0)
-    mysql2 (0.4.5)
-    net-ssh (2.9.4)
+    mysql2 (0.4.6)
+    net-ssh (4.1.0)
     pony (1.11)
       mail (>= 2.0)
     pry (0.9.12.6)
       coderay (~> 1.0)
       method_source (~> 0.8)
       slop (~> 3.4)
-    pry-rescue (1.4.4)
+    pry-rescue (1.4.5)
       interception (>= 0.5)
       pry
     sequel (3.48.0)
@@ -57,4 +57,4 @@ DEPENDENCIES
   jetpants!
 
 BUNDLED WITH
-   1.13.7
+   1.14.4
