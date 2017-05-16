@@ -36,6 +36,7 @@ let
             || false # fallthrough: false means don't reject
           )
         )
+        # This resolves to relative path where the jetpants repo starts
         ./../../..;
     };
   };
