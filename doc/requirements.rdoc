@@ -6,8 +6,8 @@ Plugins may freely override these assumptions, and upstream patches are very wel
 
 == Environment
 
-* Ruby 1.9.2 or higher.
-  * If your OS bundles a non-upgradeable 1.8 Ruby, we recommend using {rvm}[https://rvm.io/] to manage multiple Ruby versions.
+* Ruby 2.3 or higher.
+  * If your OS bundles an old non-upgradeable Ruby, we recommend using {rvm}[https://rvm.io/] to manage multiple Ruby versions.
   * To date, \Jetpants has only been tested on the MRI/YARV implementation of Ruby. We hope to add JRuby compatibility in the near future.
 * Several Ruby gem module dependencies. If you're new to Ruby, the easiest way to install everything at once is <tt>gem install jetpants</tt>.
   * Some of these gems require building native extensions, which means they need devel headers in order to build.
