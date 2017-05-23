@@ -162,6 +162,7 @@ in (build-wrapper [
       '')
       (assert-shard-master "POSTS-1-INFINITY" "10.50.2.11")
       (assert-shard-slave "POSTS-1-INFINITY" "10.50.2.10")
+      (assert-shard-slave "POSTS-1-INFINITY" "10.50.2.12")
     ];
   })
 
