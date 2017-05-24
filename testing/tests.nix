@@ -5,7 +5,7 @@ let
   inherit (pkgs) lib;
   inherit (pkgs.callPackage ./test-helpers.nix {}) verify-test-case
     phase expect-phase jetpants-phase assert-shard-exists
-    assert-shard-does-not-exist assert-master-has-n-slaves;
+    assert-shard-does-not-exist assert-master-has-n-slaves assert-shard-master assert-shard-slave;
 
   inherit (pkgs.callPackage ./wrapper.nix {}) build-wrapper;
 
@@ -145,5 +145,25 @@ in (build-wrapper [
     ];
   })
 
+  (verify-test-case "shard-master-promotion" {
+    starting-spare-dbs = 1;
+
+    test-phases = [
+      (phase "slave-clone" ''
+        (
+          echo "YES" # Confirm, cloning from standby_slave
+        ) | jetpants clone_slave --source=10.50.2.11 --target=spare
+      '')
+      (phase "jetpants-promotion" ''
+        (
+          echo "YES" # Approve for promotion
+          echo "YES" # Approve after summary output. Confirmation.
+        ) | jetpants promotion --demote=10.50.2.10 --promote=10.50.2.11
+      '')
+      (assert-shard-master "POSTS-1-INFINITY" "10.50.2.11")
+      (assert-shard-slave "POSTS-1-INFINITY" "10.50.2.10")
+      (assert-shard-slave "POSTS-1-INFINITY" "10.50.2.12")
+    ];
+  })
 
 ])

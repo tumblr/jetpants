@@ -62,4 +62,12 @@ rec {
   assert-master-has-n-slaves = shard: slaves: jetpants-phase "assert-${shard}-has-${toString slaves}-slaves" ''
     abort "Actual: #{Jetpants.pool('${shard}').slaves.length}" unless Jetpants.pool('${shard}').slaves.length == ${toString slaves}
   '';
+
+  assert-shard-master = shard: master: jetpants-phase "assert-${shard}-master" ''
+    abort "Actual master: #{Jetpants.pool('${shard}').master}" unless Jetpants.pool('${shard}').master == '${toString master}'.to_db
+  '';
+
+  assert-shard-slave = shard: slave: jetpants-phase "assert-${shard}-slave" ''
+    abort "Slave not found." unless Jetpants.pool('${shard}').master == '${toString slave}'.to_db.master
+  '';
 }
