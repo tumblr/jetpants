@@ -55,13 +55,18 @@ module Jetpants
     # you stop replication on a slave manually outside of Jetpants.  In this
     # case you will need to force a probe so that Jetpants learns about the
     # change.
-    def probe(force=false)
+    def probe(force=false, expected_master: nil)
       @probe_mutex.synchronize {
-        return if probed? && !force
-        output "Probing MySQL installation"
-        probe_running
-        probe_master
-        probe_slaves
+        unless (probed? && !force)
+          output "Probing MySQL installation"
+          probe_running
+          probe_master
+          if expected_master.nil? || master == expected_master
+            probe_slaves
+          else
+            output "Not probing slaves, as our master (#{master}) does not match what our caller expected (#{expected_master})"
+          end
+        end
       }
       self
     end
@@ -435,7 +440,7 @@ module Jetpants
 
       ips.keys.concurrent_each do |ip|
         db = ip.to_db
-        db.probe
+        db.probe expected_master: self
         @slaves << db if db.master == self
       end
     end
