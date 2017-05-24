@@ -1,4 +1,7 @@
-{ testname, starting-spare-dbs, test-script }:
+{ testname,
+  starting-spare-dbs,
+  starting-slave-dbs ? 1,
+  test-script }:
         # NixOS has this incredible make-test.nix helper which creates a QEMU
 # instance running NixOS. Here, we use it:
 import <nixpkgs/nixos/tests/make-test.nix> ({ pkgs, ...} :
@@ -51,7 +54,7 @@ in {
           f = n: m: if n == m then [] else [n] ++ f (n + 1) m;
         in builtins.listToAttrs
           (map (n: { name = "${toString n}"; value = {}; })
-            (f 10 (10 + 2 + starting-spare-dbs)) );  };
+            (f 10 (10 + 1 + starting-slave-dbs + starting-spare-dbs)) );  };
 
 
       systemd.services.snakeoilSSHCredentials = {
@@ -91,14 +94,15 @@ in {
 
         preStart = (toString (pkgs.jetpants.ruby_script "setup-infinity-shards" ''
             p = Jetpants.pool('posts-1-infinity')
-            slave = '10.50.2.11'.to_db
-            until (slave.running?) do
-              slave.probe!
+            (0...${toString starting-slave-dbs}).each do |n|
+              slave = "10.50.2.#{11 + n}".to_db
+              until (slave.running?) do
+                slave.probe!
+              end
+              slave.claim!
+              slave.change_master_to p.master
+              slave.resume_replication
             end
-            slave.claim!
-            slave.change_master_to p.master
-            slave.resume_replication
-
             p.sync_configuration
 
             p.master.mysql_root_cmd('CREATE TABLE myapp.posts (id MEDIUMINT(8) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, message VARCHAR(255) NOT NULL) ENGINE=innodb;')
