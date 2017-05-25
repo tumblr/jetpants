@@ -116,8 +116,8 @@ let
 	    CREATE DATABASE identity;
 	    CREATE TABLE identity.ident (name VARCHAR(25) NOT NULL);
 	    INSERT INTO identity.ident (name) VALUES ("${target.name}");
-            GRANT ALL PRIVILEGES ON *.* TO 'myapp'@'%' IDENTIFIED BY "password" WITH GRANT OPTION;
-            GRANT ALL PRIVILEGES ON *.* TO 'repl'@'%' IDENTIFIED BY "password" WITH GRANT OPTION;
+            GRANT ALL PRIVILEGES ON *.* TO 'myapp'@'10.50.2.%' IDENTIFIED BY "password" WITH GRANT OPTION;
+            GRANT ALL PRIVILEGES ON *.* TO 'repl'@'10.50.2.%' IDENTIFIED BY "password" WITH GRANT OPTION;
             DROP DATABASE IF EXISTS myapp;
             CREATE DATABASE myapp;
 	  '';
