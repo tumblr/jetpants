@@ -704,7 +704,7 @@ module Jetpants
       shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the master promotion (enter for default, #{Jetpants.topology.default_shard_pool}): ")
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
       # find the shard we are going to do master promotion on
-      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id], shard_pool)
+      s = ask_shard_being_promoted(:prep, options[:min_id], options[:max_id], shard_pool)
 
       new_master = ask_node "Please enter the IP of the new master for #{s}: ", options[:new_master]
       error "New master node #{new_master} is not currently a slave in shard #{s}" unless s.slaves && s.slaves.include?(new_master)
@@ -737,7 +737,7 @@ module Jetpants
       shard_pool = options[:shard_pool] || ask("Please enter the sharding pool for which to perform the master promotion (enter for default pool, #{Jetpants.topology.default_shard_pool}): ")
       shard_pool = Jetpants.topology.default_shard_pool if shard_pool.empty?
       # find the shard we are going to do master promotion on
-      s = ask_shard_being_promoted(:prep, options[:max_id], options[:max_id], shard_pool)
+      s = ask_shard_being_promoted(:prep, options[:min_id], options[:max_id], shard_pool)
 
       # at this point we only have one slave, which is the new master
       new_master = s.master.slaves.last
