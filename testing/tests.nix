@@ -146,14 +146,9 @@ in (build-wrapper [
   })
 
   (verify-test-case "shard-master-promotion" {
-    starting-spare-dbs = 1;
+    starting-slave-dbs = 2;
 
     test-phases = [
-      (phase "slave-clone" ''
-        (
-          echo "YES" # Confirm, cloning from standby_slave
-        ) | jetpants clone_slave --source=10.50.2.11 --target=spare
-      '')
       (phase "jetpants-promotion" ''
         (
           echo "YES" # Approve for promotion
