@@ -146,7 +146,6 @@ in (build-wrapper [
   })
 
   (verify-test-case "shard-master-promotion" {
-    starting-spare-dbs = 1;
     starting-slave-dbs = 2;
 
     test-phases = [
