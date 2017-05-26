@@ -13,7 +13,7 @@ backup_slaves_per_pool: 0
 mysql_datadir: /var/mysql/
 
 # Users created by Jetpants are given access from these IPs
-mysql_grant_ips: [10.%, 192.168.%]
+mysql_grant_ips: [10.50.2.%]
 
 # Users created by Jetpants are given these MySQL privileges
 mysql_grant_privs:

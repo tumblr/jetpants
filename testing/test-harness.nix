@@ -1,5 +1,5 @@
 { testname,
-  starting-spare-dbs,
+  starting-spare-dbs ? 0,
   starting-slave-dbs ? 1,
   test-script }:
         # NixOS has this incredible make-test.nix helper which creates a QEMU

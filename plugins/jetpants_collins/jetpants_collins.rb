@@ -107,11 +107,11 @@ module Jetpants
                         Jetpants.plugins['jetpants_collins']['max_retry_backoff']
                     ) do
                       if field == :status && value.include?(':')
-                        fetched = ("#{self.collins_status}:#{self.collins_state}").downcase
+                        fetched = ("#{self.collins_status}:#{self.collins_state}").to_s.downcase
                       else
-                        fetched = (collins_get(field) || '').downcase
+                        fetched = (collins_get(field) || '').to_s.downcase
                       end
-                      expected = (value || '').downcase
+                      expected = (value || '').to_s.downcase
                       if fetched != expected
                         raise "Retrying until Collins reports #{field} changed from '#{fetched}' to '#{expected}'."
                       end
