@@ -295,13 +295,12 @@ module Jetpants
 
       clone_to!(targets)
       targets.each do |t|
-        t.enable_monitoring
         t.change_master_to(master, change_master_options)
         t.enable_read_only!
       end
       [ self, targets ].flatten.each(&:resume_replication) # should already have happened from the clone_to! restart anyway, but just to be explicit
       [ self, targets ].flatten.concurrent_each{|n| n.catch_up_to_master 21600 }
-      enable_monitoring
+      [ self, targets ].flatten.each(&:enable_monitoring)
     end
 
     # Shortcut to call DB#enslave_siblings! on a single target
