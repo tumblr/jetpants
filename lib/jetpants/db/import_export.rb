@@ -447,7 +447,7 @@ module Jetpants
         targets.each {|t| t.add_start_option '--loose-gtid-deployment-step=1'}
       end
 
-      [self, targets].flatten.concurrent_each {|t| t.disable_monitoring; t.stop_query_killer; t.stop_mysql}
+      [self, targets].flatten.concurrent_each {|t| t.stop_query_killer; t.stop_mysql}
       targets.concurrent_each {|t| t.ssh_cmd "rm -rf #{t.mysql_directory}/ib_logfile*"}
 
       files = (databases + ['ibdata1', app_schema]).uniq
@@ -465,7 +465,6 @@ module Jetpants
       [self, targets].flatten.concurrent_each do |t|
         t.start_mysql
         t.start_query_killer
-        t.enable_monitoring
       end
 
       # If the source is using GTID, we need to set the targets' gtid_purged to equal the
