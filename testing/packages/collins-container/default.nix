@@ -15,7 +15,7 @@
   # ```
   img = pkgs.dockerTools.pullImage {
     imageName = "tumblr/collins";
-    sha256 = "0x22q0a9r885xjzc0ffl4xs9g5w66sqgxid822r874h46rpzzkzx";
+    sha256 = "1k9gcv9xmzawbr4dnh9pcl2akbp65h4kda9ay6k1500ag9jmjkmn";
     inherit ident;
   };
   inherit ident;
