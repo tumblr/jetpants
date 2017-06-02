@@ -56,35 +56,33 @@ After this, we want to run some jetpants commands and assertions about
 what happened.
 
 To Accomplish this easily, I've written some test helpers for this
-task. These are located in test-helpers.nix. The tests themselves are
-in tests.nix.
+task. These are located in `test-helpers.nix`. The tests themselves are
+in`tests/`.
 
 ### Walking through a very simple test: `verify-default-environment`
 
-The tests start at `in (build-wrapper [`, and what follows is a list
-of tests. Let's start by looking at a very simple test:
-`verify-default-environment`.
+The tests live in `tests/`. Let's start by looking at a very simple test,
+`./tests/verify-default-environment.nix`.
 
-```
-1.   (verify-test-case "verify-default-environment" {
-2.    starting-spare-dbs = 0;
-3.
-4.    test-phases = [
-5.      (assert-shard-exists "POSTS-1-INFINITY")
-6.      (assert-master-has-n-slaves "POSTS-1-INFINITY" 1)
-7.    ];
-8.  })
-```
+     1	import ../make-test.nix  ({ helpers, ... }:
+     2	{
+     3	  name = "verify-default-environment";
+     4
+     5	  starting-spare-dbs = 0;
+     6
+     7	  test-phases = with helpers; [
+     8	    (assert-shard-exists "POSTS-1-INFINITY")
+     9	    (assert-master-has-n-slaves "POSTS-1-INFINITY" 1)
+    10	  ];
+    11	})
 
-Line one is calling a function, `verify-test-case` and passing it two
-arguments:
 
- - the name (`verify-default-environment`)
- - the test definition, which starts at the `{` and ends at the `}` on
-   line 8. The definition is an "Attrset", which is like a dictionary,
-   associative array, or HashMap in other languages.
+Line one is importing a file, `../make-test.nix`, and passing a function to `make-test.nix`. The
+function starts at the `({ helpers, ...}` and ends at the `})` on line 11. The function returns an
+"Attrset", which decribes the test. An Attrset is like a dictionary, associative array, or HashMap
+in other languages.
 
-`verify-test-case` will handle configuring the VM do the initial setup
+`make-test.nix` will handle configuring the VM do the initial setup
 we wanted, plus add the extra spare servers and our test phases. These
 are defined in the test definition.
 
@@ -110,8 +108,7 @@ your test starts, there is already:
    to expect. This function looks up the shard, finds the master, and
    compares the expected count to the actual count.
 
-You can run this test via `nix-build ./tests.nix -A
-tests.verify-default-environment`.
+You can run this test via `nix-build ./tests/verify-default-environment.nix`.
 
 ### A slightly more complex test: `simple-shard-cutover`
 
@@ -135,8 +132,7 @@ In our `shard-cutover` phase, we see a new syntax: the `''` quotes.
 that finishes, we make assertions similar to the
 `verify-default-environment`.
 
-You can run this test via `nix-build ./tests.nix -A
-tests.simple-shard-cutover`.
+You can run this test via `nix-build ./tests/simple-shard-cutover.nix`.
 
 ## Other Test Phase Helpers
 
@@ -234,8 +230,8 @@ like this:
 
 ## Running an arbitrary test
 
-1. Run all tests: `nix-build ./tests.nix -A all; ./result`
-2. Run a particular test: `nix-build ./tests.nix -A tests.verify-default-environment`
+1. Run all tests: `nix-build ./all-tests.nix`
+2. Run a particular test: `nix-build ./tests/verify-default-environment.nix`
 
 ## Entering a test VM
 
@@ -243,7 +239,7 @@ This is a bit of a WIP, but to get in to a test's VM:
 
 ```bash
 rm -rf vde1.ctl/ /tmp/vm-state-machine/
-nix-build /var/www/apps/jetpants-testing/tests.nix -A tests.verify-default-environment.driver
+nix-build /var/www/apps/jetpants/testing/tests/verify-default-environment.nix -A driver
 QEMU_NET_OPTS="hostfwd=tcp::2223-:22" tests='startAll; joinAll;' ./result/bin/nixos-run-vms
 ```
 

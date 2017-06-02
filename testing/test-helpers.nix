@@ -3,9 +3,8 @@ let
   inherit (pkgs) lib;
 in
 rec {
-  verify-test-case = name: { test-phases, ... } @ args: {
-    inherit name;
-    value = (import ./test-harness.nix ( (removeAttrs args ["test-phases"]) // {
+  verify-test-case = name: { test-phases, ... } @ args:
+   (import ./test-harness.nix ( (removeAttrs args [ "test-phases"]) // {
       testname = name;
       test-script = pkgs.writeScript "phases.${name}" ''
         #!${pkgs.bash}/bin/bash
@@ -14,14 +13,15 @@ rec {
 
         ${lib.concatMapStrings (p: "${p}\n") test-phases}
       '';
-    }));
-  };
+   }));
 
   phase = name: script: let
     test = pkgs.writeScript "test.${name}" ''
       #!${pkgs.bash}/bin/bash
       set -eux
-      ${script}
+      (
+        ${script}
+      ) 2>&1
     '';
 
   in pkgs.writeScript "test.${name}.wrapper" ''
