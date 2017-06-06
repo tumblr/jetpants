@@ -67,5 +67,7 @@ plugins:
             - mysql_default_cipher
         remote_lookup: false
         inter_dc_mode: false
+        retries: 23
+        max_retry_backoff: 16
 
     online_schema_change:
