@@ -1,0 +1,77 @@
+mysql_schema:   myapp
+mysql_app_user: myapp
+mysql_app_password:     password
+mysql_repl_user:        repl
+mysql_repl_password:    password
+default_shard_pool:     posts
+
+compress_with: "%gzip%/bin/gzip"
+decompress_with: "%gzip%/bin/zcat"
+
+log_file: /dev/stdout
+lazy_load_pools: true
+
+
+standby_slaves_per_pool: 1
+backup_slaves_per_pool: 0
+mysql_datadir: /var/mysql/
+
+# Users created by Jetpants are given access from these IPs
+mysql_grant_ips: [10.50.2.%]
+
+# Users created by Jetpants are given these MySQL privileges
+mysql_grant_privs:
+    - SELECT
+    - INSERT
+    - UPDATE
+    - DELETE
+    - REFERENCES
+    - CREATE TEMPORARY TABLES
+    - LOCK TABLES
+    - EXECUTE
+
+# Specific schemata may be optionally ignored while cloning.  If this is not
+# overridden it will default to information_schema and performance_schema.
+mysql_clone_ignore:
+    - some_temporary_schema
+    - information_schema
+    - performance_schema
+
+# Define what directory to put exported files in. If you have /var/lib/mysql
+# on an SSD RAID mount and the rest of your OS on a rotational disk mount,
+# it's fine to put the export_location on the rotational disk, which probably
+# has higher capacity anyway.
+export_location: /tmp/
+
+# List all tables defined on the shards, along with what column name corresponds
+# to your app's sharding key (to determine which shard a given row lives on),
+# and how many "chunks" to split the data set into when doing an import or
+# export.
+sharded_tables:
+    posts:
+        posts:
+            sharding_key: user_id
+            chunks: 200
+
+plugins:
+    jetpants_collins:
+        user: blake
+        password: admin:first
+        url: http://127.0.0.1:9000/
+        datacenter: example
+        location_hierarchy:
+            - dc
+            - row
+            - position
+        selector_page_size: 50
+        clone_attributes:
+            - mysql_new_password
+            - mysql_binlog_format
+            - mysql_storage_engine
+            - mysql_default_cipher
+        remote_lookup: false
+        inter_dc_mode: false
+        retries: 23
+        max_retry_backoff: 16
+
+    online_schema_change:
