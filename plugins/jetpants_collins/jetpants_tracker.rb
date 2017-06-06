@@ -42,7 +42,7 @@ module Jetpants
           attrs.delete(:literal)
 
           if asset && asset.type.downcase == 'server_node' && asset.location && asset.location.upcase != Plugin::JetCollins.datacenter
-            asset = nil unless Jetpants::Plugin::JetCollins.inter_dc_mode?
+            asset = nil unless jetcollins.inter_dc_mode?
           end
 
           attrs.each do |key, val|
@@ -66,15 +66,15 @@ module Jetpants
               if state_val
                 previous_state = asset.state.name.upcase
                 next unless previous_state != state_val.to_s.upcase || previous_status != val.to_s.capitalize
-                success = Jetpants::Plugin::JetCollins.set_status!(asset, val, 'changed through jetpants', state_val)
+                success = jetcollins.set_status!(asset, val, 'changed through jetpants', state_val)
                 unless success
-                  Jetpants::Plugin::JetCollins.state_create!(state_val, state_val, state_val, val)
-                  success = Jetpants::Plugin::JetCollins.set_status!(asset, val, 'changed through jetpants', state_val)
+                  jetcollins.state_create!(state_val, state_val, state_val, val)
+                  success = jetcollins.set_status!(asset, val, 'changed through jetpants', state_val)
                 end
                 raise "#{self}: Unable to set Collins state to #{state_val} and Unable to set Collins status to #{val}" unless success
                 output "Collins status:state changed from #{previous_status}:#{previous_state} to #{val.capitalize}:#{state_val.upcase}"
               elsif previous_status != val.to_s.capitalize
-                success = Jetpants::Plugin::JetCollins.set_status!(asset, val)
+                success = jetcollins.set_status!(asset, val)
                 raise "#{self}: Unable to set Collins status to #{val}" unless success
                 output "Collins status changed from #{previous_status} to #{val}"
               end
@@ -93,7 +93,7 @@ module Jetpants
               val = val.to_s
               val = val.upcase if upcase
               if previous_value != val
-                success = Jetpants::Plugin::JetCollins.set_attribute!(asset, key.to_s.upcase, val)
+                success = jetcollins.set_attribute!(asset, key.to_s.upcase, val)
                 raise "#{self}: Unable to set Collins attribute #{key} to #{val}" unless success
                 if (val == '' || !val) && (previous_value == '' || !previous_value)
                   false
@@ -107,6 +107,11 @@ module Jetpants
               end
             end
           end
+        end
+
+        private
+        def jetcollins
+          Jetpants::Plugin::JetCollins
         end
       end
     end # module JetCollinsAsset
