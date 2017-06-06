@@ -71,6 +71,7 @@ module Jetpants
   }
 
   config_paths = ["/etc/jetpants.yaml", "~/.jetpants.yml", "~/.jetpants.yaml"]
+  config_paths.unshift ENV['JETPANTS_CONFIG'] if ENV['JETPANTS_CONFIG']
   config_loaded = false
 
   config_paths.each do |path|
@@ -90,7 +91,7 @@ module Jetpants
   @config['send_param_path'] = "#{@config['export_location']}/__ncat_clone_send_params.yaml"
 
   unless config_loaded
-    puts "Could not find any readable configuration files at either /etc/jetpants.yaml or ~/.jetpants.yaml\n\n"
+    puts "Could not find any readable configuration files at any of #{config_paths.join(', ')}\n\n"
     exit
   end
 
