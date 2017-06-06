@@ -16,5 +16,6 @@ in stdenv.mkDerivation {
 
   shellHook = ''
     export GEM_HOME="${env}/${env.ruby.gemPath}"
+    export JETPANTS_CONFIG=$(pwd)/spec/jetpants.yaml
   '';
 }
