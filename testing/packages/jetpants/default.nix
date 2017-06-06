@@ -46,6 +46,8 @@ stdenv.mkDerivation {
   '';
 
   passthru = {
+    inherit env;
+
     ruby_script = name: script: writeScript "${name}" ''
       #!${env.ruby}/bin/ruby
 
