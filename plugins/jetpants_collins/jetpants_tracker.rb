@@ -12,26 +12,14 @@ module Jetpants
           @logger.call msg
         end
 
-        def get(*field_names)
+        def get(field_names)
           asset = @asset.call
 
-          if field_names.count > 1 || field_names[0].is_a?(Array)
-            field_names.flatten!
-            want_state = !! field_names.delete(:state)
-            results = Hash[field_names.map {|field| [field, (asset ? asset.send(field) : '')]}]
-            results[:state] = (asset ? asset.state.name : '') if want_state
-            results[:asset] = asset
-            results
-          elsif field_names.count == 1
-            return '' unless asset
-            if field_names[0] == :state
-              asset.state.name
-            else
-              asset.send field_names[0]
-            end
-          else
-            nil
-          end
+          want_state = !! field_names.delete(:state)
+          results = Hash[field_names.map {|field| [field, (asset ? asset.send(field) : '')]}]
+          results[:state] = (asset ? asset.state.name : '') if want_state
+          results[:asset] = asset
+          results
         end
 
         def set(*args)

@@ -205,7 +205,16 @@ module Jetpants
       # If you pass in an array, returns a hash mapping each of these fields to their values.
       # Hash will also contain an extra field called :asset, storing the Collins::Asset object.
       def collins_get(*field_names)
-        collins.get(*field_names)
+        if field_names.count > 1 || field_names[0].is_a?(Array)
+          field_names.flatten!
+          return collins.get(field_names)
+        elsif field_names.count == 1
+          field_name = field_names[0]
+          attributes = collins.get([field_name])
+          return attributes[field_name]
+        else
+          return nil
+        end
       end
 
       # Pass in a hash mapping field name symbols to values to set
