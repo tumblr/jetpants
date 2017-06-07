@@ -22,7 +22,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
     context "In the most trivial of fetchers" do
       it "does a direct attr send" do
         asset = double("MyAsset")
-        allow(asset).to receive(:hi).and_return("there")
+        expect(asset).to receive(:hi).and_return("there")
         f = StubAsset.new(asset)
 
         expect(f.collins_get('hi')).to eq("there")
@@ -32,8 +32,8 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
     context "With multiple fields" do
       it "Returns a Hash of fields" do
         asset = double("MyAsset")
-        allow(asset).to receive(:hi).and_return("there")
-        allow(asset).to receive(:howdy).and_return("cowboy")
+        expect(asset).to receive(:hi).and_return("there")
+        expect(asset).to receive(:howdy).and_return("cowboy")
         f = StubAsset.new(asset)
 
 
@@ -44,5 +44,55 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
                                                  })
       end
     end
+
+    context "With args[0] as an array of fields" do
+      it "Returns a Hash of fields" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:hi).and_return("there")
+        expect(asset).to receive(:howdy).and_return("cowboy")
+        expect(asset).to receive(:foo).and_return("bar")
+        f = StubAsset.new(asset)
+
+        expect(f.collins_get([:hi, :howdy], :foo)).to eq({
+          asset: asset,
+          hi: "there",
+          howdy: "cowboy",
+          foo: "bar"
+        })
+      end
+    end
+
+    context "With :state specified" do
+      it "Returns a STATE value" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:hi).and_return("there")
+        expect(asset).to receive(:howdy).and_return("cowboy")
+        state = double("AssetState")
+        expect(state).to receive(:name).and_return("Allocated")
+        expect(asset).to receive(:state).and_return(state)
+        f = StubAsset.new(asset)
+
+        expect(f.collins_get(:hi, :howdy, :state)).to eq({
+          asset: asset,
+          hi: "there",
+          howdy: "cowboy",
+          state: "Allocated"
+        })
+      end
+    end
+
+    context "With :state specified" do
+      it "Returns a STATE value" do
+        f = StubAsset.new(false)
+
+        expect(f.collins_get(:hi, :howdy, :state)).to eq({
+          asset: false,
+          hi: "",
+          howdy: "",
+          state: ""
+        })
+      end
+    end
+
   end
 end

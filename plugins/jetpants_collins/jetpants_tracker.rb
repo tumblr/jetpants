@@ -19,7 +19,7 @@ module Jetpants
             field_names.flatten!
             want_state = !! field_names.delete(:state)
             results = Hash[field_names.map {|field| [field, (asset ? asset.send(field) : '')]}]
-            results[:state] = asset.state.name if want_state
+            results[:state] = (asset ? asset.state.name : '') if want_state
             results[:asset] = asset
             results
           elsif field_names.count == 1
