@@ -94,5 +94,32 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
+    context "With just :state specified and asset false" do
+      it "Returns a empty string" do
+        f = StubAsset.new(false)
+
+        expect(f.collins_get(:state)).to eq("")
+      end
+    end
+
+    context "With just :state specified" do
+      it "Returns the asset STATE" do
+        asset = double("MyAsset")
+        state = double("AssetState")
+        expect(state).to receive(:name).and_return("Allocated")
+        expect(asset).to receive(:state).and_return(state)
+        f = StubAsset.new(asset)
+
+        expect(f.collins_get(:state)).to eq("Allocated")
+      end
+    end
+
+    context "When we request no attributes" do
+      it "Returns nil" do
+        f = StubAsset.new(false)
+
+        expect(f.collins_get()).to eq(nil)
+      end
+    end
   end
 end
