@@ -139,6 +139,49 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
   end
 
   describe "#set" do
+    context "attrs include asset" do
+      it "is passed, rather than calling asset" do
+        passed_asset = double("PassedAsset")
+        original_asset = double("OriginalAsset")
+        expect(passed_asset).to receive(:type).and_return("not a server asset")
+        expect(passed_asset).to receive(:hi).and_return("there")
+
+        original_stub_asset = StubAsset.new(original_asset)
+
+        $JETCOLLINS = double("JetCollins")
+        expect($JETCOLLINS).to receive(:set_attribute!).with(passed_asset, "HI", "THERE").and_return(true)
+        expect(original_stub_asset.collins_set({
+          hi: :there,
+          asset: passed_asset
+        })).to eq({
+          hi: :there,
+          asset: passed_asset
+        })
+      end
+    end
+
+    context "val provided is false/nil" do
+      it "returns empty string" do
+        asset = double("MyAsset")
+        allow(asset).to receive(:type).and_return("not a server asset")
+        allow(asset).to receive(:hi).and_return("whatever")
+        f = StubAsset.new(asset)
+
+        $JETCOLLINS = double("JetCollins")
+        expect($JETCOLLINS).to receive(:set_attribute!).with(asset, "HI", "").and_return(true)
+
+        expect(f.collins_set(hi: false)).to eq(hi: false)
+      end
+    end
+
+    context "asset is false" do
+      it "skips setting status" do
+        f = StubAsset.new(false)
+
+        expect(f.collins_set(:status, "Allocated")).to eq(status: "Allocated")
+      end
+    end
+
     context "In the most trivial of setters" do
       it "does a direct attr send" do
         asset = double("MyAsset")
@@ -151,6 +194,18 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect(f.collins_set(:hi, :there)).to eq(hi: :there)
       end
     end
+
+    context "Trying to set an attribute to existing value" do
+      it "doesnt call set_attribute!" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:type).and_return("not a server asset")
+        expect(asset).to receive(:hi).and_return("THERE")
+        f = StubAsset.new(asset)
+
+        expect(f.collins_set(:hi, "there")).to eq(hi: "there")
+      end
+    end
+
     context "Setting the status parameter" do
       it "does a basic set if only the status is passed" do
         asset = double("MyAsset")
@@ -221,35 +276,31 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
                      howdy: :cowboy
                    )
       end
+    end
 
-      context "with a status and state parameter" do
-        it "splits the status parameter if the state is also provided" do
-          asset = double("MyAsset")
-          allow(asset).to receive(:type).and_return("not a server asset :)")
-          allow(asset).to receive(:status).and_return("Unallocated")
-          allow(asset).to receive(:hi).and_return("there")
-          allow(asset).to receive(:howdy).and_return("cowboy")
+    context "with a status and state parameter" do
+      it "splits the status parameter if the state is also provided" do
+        asset = double("MyAsset")
+        allow(asset).to receive(:type).and_return("not a server asset :)")
+        allow(asset).to receive(:status).and_return("Unallocated")
+        allow(asset).to receive(:hi).and_return("there")
+        allow(asset).to receive(:howdy).and_return("cowboy")
 
-          state = double("AssetState")
-          expect(state).to receive(:name).and_return("Available")
-          allow(asset).to receive(:state).and_return(state)
-          f = StubAsset.new(asset)
 
-          expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "RUNNING").and_return(true)
-          expect($JETCOLLINS).to receive(:set_attribute!).with(asset, "HI", "THERE").and_return(true)
-          expect($JETCOLLINS).to receive(:set_attribute!).with(asset, "HOWDY", "COWBOY").and_return(true)
+        state = double("AssetState")
+        expect(state).to receive(:name).and_return("Available")
+        allow(asset).to receive(:state).and_return(state)
+        f = StubAsset.new(asset)
 
-          expect(f.collins_set(
-                   status: "Allocated:Running",
-                   hi: :there,
-                   howdy: :cowboy
-                 )
-                ).to eq(
-                       hi: :there,
-                       howdy: :cowboy,
-                       status: "Allocated:Running"
-                     )
-        end
+        expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "RUNNING").and_return(true)
+        expect($JETCOLLINS).to receive(:set_attribute!).with(asset, "HI", "THERE").and_return(true)
+        expect($JETCOLLINS).to receive(:set_attribute!).with(asset, "HOWDY", "COWBOY").and_return(true)
+
+        f.collins_set(
+          status: "Allocated:Running",
+          hi: :there,
+          howdy: :cowboy
+        )
       end
     end
   end
