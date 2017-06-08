@@ -236,6 +236,165 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
 
         expect(f.collins_set(:status, "Allocated:Running")).to eq(status: "Allocated:Running")
       end
+
+      # - passing :status and :state
+    context "Pass both status and state" do
+      it "sets both status and state" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:type).and_return("not a server asset")
+        expect(asset).to receive(:status).at_least(:once).and_return("Unallocated")
+
+        state = double("AssetState")
+        expect(state).to receive(:name).and_return("Stopped")
+        allow(asset).to receive(:state).and_return(state)
+        f = StubAsset.new(asset)
+
+        $JETCOLLINS = double("JetCollins")
+        expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "Running").and_return(true)
+
+        f.collins_set(state: "Running", status: "Allocated")
+      end
+    end
+
+      # - if the status:state does match previous value, make sure we don't set
+    context " if status:state matches previous value" do
+      it "does not call set_status!" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:type).and_return("not a server asset")
+        expect(asset).to receive(:status).at_least(:once).and_return("Allocated")
+        f = StubAsset.new(asset)
+
+        state = double("AssetState")
+        expect(state).to receive(:name).and_return("Running")
+        expect(asset).to receive(:state).and_return(state)
+
+        f.collins_set(state: "Running", status: "Allocated")
+      end
+    end
+
+      # - a test where the status is the same but the state is different
+    context "if status is same in status:state" do
+      it "splits the status parameter and sets the state" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:type).and_return("not a server asset :)")
+        expect(asset).to receive(:status).and_return("Allocated")
+
+        state = double("AssetState")
+        expect(state).to receive(:name).and_return("Available")
+        expect(asset).to receive(:state).and_return(state)
+        f = StubAsset.new(asset)
+
+        $JETCOLLINS = double("JetCollins")
+        expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "RUNNING").and_return(true)
+
+
+        expect(f.collins_set(:status, "Allocated:Running")).to eq(status: "Allocated:Running")
+      end
+    end
+
+      # - a test where the state is the same but the status is different
+    context "if status is same in status:state" do
+      it "splits the status parameter and sets the state" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:type).and_return("not a server asset :)")
+        expect(asset).to receive(:status).and_return("Unallocated")
+
+        state = double("AssetState")
+        expect(state).to receive(:name).and_return("Running")
+        expect(asset).to receive(:state).and_return(state)
+        f = StubAsset.new(asset)
+
+        $JETCOLLINS = double("JetCollins")
+        expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "RUNNING").and_return(true)
+
+
+        expect(f.collins_set(:status, "Allocated:Running")).to eq(status: "Allocated:Running")
+      end
+    end
+
+      # - where set_status! fails the first time (state doesn't exist, returns false),
+      #   then make sure state_create is called, then set_status! passes (returns true)
+      #   ^ this test is where you're setting a state and a status at the same time
+   context "if set_status! fails first time for different :state" do
+      it "returns false" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:type).and_return("not a server asset")
+        expect(asset).to receive(:status).and_return("Unallocated")
+
+        state = double("AssetState")
+        expect(state).to receive(:name).and_return("What")
+        expect(asset).to receive(:state).and_return(state)
+        f = StubAsset.new(asset)
+
+        $JETCOLLINS = double("JetCollins")
+        expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "WHATEVER").and_return(false)
+        expect($JETCOLLINS).to receive(:state_create!).with("WHATEVER", "WHATEVER", "WHATEVER", "Allocated").and_return(true)
+        expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "WHATEVER").and_return(true)
+
+        f.collins_set(:status, "Allocated:Whatever")
+      end
+    end
+      # - where set_status! fails the first time (status doesn't exist, returns false),
+      #   then make sure state_create is called, then set_status! passes (returns false)
+      #   ^ this test is where you're setting a state and a status at the same time
+    context "if set_status! fails first time for different :status" do
+      it "returns false" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:type).and_return("not a server asset")
+        expect(asset).to receive(:status).and_return("What")
+
+        state = double("AssetState")
+        expect(state).to receive(:name).and_return("Spare")
+        expect(asset).to receive(:state).and_return(state)
+        f = StubAsset.new(asset)
+
+        $JETCOLLINS = double("JetCollins")
+        expect($JETCOLLINS).to receive(:set_status!).with(asset, "Whatever", "changed through jetpants", "RUNNING").and_return(false)
+        expect($JETCOLLINS).to receive(:state_create!).with("RUNNING", "RUNNING", "RUNNING", "Whatever").and_return(true)
+        expect($JETCOLLINS).to receive(:set_status!).with(asset, "Whatever", "changed through jetpants", "RUNNING").and_return(true)
+
+        f.collins_set(:status, "Whatever:Running")
+      end
+    end
+      # - where you're setting just the status, but set_status! returns false
+    context "if setting just the status" do
+      it "returns false" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:type).and_return("not a server asset")
+        expect(asset).to receive(:status).and_return("Unallocated")
+
+        f = StubAsset.new(asset)
+
+        $JETCOLLINS = double("JetCollins")
+        expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated").and_return(true)
+
+        f.collins_set(:status, "Allocated")
+      end
+    end
+      # - where you're setting just the status, but the status hasn't changed
+     context "if setting just the status" do
+      it "returns false" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:type).and_return("not a server asset")
+        expect(asset).to receive(:status).and_return("Allocated")
+
+        f = StubAsset.new(asset)
+
+        f.collins_set(:status, "Allocated")
+      end
+    end 
+      # - when status is not passed and state is passed, raise an error
+    context "if setting state without passing status" do
+      it "raises an error" do
+        asset = double("MyAsset")
+        expect(asset).to receive(:type).and_return("not a server asset")
+        expect(asset).to receive(:status).and_return("Allocated") 
+
+        f = StubAsset.new(asset)
+
+        expect{f.collins_set(:state, "Running")}.to raise_error(RuntimeError)
+      end
+    end
     end
 
     context "With multiple parameters" do
