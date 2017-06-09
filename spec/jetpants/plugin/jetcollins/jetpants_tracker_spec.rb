@@ -150,10 +150,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
 
         $JETCOLLINS = double("JetCollins")
         expect($JETCOLLINS).to receive(:set_attribute!).with(passed_asset, "HI", "THERE").and_return(true)
-        expect(original_stub_asset.collins_set({
-          hi: :there,
-          asset: passed_asset
-        })).to eq({
+        original_stub_asset.collins_set({
           hi: :there,
           asset: passed_asset
         })
@@ -378,13 +375,13 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
 
         f.collins_set(:status, "Allocated")
       end
-    end 
+    end
       # - when status is not passed and state is passed, raise an error
     context "if setting state without passing status" do
       it "raises an error" do
         asset = double("MyAsset")
         expect(asset).to receive(:type).and_return("not a server asset")
-        expect(asset).to receive(:status).and_return("Allocated") 
+        expect(asset).to receive(:status).and_return("Allocated")
 
         f = StubAsset.new(asset)
 
@@ -404,12 +401,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect($JETCOLLINS).to receive(:set_attribute!).with(asset, "HI", "THERE").and_return(true)
         expect($JETCOLLINS).to receive(:set_attribute!).with(asset, "HOWDY", "COWBOY").and_return(true)
 
-        expect(f.collins_set(hi: :there,
-                             howdy: :cowboy)
-              ).to eq(
-                     hi: :there,
-                     howdy: :cowboy
-                   )
+        f.collins_set(hi: :there, howdy: :cowboy)
       end
     end
 
@@ -426,14 +418,9 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect($JETCOLLINS).to receive(:set_attribute!).with(differentAsset, "HI", "THERE").and_return(true)
         expect($JETCOLLINS).to receive(:set_attribute!).with(differentAsset, "HOWDY", "COWBOY").and_return(true)
 
-        expect(f.collins_set(hi: :there,
-                             howdy: :cowboy,
-                             asset: differentAsset)
-              ).to eq(
-                     asset: differentAsset,
-                     hi: :there,
-                     howdy: :cowboy
-                   )
+        f.collins_set(hi: :there,
+                      howdy: :cowboy,
+                      asset: differentAsset)
       end
     end
 
