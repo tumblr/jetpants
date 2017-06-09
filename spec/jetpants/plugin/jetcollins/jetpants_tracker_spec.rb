@@ -175,7 +175,35 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       it "skips setting status" do
         f = StubAsset.new(false)
 
-        expect(f.collins_set(:status, "Allocated")).to eq(status: "Allocated")
+        f.collins_set(:status, "Allocated")
+      end
+    end
+
+    context "asset in another DC" do
+      it "returns nil" do 
+        asset =  double("MyAsset")
+        expect(asset).to receive(:type).and_return("server_node")
+        expect(asset).to receive(:location).at_least(:once).and_return("earth2")
+        f = StubAsset.new(asset)
+
+        $JETCOLLINS = double("JetCollins")
+        expect($JETCOLLINS).to receive(:inter_dc_mode?).and_return(false)
+
+        f.collins_set(:status, "Allocated")
+      end
+    end
+
+    context "asset in another DC, inter_dc_mode? true" do
+      it "returns nil" do 
+        asset =  double("MyAsset")
+        expect(asset).to receive(:type).and_return("server_node")
+        expect(asset).to receive(:location).at_least(:once).and_return("earth2")
+        f = StubAsset.new(asset)
+
+        $JETCOLLINS = double("JetCollins")
+        expect($JETCOLLINS).to receive(:inter_dc_mode?).and_return(true)
+
+        f.collins_set(:status, "Allocated")
       end
     end
 
