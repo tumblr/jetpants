@@ -29,7 +29,12 @@ module Jetpants
           upcase = !attrs[:literal]
           attrs.delete(:literal)
 
-          if asset && asset.type.downcase == 'server_node' && asset.location && asset.location.upcase != Plugin::JetCollins.datacenter
+          unless asset
+            output "WARNING: unable to set Collins attribute"
+            return
+          end
+
+          if asset.type.downcase == 'server_node' && asset.location && asset.location.upcase != Plugin::JetCollins.datacenter
             asset = nil unless jetcollins.inter_dc_mode?
           end
 
@@ -37,10 +42,6 @@ module Jetpants
             val ||= ''
             case key
             when :status
-              unless asset
-                output "WARNING: unable to set Collins status to #{val}"
-                next
-              end
               state_val = attrs[:state]
               previous_status = asset.status.capitalize
               if val.include? ':'
@@ -65,16 +66,12 @@ module Jetpants
                 output "Collins status changed from #{previous_status} to #{val}"
               end
             when :state
-              unless asset && asset.status && attrs[:status]
+              unless asset.status && attrs[:status]
                 raise "#{self}: Unable to set state without settings a status" unless attrs[:status]
                 output "WARNING: unable to set Collins state to #{val}"
                 next
               end
             else
-              unless asset
-                output "WARNING: unable to set Collins attribute #{key} to #{val}"
-                next
-              end
               previous_value = asset.send(key)
               val = val.to_s
               val = val.upcase if upcase
