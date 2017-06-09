@@ -150,13 +150,10 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
 
         $JETCOLLINS = double("JetCollins")
         expect($JETCOLLINS).to receive(:set_attribute!).with(passed_asset, "HI", "THERE").and_return(true)
-        expect(original_stub_asset.collins_set({
+        original_stub_asset.collins_set({
           hi: :there,
           asset: passed_asset
-        })).to eq({
-          hi: :there,
-          asset: passed_asset
-        }) 
+        })
       end
     end
 
@@ -410,12 +407,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect($JETCOLLINS).to receive(:set_attribute!).with(asset, "HOWDY", "COWBOY").and_return(true)
 
 
-        expect(f.collins_set(hi: :there,
-                             howdy: :cowboy)
-              ).to eq(
-                     hi: :there,
-                     howdy: :cowboy
-                   )
+        f.collins_set(hi: :there, howdy: :cowboy)
       end
     end
 
@@ -437,14 +429,9 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect($JETCOLLINS).to receive(:set_attribute!).with(differentAsset, "HOWDY", "COWBOY").and_return(true)
 
 
-        expect(f.collins_set(hi: :there,
+        f.collins_set(hi: :there,
                              howdy: :cowboy,
                              asset: differentAsset)
-              ).to eq(
-                     asset: differentAsset,
-                     hi: :there,
-                     howdy: :cowboy
-                   )
       end
     end
 
