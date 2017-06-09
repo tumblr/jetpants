@@ -25,7 +25,7 @@ module Jetpants
         def set(*args)
           attrs = (args.count == 1 ? args[0] : {args[0] => args[1]})
           asset = attrs[:asset] || @asset.call
-
+          attrs.delete(:asset)
           upcase = !attrs[:literal]
           attrs.delete(:literal)
 
@@ -36,8 +36,6 @@ module Jetpants
           attrs.each do |key, val|
             val ||= ''
             case key
-            when :asset
-              next
             when :status
               unless asset
                 output "WARNING: unable to set Collins status to #{val}"
