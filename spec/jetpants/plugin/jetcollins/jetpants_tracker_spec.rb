@@ -189,21 +189,23 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         $JETCOLLINS = double("JetCollins")
         expect($JETCOLLINS).to receive(:inter_dc_mode?).and_return(false)
 
-        f.collins_set(:status, "Allocated")
+        f.collins_set(:hi, "there")
       end
     end
 
-    context "asset in another DC, inter_dc_mode? true" do
-      it "returns nil" do 
+    context "asset in another DC, inter_dc_mode? TRUE" do
+      it "sets attributes" do 
         asset =  double("MyAsset")
         expect(asset).to receive(:type).and_return("server_node")
         expect(asset).to receive(:location).at_least(:once).and_return("earth2")
+        expect(asset).to receive(:hi).and_return("HELLO")
         f = StubAsset.new(asset)
 
         $JETCOLLINS = double("JetCollins")
         expect($JETCOLLINS).to receive(:inter_dc_mode?).and_return(true)
+        expect($JETCOLLINS).to receive(:set_attribute!).with(asset, "HI", "THERE").and_return(true)
 
-        f.collins_set(:status, "Allocated")
+        f.collins_set(:hi, "there")
       end
     end
 
