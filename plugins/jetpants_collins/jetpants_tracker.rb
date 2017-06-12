@@ -22,8 +22,7 @@ module Jetpants
           results
         end
 
-        def set(*args)
-          attrs = (args.count == 1 ? args[0] : {args[0] => args[1]})
+        def set(attrs)
           asset = attrs[:asset] || @asset.call
           attrs.delete(:asset)
           upcase = !attrs[:literal]
