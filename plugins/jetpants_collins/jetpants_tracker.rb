@@ -47,31 +47,9 @@ module Jetpants
           if attrs.include? :status
             val = attrs[:status] || ''
             state_val = attrs[:state]
-            previous_status = asset.status.capitalize
-            if val.include? ':'
-              raise "Attempting to set state in two places" if state_val
-              vals = val.split(':', 2)
-              val       = vals.first.capitalize
-              state_val = vals.last.upcase
-            end
-            if state_val
-              previous_state = asset.state.name.upcase
-              if previous_state != state_val.to_s.upcase || previous_status != val.to_s.capitalize
-                success = jetcollins.set_status!(asset, val, 'changed through jetpants', state_val)
-                unless success
-                  jetcollins.state_create!(state_val, state_val, state_val, val)
-                  success = jetcollins.set_status!(asset, val, 'changed through jetpants', state_val)
-                end
-                raise "#{self}: Unable to set Collins state to #{state_val} and Unable to set Collins status to #{val}" unless success
-                output "Collins status:state changed from #{previous_status}:#{previous_state} to #{val.capitalize}:#{state_val.upcase}"
-              end
-            elsif previous_status != val.to_s.capitalize
-              success = jetcollins.set_status!(asset, val)
-              raise "#{self}: Unable to set Collins status to #{val}" unless success
-              output "Collins status changed from #{previous_status} to #{val}"
-            end
+            set_status_state(asset, val, state_val)
             attrs.delete(:status)
-	    attrs.delete(:state)	
+	    attrs.delete(:state)
           end
 
           attrs.each do |key, val|
@@ -92,6 +70,32 @@ module Jetpants
                 output "Collins attribute #{key.to_s.upcase} changed from #{previous_value} to #{val}"
               end
             end
+          end
+        end
+
+        def set_status_state(asset, status, state)
+          previous_status = asset.status.capitalize
+          if status.include? ':'
+            raise "Attempting to set state in two places" if state
+            vals = status.split(':', 2)
+            status = vals.first.capitalize
+            state = vals.last.upcase
+          end
+          if state
+            previous_state = asset.state.name.upcase
+            if previous_state != state.to_s.upcase || previous_status != status.to_s.capitalize
+              success = jetcollins.set_status!(asset, status, 'changed through jetpants', state)
+              unless success
+                jetcollins.state_create!(state, state, state, status)
+                success = jetcollins.set_status!(asset, status, 'changed through jetpants', state)
+              end
+              raise "#{self}: Unable to set Collins state to #{state} and Unable to set Collins status to #{status}" unless success
+              output "Collins status:state changed from #{previous_status}:#{previous_state} to #{status.capitalize}:#{state.upcase}"
+            end
+          elsif previous_status != status.to_s.capitalize
+            success = jetcollins.set_status!(asset, status)
+            raise "#{self}: Unable to set Collins status to #{status}" unless success
+            output "Collins status changed from #{previous_status} to #{status}"
           end
         end
 
