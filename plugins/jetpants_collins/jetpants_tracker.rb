@@ -37,6 +37,12 @@ module Jetpants
             output "WARNING: unable to set Collins attribute"
             return
           end
+ 
+          if attrs.include? :state
+            unless asset.status && attrs[:status]
+              raise "#{self}: Unable to set state without settings a status" unless attrs[:status]
+            end
+          end
 
           attrs.each do |key, val|
             val ||= ''
@@ -66,11 +72,7 @@ module Jetpants
                 output "Collins status changed from #{previous_status} to #{val}"
               end
             when :state
-              unless asset.status && attrs[:status]
-                raise "#{self}: Unable to set state without settings a status" unless attrs[:status]
-                output "WARNING: unable to set Collins state to #{val}"
-                next
-              end
+              next
             else
               previous_value = asset.send(key)
               val = val.to_s
