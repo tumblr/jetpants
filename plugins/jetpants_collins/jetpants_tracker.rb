@@ -44,21 +44,19 @@ module Jetpants
             end
           end
 
-          attrs.each do |key, val|
-            val ||= ''
-            case key
-            when :status
-              state_val = attrs[:state]
-              previous_status = asset.status.capitalize
-              if val.include? ':'
-                raise "Attempting to set state in two places" if state_val
-                vals = val.split(':', 2)
-                val       = vals.first.capitalize
-                state_val = vals.last.upcase
-              end
-              if state_val
-                previous_state = asset.state.name.upcase
-                next unless previous_state != state_val.to_s.upcase || previous_status != val.to_s.capitalize
+          if attrs.include? :status
+            val = attrs[:status] || ''
+            state_val = attrs[:state]
+            previous_status = asset.status.capitalize
+            if val.include? ':'
+              raise "Attempting to set state in two places" if state_val
+              vals = val.split(':', 2)
+              val       = vals.first.capitalize
+              state_val = vals.last.upcase
+            end
+            if state_val
+              previous_state = asset.state.name.upcase
+              if previous_state != state_val.to_s.upcase || previous_status != val.to_s.capitalize
                 success = jetcollins.set_status!(asset, val, 'changed through jetpants', state_val)
                 unless success
                   jetcollins.state_create!(state_val, state_val, state_val, val)
@@ -66,11 +64,19 @@ module Jetpants
                 end
                 raise "#{self}: Unable to set Collins state to #{state_val} and Unable to set Collins status to #{val}" unless success
                 output "Collins status:state changed from #{previous_status}:#{previous_state} to #{val.capitalize}:#{state_val.upcase}"
-              elsif previous_status != val.to_s.capitalize
-                success = jetcollins.set_status!(asset, val)
-                raise "#{self}: Unable to set Collins status to #{val}" unless success
-                output "Collins status changed from #{previous_status} to #{val}"
               end
+            elsif previous_status != val.to_s.capitalize
+              success = jetcollins.set_status!(asset, val)
+              raise "#{self}: Unable to set Collins status to #{val}" unless success
+              output "Collins status changed from #{previous_status} to #{val}"
+            end
+          end
+
+          attrs.each do |key, val|
+            val ||= ''
+            case key
+            when :status
+              next
             when :state
               next
             else
