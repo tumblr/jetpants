@@ -53,20 +53,19 @@ module Jetpants
 
           attrs.each do |key, val|
             val ||= ''
-            previous_value = asset.send(key)
+            previous_value = (asset.send(key) || '').to_s
             val = val.to_s
             val = val.upcase if upcase
+            key = key.to_s.upcase
             if previous_value != val
-              success = jetcollins.set_attribute!(asset, key.to_s.upcase, val)
+              success = jetcollins.set_attribute!(asset, key, val)
               raise "#{self}: Unable to set Collins attribute #{key} to #{val}" unless success
-              if (val == '' || !val) && (previous_value == '' || !previous_value)
-                false
-              elsif val == ''
-                output "Collins attribute #{key.to_s.upcase} removed (was: #{previous_value})"
-              elsif !previous_value || previous_value == ''
-                output "Collins attribute #{key.to_s.upcase} set to #{val}"
+              if val == ''
+                output "Collins attribute #{key} removed (was: #{previous_value})"
+              elsif previous_value == ''
+                output "Collins attribute #{key} set to #{val}"
               else
-                output "Collins attribute #{key.to_s.upcase} changed from #{previous_value} to #{val}"
+                output "Collins attribute #{key} changed from #{previous_value} to #{val}"
               end
             end
           end
