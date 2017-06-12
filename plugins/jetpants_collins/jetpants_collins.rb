@@ -225,7 +225,8 @@ module Jetpants
       #
       # Alternatively, pass in 2 strings (field_name, value) to set just a single Collins attribute (or status)
       def collins_set(*args)
-        collins.set(*args)
+        attrs = (args.count == 1 ? args[0] : {args[0] => args[1]})
+        collins.set(attrs)
       end
 
       # Returns a single downcased "status:state" string, useful when trying to compare both fields
