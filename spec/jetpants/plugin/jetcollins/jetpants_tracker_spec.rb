@@ -244,7 +244,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         $JETCOLLINS = double("JetCollins")
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated").and_return(true)
 
-        expect(f.collins_set(:status, "Allocated")).to eq(status: "Allocated")
+        f.collins_set(:status, "Allocated")
       end
 
       it "splits the status parameter if the state is also provided" do
@@ -261,7 +261,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "RUNNING").and_return(true)
 
 
-        expect(f.collins_set(:status, "Allocated:Running")).to eq(status: "Allocated:Running")
+        f.collins_set(:status, "Allocated:Running")
       end
 
       # - passing :status and :state
@@ -294,6 +294,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         state = double("AssetState")
         expect(state).to receive(:name).and_return("Running")
         expect(asset).to receive(:state).and_return(state)
+        $JETCOLLINS = double("JetCollins")
 
         f.collins_set(state: "Running", status: "Allocated")
       end
@@ -315,7 +316,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "RUNNING").and_return(true)
 
 
-        expect(f.collins_set(:status, "Allocated:Running")).to eq(status: "Allocated:Running")
+        f.collins_set(:status, "Allocated:Running")
       end
     end
 
@@ -335,7 +336,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "RUNNING").and_return(true)
 
 
-        expect(f.collins_set(:status, "Allocated:Running")).to eq(status: "Allocated:Running")
+        f.collins_set(:status, "Allocated:Running")
       end
     end
 
