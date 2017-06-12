@@ -41,7 +41,7 @@ module Jetpants
           if attrs.include? :state
             unless asset.status && attrs[:status]
               raise "#{self}: Unable to set state without settings a status" unless attrs[:status]
-            end
+            end 
           end
 
           if attrs.include? :status
@@ -70,31 +70,26 @@ module Jetpants
               raise "#{self}: Unable to set Collins status to #{val}" unless success
               output "Collins status changed from #{previous_status} to #{val}"
             end
+            attrs.delete(:status)
+	    attrs.delete(:state)	
           end
 
           attrs.each do |key, val|
             val ||= ''
-            case key
-            when :status
-              next
-            when :state
-              next
-            else
-              previous_value = asset.send(key)
-              val = val.to_s
-              val = val.upcase if upcase
-              if previous_value != val
-                success = jetcollins.set_attribute!(asset, key.to_s.upcase, val)
-                raise "#{self}: Unable to set Collins attribute #{key} to #{val}" unless success
-                if (val == '' || !val) && (previous_value == '' || !previous_value)
-                  false
-                elsif val == ''
-                  output "Collins attribute #{key.to_s.upcase} removed (was: #{previous_value})"
-                elsif !previous_value || previous_value == ''
-                  output "Collins attribute #{key.to_s.upcase} set to #{val}"
-                else
-                  output "Collins attribute #{key.to_s.upcase} changed from #{previous_value} to #{val}"
-                end
+            previous_value = asset.send(key)
+            val = val.to_s
+            val = val.upcase if upcase
+            if previous_value != val
+              success = jetcollins.set_attribute!(asset, key.to_s.upcase, val)
+              raise "#{self}: Unable to set Collins attribute #{key} to #{val}" unless success
+              if (val == '' || !val) && (previous_value == '' || !previous_value)
+                false
+              elsif val == ''
+                output "Collins attribute #{key.to_s.upcase} removed (was: #{previous_value})"
+              elsif !previous_value || previous_value == ''
+                output "Collins attribute #{key.to_s.upcase} set to #{val}"
+              else
+                output "Collins attribute #{key.to_s.upcase} changed from #{previous_value} to #{val}"
               end
             end
           end
