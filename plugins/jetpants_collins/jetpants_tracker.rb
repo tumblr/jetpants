@@ -29,13 +29,13 @@ module Jetpants
           upcase = !attrs[:literal]
           attrs.delete(:literal)
 
+          if asset && asset.type.downcase == 'server_node' && asset.location && asset.location.upcase != Plugin::JetCollins.datacenter
+            asset = nil unless jetcollins.inter_dc_mode?
+          end
+
           unless asset
             output "WARNING: unable to set Collins attribute"
             return
-          end
-
-          if asset.type.downcase == 'server_node' && asset.location && asset.location.upcase != Plugin::JetCollins.datacenter
-            asset = nil unless jetcollins.inter_dc_mode?
           end
 
           attrs.each do |key, val|
