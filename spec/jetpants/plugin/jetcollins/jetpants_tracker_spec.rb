@@ -29,23 +29,22 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "With multiple fields" do
+    context "When passed multiple fields" do
       it "Returns a Hash of fields" do
         asset = double("MyAsset")
         expect(asset).to receive(:hi).and_return("there")
         expect(asset).to receive(:howdy).and_return("cowboy")
         f = StubAsset.new(asset)
 
-
         expect(f.collins_get(:hi, :howdy)).to eq({
-                                                   asset: asset,
-                                                   hi: "there",
-                                                   howdy: "cowboy"
-                                                 })
+          asset: asset,
+          hi: "there",
+          howdy: "cowboy"
+        })
       end
     end
 
-    context "With args[0] as an array of fields" do
+    context "When passed args[0] as an array of fields" do
       it "Returns a Hash of fields" do
         asset = double("MyAsset")
         expect(asset).to receive(:hi).and_return("there")
@@ -62,7 +61,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "With :state specified" do
+    context "When :state specified" do
       it "Returns a STATE value" do
         asset = double("MyAsset")
         expect(asset).to receive(:hi).and_return("there")
@@ -81,8 +80,8 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "With :state specified" do
-      it "Returns a STATE value" do
+    context "When asset specified as false, and requested multiple attributes" do
+      it "Returns empty strings" do
         f = StubAsset.new(false)
 
         expect(f.collins_get(:hi, :howdy, :state)).to eq({
@@ -94,16 +93,16 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "With just :state specified and asset false" do
-      it "Returns a empty string" do
+    context "When asset specifed as false, and requested single attribute :state" do
+      it "Returns an empty string" do
         f = StubAsset.new(false)
 
         expect(f.collins_get(:state)).to eq("")
       end
     end
 
-    context "With just :state specified" do
-      it "Returns the asset STATE" do
+    context "When requested single attribute :state" do
+      it "Returns the STATE value" do
         asset = double("MyAsset")
         state = double("AssetState")
         expect(state).to receive(:name).and_return("Allocated")
@@ -114,7 +113,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "When we request no attributes" do
+    context "When requested no attributes" do
       it "Returns nil" do
         f = StubAsset.new(false)
 
