@@ -139,7 +139,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
   end
 
   describe "#set" do
-    context "attrs include asset" do
+    context "When attrs include asset" do
       it "is passed, rather than calling asset" do
         passed_asset = double("PassedAsset")
         original_asset = double("OriginalAsset")
@@ -147,8 +147,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect(passed_asset).to receive(:hi).and_return("there")
 
         original_stub_asset = StubAsset.new(original_asset)
-
-        $JETCOLLINS = double("JetCollins")
+ 
         expect($JETCOLLINS).to receive(:set_attribute!).with(passed_asset, "HI", "THERE").and_return(true)
         original_stub_asset.collins_set({
           hi: :there,
@@ -157,8 +156,8 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "val provided is false/nil" do
-      it "returns empty string" do
+    context "When val provided is falsey" do
+      it "returns empty string to set_attribute" do
         asset = double("MyAsset")
         allow(asset).to receive(:type).and_return("not a server asset")
         allow(asset).to receive(:hi).and_return("whatever")
@@ -171,7 +170,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "asset is false" do
+    context "When asset is false" do
       it "skips setting status" do
         f = StubAsset.new(false)
 
@@ -180,7 +179,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
     end
 
     context "asset in another DC" do
-      it "returns nil" do
+      it "doesnt set value with set_attribute or set_status" do
         asset =  double("MyAsset")
         expect(asset).to receive(:type).and_return("server_node")
         expect(asset).to receive(:location).at_least(:once).and_return("earth2")
@@ -193,8 +192,8 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "asset in another DC, inter_dc_mode? TRUE" do
-      it "sets attributes" do
+    context "asset in another DC, inter_dc_mode? is TRUE" do
+      it "sets attribute with set_attribute or set_status" do
         asset =  double("MyAsset")
         expect(asset).to receive(:type).and_return("server_node")
         expect(asset).to receive(:location).at_least(:once).and_return("earth2")
@@ -209,7 +208,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "In the most trivial of setters" do
+    context "When passed key:value pair to collins_set" do
       it "does a direct attr send" do
         asset = double("MyAsset")
         allow(asset).to receive(:type).and_return("not a server asset :)")
@@ -222,7 +221,7 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "Trying to set an attribute to existing value" do
+    context "When passed key:value pair to collins_set with existing value" do
       it "doesnt call set_attribute!" do
         asset = double("MyAsset")
         expect(asset).to receive(:type).and_return("not a server asset")
@@ -233,10 +232,10 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "Setting the status parameter" do
-      it "does a basic set if only the status is passed" do
+    context "When setting the :status parameter" do
+      it "does a basic set_status! if only the status is passed" do
         asset = double("MyAsset")
-        allow(asset).to receive(:type).and_return("not a server asset :)")
+        allow(asset).to receive(:type).and_return("not a server asset")
         allow(asset).to receive(:status).and_return("Unallocated")
         f = StubAsset.new(asset)
 
@@ -245,9 +244,9 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         f.collins_set(:status, "Allocated")
       end
 
-      it "splits the status parameter if the state is also provided" do
+      it "splits the status parameter if the state is also provided as appended to status" do
         asset = double("MyAsset")
-        allow(asset).to receive(:type).and_return("not a server asset :)")
+        allow(asset).to receive(:type).and_return("not a server asset")
         allow(asset).to receive(:status).and_return("Unallocated")
 
         state = double("AssetState")
@@ -260,9 +259,8 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         f.collins_set(:status, "Allocated:Running")
       end
 
-      # - passing :status and :state
-    context "Pass both status and state" do
-      it "sets both status and state" do
+    context "When setting both :status and :state" do
+      it "does a set_status! both status and state" do
         asset = double("MyAsset")
         expect(asset).to receive(:type).and_return("not a server asset")
         expect(asset).to receive(:status).at_least(:once).and_return("Unallocated")
@@ -272,15 +270,13 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         allow(asset).to receive(:state).and_return(state)
         f = StubAsset.new(asset)
 
-        $JETCOLLINS = double("JetCollins")
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "Running").and_return(true)
 
         f.collins_set(state: "Running", status: "Allocated")
       end
     end
 
-      # - if the status:state does match previous value, make sure we don't set
-    context " if status:state matches previous value" do
+    context "When status:state matches previous value" do
       it "does not call set_status!" do
         asset = double("MyAsset")
         expect(asset).to receive(:type).and_return("not a server asset")
@@ -290,14 +286,12 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         state = double("AssetState")
         expect(state).to receive(:name).and_return("Running")
         expect(asset).to receive(:state).and_return(state)
-        $JETCOLLINS = double("JetCollins")
 
         f.collins_set(state: "Running", status: "Allocated")
       end
     end
 
-      # - a test where the status is the same but the state is different
-    context "if status is same in status:state" do
+    context "When :status is same in status:state" do
       it "splits the status parameter and sets the state" do
         asset = double("MyAsset")
         expect(asset).to receive(:type).and_return("not a server asset :)")
@@ -308,16 +302,13 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect(asset).to receive(:state).and_return(state)
         f = StubAsset.new(asset)
 
-        $JETCOLLINS = double("JetCollins")
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "RUNNING").and_return(true)
-
 
         f.collins_set(:status, "Allocated:Running")
       end
     end
 
-      # - a test where the state is the same but the status is different
-    context "if status is same in status:state" do
+    context "When status part is same in status:state" do
       it "splits the status parameter and sets the state" do
         asset = double("MyAsset")
         expect(asset).to receive(:type).and_return("not a server asset :)")
@@ -328,19 +319,14 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect(asset).to receive(:state).and_return(state)
         f = StubAsset.new(asset)
 
-        $JETCOLLINS = double("JetCollins")
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "RUNNING").and_return(true)
-
 
         f.collins_set(:status, "Allocated:Running")
       end
     end
 
-      # - where set_status! fails the first time (state doesn't exist, returns false),
-      #   then make sure state_create is called, then set_status! passes (returns true)
-      #   ^ this test is where you're setting a state and a status at the same time
-   context "if set_status! fails first time for different :state" do
-      it "returns false" do
+   context "When set_status! fails first-time for new :state attribute" do
+      it "returns false, calls state_create! to add new :state and calls set_status! again" do
         asset = double("MyAsset")
         expect(asset).to receive(:type).and_return("not a server asset")
         expect(asset).to receive(:status).and_return("Unallocated")
@@ -350,7 +336,6 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect(asset).to receive(:state).and_return(state)
         f = StubAsset.new(asset)
 
-        $JETCOLLINS = double("JetCollins")
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "WHATEVER").and_return(false)
         expect($JETCOLLINS).to receive(:state_create!).with("WHATEVER", "WHATEVER", "WHATEVER", "Allocated").and_return(true)
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated", "changed through jetpants", "WHATEVER").and_return(true)
@@ -358,11 +343,9 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         f.collins_set(:status, "Allocated:Whatever")
       end
     end
-      # - where set_status! fails the first time (status doesn't exist, returns false),
-      #   then make sure state_create is called, then set_status! passes (returns false)
-      #   ^ this test is where you're setting a state and a status at the same time
-    context "if set_status! fails first time for different :status" do
-      it "returns false" do
+    
+    context "When set_status! fails first-time for new :status attribute" do
+      it "returns false, calls state_create! to add new :status and calls set_status! again" do
         asset = double("MyAsset")
         expect(asset).to receive(:type).and_return("not a server asset")
         expect(asset).to receive(:status).and_return("What")
@@ -372,7 +355,6 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect(asset).to receive(:state).and_return(state)
         f = StubAsset.new(asset)
 
-        $JETCOLLINS = double("JetCollins")
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Whatever", "changed through jetpants", "RUNNING").and_return(false)
         expect($JETCOLLINS).to receive(:state_create!).with("RUNNING", "RUNNING", "RUNNING", "Whatever").and_return(true)
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Whatever", "changed through jetpants", "RUNNING").and_return(true)
@@ -380,24 +362,23 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         f.collins_set(:status, "Whatever:Running")
       end
     end
-      # - where you're setting just the status, but set_status! returns false
-    context "if setting just the status" do
-      it "returns false" do
+    
+    context "When setting just the :status" do
+      it "call set_status! to set the :status" do
         asset = double("MyAsset")
         expect(asset).to receive(:type).and_return("not a server asset")
         expect(asset).to receive(:status).and_return("Unallocated")
 
         f = StubAsset.new(asset)
 
-        $JETCOLLINS = double("JetCollins")
         expect($JETCOLLINS).to receive(:set_status!).with(asset, "Allocated").and_return(true)
 
         f.collins_set(:status, "Allocated")
       end
     end
-      # - where you're setting just the status, but the status hasn't changed
-     context "if setting just the status" do
-      it "returns false" do
+     
+    context "When setting just the :status, with same existing value" do
+      it "doesnt call set_status! as :status is same" do
         asset = double("MyAsset")
         expect(asset).to receive(:type).and_return("not a server asset")
         expect(asset).to receive(:status).and_return("Allocated")
@@ -407,8 +388,8 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         f.collins_set(:status, "Allocated")
       end
     end
-      # - when status is not passed and state is passed, raise an error
-    context "if setting state without passing status" do
+    
+    context "When setting :state without passing :status" do
       it "raises an error" do
         asset = double("MyAsset")
         expect(asset).to receive(:type).and_return("not a server asset")
@@ -421,8 +402,8 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
     end
     end
 
-    context "With multiple parameters" do
-      it "sends many at once" do
+    context "When setting multiple attributes" do
+      it "call set_attribute! multiple times" do
         asset = double("MyAsset")
         allow(asset).to receive(:type).and_return("not a server asset :)")
         allow(asset).to receive(:hi).and_return("there")
@@ -436,8 +417,8 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
       end
     end
 
-    context "With multiple parameters" do
-      it "sends many at once" do
+    context "When setting multiple attributes to different asset" do
+      it "call set_attribute! multiple times" do
         asset = double("MyAsset")
         f = StubAsset.new(asset)
 
@@ -449,13 +430,15 @@ RSpec.describe "JetCollinsCallingJetCollinsAssetTracker" do
         expect($JETCOLLINS).to receive(:set_attribute!).with(differentAsset, "HI", "THERE").and_return(true)
         expect($JETCOLLINS).to receive(:set_attribute!).with(differentAsset, "HOWDY", "COWBOY").and_return(true)
 
-        f.collins_set(hi: :there,
-                      howdy: :cowboy,
-                      asset: differentAsset)
+        f.collins_set(
+          hi: :there,
+          howdy: :cowboy,
+          asset: differentAsset
+        )
       end
     end
 
-    context "with a status and state parameter" do
+    context "When setting a status:state parameter" do
       it "splits the status parameter if the state is also provided" do
         asset = double("MyAsset")
         allow(asset).to receive(:type).and_return("not a server asset :)")
