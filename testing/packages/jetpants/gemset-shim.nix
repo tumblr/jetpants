@@ -30,6 +30,9 @@ let
             # Ignore any directory with a .nixignore file:
             || (type == "directory" && pathExists "${path}/.nixignore")
 
+            # Ignore the top level shell.nix
+            || (type == "regular" && baseNameOf path == "shell.nix")
+
             # Can be helpful to enable this trace line if making fancier ignore rules.
             # || (builtins.trace path (builtins.trace type false))
 
